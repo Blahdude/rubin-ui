@@ -1,4 +1,3 @@
-
 import { BrowserWindow, screen } from "electron"
 import { AppState } from "main"
 import path from "node:path"
@@ -46,22 +45,26 @@ export class WindowHelper {
     const newWidth = Math.min(width + 32, maxAllowedWidth)
     const newHeight = Math.ceil(height)
 
-    // Center the window horizontally if it would go off screen
-    const maxX = workArea.width - newWidth
-    const newX = Math.min(Math.max(currentX, 0), maxX)
+    const horizontalMargin = 5 // Closer to the right edge
+    const verticalMargin = 30   // Further down from the top
+
+    // Position the window
+    const newX = workArea.width - newWidth - horizontalMargin
+    const newY = verticalMargin
 
     // Update window bounds
     this.mainWindow.setBounds({
       x: newX,
-      y: currentY,
+      y: newY,
       width: newWidth,
       height: newHeight
     })
 
     // Update internal state
-    this.windowPosition = { x: newX, y: currentY }
+    this.windowPosition = { x: newX, y: newY }
     this.windowSize = { width: newWidth, height: newHeight }
     this.currentX = newX
+    this.currentY = newY
   }
 
   public createWindow(): void {
@@ -73,14 +76,23 @@ export class WindowHelper {
     this.screenHeight = workArea.height
 
     this.step = Math.floor(this.screenWidth / 10) // 10 steps
-    this.currentX = 0 // Start at the left
+
+    const initialWidth = 400 // Or some default width
+    const initialHeight = 300 // Or some default height
+
+    const horizontalMargin = 0 // Closer to the right edge
+    const verticalMargin = 500   // Further down from the top
+
+    this.currentX = this.screenWidth - initialWidth - horizontalMargin // Position X
+    this.currentY = verticalMargin // Position Y
 
     const windowSettings: Electron.BrowserWindowConstructorOptions = {
-      height: 600,
+      height: initialHeight,
+      width: initialWidth, // Make sure to set the width here as well
       minWidth: undefined,
       maxWidth: undefined,
       x: this.currentX,
-      y: 0,
+      y: this.currentY, // Use centered Y
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: true,
