@@ -43,6 +43,7 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
   const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
   const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null);
   const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isProcessingSolution, setIsProcessingSolution] = useState(false);
 
   const { data: screenshots = [], refetch } = useQuery<
     Array<{ path: string; preview: string }>
@@ -152,7 +153,7 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-transparent pt-0 pb-2 px-2 space-y-2">
+    <div className="flex flex-col h-full bg-transparent pt-0 pb-2 px-2 space-y-1.5">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -163,69 +164,74 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
         <ToastDescription>{toastMessage.description}</ToastDescription>
       </Toast>
       
-      {/* Top Section: QueueCommands */}
-      <div className="flex-shrink-0 pt-0 pb-1 px-1">
+      <div className="flex-shrink-0 pt-0 pb-0.5 px-1">
         <QueueCommands
           screenshots={screenshots}
           onTooltipVisibilityChange={handleTooltipVisibilityChange} 
+          isProcessingSolution={isProcessingSolution}
         />
       </div>
 
-      {/* MODIFIED: Main content area - now flex-col for vertical stacking */}
-      {/* This container will grow and allow its content (Audio + Solutions) to scroll if too tall */}
-      <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto">
-        {/* Section 1: Audio Lists (full width) */}
-        <div className="w-full space-y-3 p-1 bg-white/60 backdrop-blur-md rounded-lg">
+      <div className="flex flex-col flex-grow min-h-0 space-y-1.5 p-1 overflow-y-auto">
+        <div className="w-full space-y-3 p-2 bg-white/50 backdrop-blur-md rounded-lg">
           {vadStatusMessage && (
-            <div className={`mx-1 mt-1 p-2 rounded text-xs font-semibold ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/30 border border-yellow-500/50 text-yellow-800' : 'bg-blue-400/30 border border-blue-500/50 text-blue-800'}`}>
+            <div className={`mx-0.5 mb-1.5 p-2 rounded text-xs font-medium ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/25 border border-yellow-500/40 text-yellow-700' : 'bg-blue-400/20 border border-blue-500/30 text-blue-700'}`}>
               {vadStatusMessage}
             </div>
           )}
           {globalRecordings.length > 0 && (
-            <div className="p-2 space-y-2">
-              <h4 className="font-semibold text-xs text-black/80 border-b border-black/20 pb-1">Recorded Audio</h4>
-              <div className="space-y-2 pr-1">
+            <div className="space-y-1.5">
+              <h4 className="font-semibold text-xs text-black/50 tracking-wider uppercase mx-0.5 mb-1">Recorded Audio</h4>
+              <div className="space-y-2">
                 {globalRecordings.map((rec) => (
-                  <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-100/90 rounded-md shadow-sm hover:bg-neutral-200/90 transition-colors duration-150 ease-in-out border border-neutral-300/60 cursor-grab font-semibold text-xs">
+                  <div key={rec.id} className="flex flex-col p-2 bg-white/70 rounded-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] hover:bg-neutral-50/80 transition-colors duration-100 ease-in-out border border-black/5">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center text-[10px] text-neutral-600"><span className="mr-1">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                      <div className="flex items-center text-[10px] text-black/60"><span className="mr-1 opacity-80">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                     </div>
-                    <p className="text-[11px] font-medium text-neutral-800 truncate mb-1.5 flex items-center"><span className="mr-1.5">📄</span><span className="truncate">{rec.path.split(/[\\/]/).pop()}</span></p>
-                    <audio controls src={`clp://${rec.path}`} className="w-full h-7 rounded-sm">Audio not supported.</audio>
+                    <p className="text-[11px] font-medium text-black/80 truncate mb-1.5 flex items-center"><span className="mr-1.5 opacity-80">📄</span><span className="truncate">{rec.path.split(/[\\/]/).pop()}</span></p>
+                    <audio controls src={`clp://${rec.path}`} className="w-full h-7 rounded-sm filter saturate-[0.9] opacity-90 hover:opacity-100 transition-opacity"></audio>
                   </div>
                 ))}
               </div>
             </div>
           )}
           {globalRecordingError && (
-            <div className="mx-1 p-2 bg-red-500/30 rounded text-white text-xs border border-red-500/50 font-semibold">
+            <div className="mx-0.5 mt-1.5 p-2 bg-red-500/20 rounded text-red-700 text-xs border border-red-500/30 font-medium">
               <span className="font-semibold">Audio Error:</span> {globalRecordingError}
             </div>
           )}
           {generatedAudioClips.length > 0 && (
-            <div className="p-2 space-y-2">
-              <h4 className="font-semibold text-xs text-black/80 border-b border-black/20 pb-1">Generated Audio</h4>
-              <div className="space-y-2 pr-1">
+            <div className="space-y-1.5 pt-1">
+              <h4 className="font-semibold text-xs text-black/50 tracking-wider uppercase mx-0.5 mb-1">Generated Audio</h4>
+              <div className="space-y-2">
                 {generatedAudioClips.map((clip) => (
-                  <div key={clip.id} className="flex flex-col p-2.5 bg-teal-50/90 rounded-md shadow-sm hover:bg-teal-100/90 transition-colors duration-150 ease-in-out border border-teal-300/60 cursor-grab font-semibold text-xs">
+                  <div key={clip.id} className="flex flex-col p-2 bg-teal-50/60 rounded-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] hover:bg-teal-50/80 transition-colors duration-100 ease-in-out border border-teal-500/10">
                     <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center text-[10px] text-teal-700"><span className="mr-1">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                      <div className="flex items-center text-[10px] text-teal-800/80"><span className="mr-1 opacity-80">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                     </div>
-                    <p className="text-[11px] font-medium text-teal-800 truncate mb-1 flex items-center"><span className="mr-1.5">🎵</span><span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span></p>
-                    <p className="text-[10px] text-teal-700/90 truncate mb-1.5"><span className="mr-1.5">🔙</span>Orig: {clip.originalPath.split(/[\\/]/).pop()}</p>
-                    <div className="text-[10px] text-teal-800/90 mb-1.5 flex justify-between"><span>BPM: {clip.bpm}</span><span>Key: {clip.key}</span></div>
-                    <audio controls src={`clp://${clip.path}`} className="w-full h-7 rounded-sm">Audio not supported.</audio>
+                    <p className="text-[11px] font-medium text-teal-900/90 truncate mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span></p>
+                    <p className="text-[10px] text-teal-800/70 truncate mb-1.5"><span className="mr-1.5 opacity-80">🔙</span>Orig: {clip.originalPath.split(/[\\/]/).pop()}</p>
+                    <div className="text-[10px] text-teal-900/80 mb-1.5 flex justify-between"><span>BPM: {clip.bpm}</span><span>Key: {clip.key}</span></div>
+                    <audio controls src={`clp://${clip.path}`} className="w-full h-7 rounded-sm filter saturate-[0.9] opacity-90 hover:opacity-100 transition-opacity"></audio>
                   </div>
                 ))}
               </div>
             </div>
           )}
+          {(globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
+             <div className="text-center py-8">
+                <p className="text-sm text-black/40 font-medium">Record or generate audio to see it here.</p>
+             </div>
+          )}
         </div>
 
-        {/* Section 2: Solutions Panel (Text Generation - full width, below audio) */}
-        {/* The Solutions component itself has overflow-y-auto when showCommands is false */}
         <div className="w-full p-0.5">
-          <Solutions view={view} setView={setView} showCommands={false} />
+          <Solutions 
+            view={view} 
+            setView={setView} 
+            showCommands={false} 
+            onProcessingStateChange={setIsProcessingSolution}
+          />
         </div>
       </div>
     </div>

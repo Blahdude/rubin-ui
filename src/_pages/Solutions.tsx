@@ -35,11 +35,11 @@ export const ContentSection = ({
     {isLoading ? (
       <div className="mt-4 flex">
         <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
-          Extracting problem statement...
+          Loading...
         </p>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-neutral-700 max-w-[600px] font-semibold">
+      <div className="text-[13px] leading-[1.4] text-neutral-700 max-w-[600px] font-semibold space-y-1">
         {content}
       </div>
     )}
@@ -62,7 +62,7 @@ const SolutionSection = ({
       <div className="space-y-1.5">
         <div className="mt-4 flex">
           <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
-            Loading solutions...
+            Loading...
           </p>
         </div>
       </div>
@@ -99,11 +99,11 @@ export const ComplexitySection = ({
 }) => (
   <div className="space-y-2 font-semibold">
     <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
-      Complexity (Updated)
+      Complexity
     </h2>
     {isLoading ? (
       <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
-        Calculating complexity...
+        Calculating...
       </p>
     ) : (
       <div className="space-y-1">
@@ -124,30 +124,44 @@ export const ComplexitySection = ({
   </div>
 )
 
+// Define SolutionEntry interface
+interface SolutionEntry {
+  id: string;
+  problemStatementData: ProblemStatementData | null;
+  solutionData: string | null;
+  thoughtsData: string[] | null;
+  timeComplexityData: string | null;
+  spaceComplexityData: string | null;
+  // Optional: If you want to associate specific screenshots with each entry
+  // extraScreenshots?: Array<{ path: string; preview: string }>;
+}
+
 interface SolutionsProps {
   setView: React.Dispatch<React.SetStateAction<"queue" | "solutions" | "debug">>
   view: "queue" | "solutions" | "debug"
   showCommands?: boolean
+  onProcessingStateChange?: (isProcessing: boolean) => void;
 }
-const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = true }) => {
+
+const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = true, onProcessingStateChange }) => {
   const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
 
+  // State for the "current" or "latest" problem/solution being displayed
+  const [currentProblemStatement, setCurrentProblemStatement] = useState<ProblemStatementData | null>(null);
+  const [currentSolution, setCurrentSolution] = useState<string | null>(null);
+  const [currentThoughts, setCurrentThoughts] = useState<string[] | null>(null);
+  const [currentTimeComplexity, setCurrentTimeComplexity] = useState<string | null>(null);
+  const [currentSpaceComplexity, setCurrentSpaceComplexity] = useState<string | null>(null);
+
+  // State for the queue of past solutions
+  const [pastSolutions, setPastSolutions] = useState<SolutionEntry[]>([]);
+  
   // Audio recording state
   const [audioRecording, setAudioRecording] = useState(false)
   const [audioResult, setAudioResult] = useState<AudioResult | null>(null)
 
   const [debugProcessing, setDebugProcessing] = useState(false)
-  const [problemStatementData, setProblemStatementData] =
-    useState<ProblemStatementData | null>(null)
-  const [solutionData, setSolutionData] = useState<string | null>(null)
-  const [thoughtsData, setThoughtsData] = useState<string[] | null>(null)
-  const [timeComplexityData, setTimeComplexityData] = useState<string | null>(
-    null
-  )
-  const [spaceComplexityData, setSpaceComplexityData] = useState<string | null>(
-    null
-  )
   const [customContent, setCustomContent] = useState<string | null>(null)
 
   const [toastOpen, setToastOpen] = useState(false)
@@ -207,68 +221,158 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
   }
 
   useEffect(() => {
+    const generateUniqueId = () => Date.now().toString() + '-' + Math.random().toString(36).substr(2, 9);
+    
     const cleanupFunctions = [
       window.electronAPI.onScreenshotTaken(() => refetch()),
       window.electronAPI.onResetView(() => {
-        setIsResetting(true)
-        queryClient.removeQueries(["solution"])
-        queryClient.removeQueries(["new_solution"])
-        setProblemStatementData(null)
-        setSolutionData(null)
-        setThoughtsData(null)
-        setTimeComplexityData(null)
-        setSpaceComplexityData(null)
-        refetch()
-        setTimeout(() => {
-          setIsResetting(false)
-        }, 0)
+        setIsResetting(true);
+        queryClient.setQueryData(["problem_statement"], null);
+        queryClient.setQueryData(["solution"], null);
+        setCurrentProblemStatement(null);
+        setCurrentSolution(null);
+        setCurrentThoughts(null);
+        setCurrentTimeComplexity(null);
+        setCurrentSpaceComplexity(null);
+        setPastSolutions([]);
+        if (onProcessingStateChange) onProcessingStateChange(false);
+        refetch();
+        console.log("[Solutions.tsx] onResetView completed.");
+        setTimeout(() => { setIsResetting(false); }, 0);
       }),
-      window.electronAPI.onSolutionError((error: string) => {
+      window.electronAPI.onSolutionError((errorMessage: string) => {
         if (view === "solutions") {
-          showToast(
-            "Processing Failed",
-            "There was an error processing your extra screenshots.",
-            "error"
-          )
-          const solution = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null;
-          if (!solution) {
-            // setView("queue") // App.tsx handles view changes primarily
-          }
-          setSolutionData(solution?.code || null);
-          setThoughtsData(solution?.thoughts || null);
-          setTimeComplexityData(solution?.time_complexity || null);
-          setSpaceComplexityData(solution?.space_complexity || null);
-          console.error("Processing error:", error);
+          if (onProcessingStateChange) onProcessingStateChange(false);
+          showToast("Processing Failed", errorMessage, "error");
+          console.error("[Solutions.tsx] onSolutionError:", errorMessage);
         }
       }),
       window.electronAPI.onSolutionSuccess((data) => {
-        if (view === "solutions") {
-          if (!data?.solution) {
-            console.warn("Received empty or invalid solution data")
-            return
-          }
-          console.log({ solution: data.solution })
-          const solutionDataVal = {
-            code: data.solution.code,
-            thoughts: data.solution.thoughts,
-            time_complexity: data.solution.time_complexity,
-            space_complexity: data.solution.space_complexity
-          }
-          queryClient.setQueryData(["solution"], solutionDataVal)
-          setSolutionData(solutionDataVal.code || null)
-          setThoughtsData(solutionDataVal.thoughts || null)
-          setTimeComplexityData(solutionDataVal.time_complexity || null)
-          setSpaceComplexityData(solutionDataVal.space_complexity || null)
+        console.log("[Solutions.tsx] onSolutionSuccess received data:", JSON.parse(JSON.stringify(data)));
+        if (view !== "solutions") return;
+        if (onProcessingStateChange) onProcessingStateChange(false); // Indicate processing has stopped
+
+        if (!data?.solution) {
+          console.error("[Solutions.tsx] onSolutionSuccess: data.solution is missing.");
+          showToast("Error", "Received an incomplete solution payload.", "error");
+          // Potentially set currentProblemStatement to an error state or clear solution fields
+          setCurrentSolution(null); // Ensure we are not stuck in a partially solved state
+          setCurrentThoughts(null);
+          setCurrentTimeComplexity(null);
+          setCurrentSpaceComplexity(null);
+          return;
         }
+
+        const newSolutionDetails = data.solution;
+
+        // Archive the PREVIOUS solution if one was fully displayed.
+        // A solution was fully displayed if currentSolution was not null (even if it was an empty string).
+        if (currentSolution !== null && currentProblemStatement) { 
+          const previousEntry: SolutionEntry = {
+            id: generateUniqueId(), 
+            problemStatementData: currentProblemStatement, 
+            solutionData: currentSolution, // The actual string code
+            thoughtsData: currentThoughts, 
+            timeComplexityData: currentTimeComplexity,
+            spaceComplexityData: currentSpaceComplexity,
+          };
+          setPastSolutions(prev => [previousEntry, ...prev]);
+        }
+
+        // Set the new solution details
+        // The problem statement is taken from the cache, set by PROBLEM_EXTRACTED
+        const problemForNewSolution = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
+        // Only update currentProblemStatement if it's different, to avoid unnecessary re-renders or stale data issues.
+        // However, problemForNewSolution here is from the initial extraction, which is what we want for the problem context.
+        setCurrentProblemStatement(problemForNewSolution); 
+        console.log("[Solutions.tsx] onSolutionSuccess: Attempting to set currentSolution from:", newSolutionDetails?.code);
+        setCurrentSolution(newSolutionDetails.code ?? null); // handles undefined/null code; empty string from LLM is fine.
+        
+        let thoughtsArray: string[] | null = null;
+        if (newSolutionDetails.reasoning && typeof newSolutionDetails.reasoning === 'string') {
+          const reasoningStr = newSolutionDetails.reasoning;
+          if (reasoningStr.match(/\n\s*(\*|\d+\.|-)/)) {
+              thoughtsArray = reasoningStr
+              .split(/\n\s*\*\s*|\n\s*\d+\.\s*|\n\s*-\s*|\n+/g) 
+              .map((thought: string) => thought.trim())
+              .filter((thought: string) => thought.length > 0);
+          } else if (reasoningStr.includes('\n')) {
+              thoughtsArray = reasoningStr.split('\n').map((thought: string) => thought.trim()).filter((thought: string) => thought.length > 0);
+          } else {
+              thoughtsArray = [reasoningStr.trim()].filter(t => t.length > 0);
+          }
+        } else if (Array.isArray(newSolutionDetails.thoughts)) { // Fallback if LLM gives 'thoughts' array
+          thoughtsArray = newSolutionDetails.thoughts.length > 0 ? newSolutionDetails.thoughts : null;
+        }
+        console.log("[Solutions.tsx] onSolutionSuccess: Attempting to set currentThoughts from reasoning (parsed):", thoughtsArray);
+        setCurrentThoughts(thoughtsArray);
+
+        setCurrentTimeComplexity(newSolutionDetails.time_complexity || null);
+        setCurrentSpaceComplexity(newSolutionDetails.space_complexity || null);
       }),
       window.electronAPI.onDebugStart(() => {
-        if (view === "solutions" || view === "debug") setDebugProcessing(true)
-      }),
-      window.electronAPI.onDebugSuccess((data) => {
         if (view === "solutions" || view === "debug") {
-          console.log({ debug_data: data })
-          queryClient.setQueryData(["new_solution"], data.solution)
-          setDebugProcessing(false)
+          console.log("[Solutions.tsx] onDebugStart");
+          setDebugProcessing(true)
+        }
+      }),
+      window.electronAPI.onDebugSuccess((debugData) => {
+        console.log("[Solutions.tsx] onDebugSuccess received debugData:", JSON.parse(JSON.stringify(debugData)));
+        if (view === "solutions" || view === "debug") {
+          setDebugProcessing(false);
+          if (onProcessingStateChange) onProcessingStateChange(false);
+
+          if (!debugData?.solution) {
+            console.error("[Solutions.tsx] onDebugSuccess: debugData.solution is missing.");
+            showToast("Error", "Received an incomplete debug solution payload.", "error");
+            return;
+          }
+
+          const debugSolutionDetails = debugData.solution;
+
+          // Archive the CURRENT solution before updating with the debugged one.
+          if (currentSolution !== null && currentProblemStatement) {
+            const previousEntry: SolutionEntry = {
+              id: generateUniqueId(),
+              problemStatementData: currentProblemStatement,
+              solutionData: currentSolution,
+              thoughtsData: currentThoughts,
+              timeComplexityData: currentTimeComplexity,
+              spaceComplexityData: currentSpaceComplexity,
+            };
+            setPastSolutions(prev => [previousEntry, ...prev]);
+            console.log("[Solutions.tsx] onDebugSuccess: Archived previous solution.");
+          }
+          
+          // Problem statement should remain from the initial extraction
+          const problemForDebugSolution = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
+          setCurrentProblemStatement(problemForDebugSolution);
+
+          console.log("[Solutions.tsx] onDebugSuccess: Attempting to set currentSolution from debugData:", debugSolutionDetails?.code);
+          setCurrentSolution(debugSolutionDetails.code ?? null);
+
+          let debugThoughtsArray: string[] | null = null;
+          if (debugSolutionDetails.reasoning && typeof debugSolutionDetails.reasoning === 'string') {
+            const reasoningStr = debugSolutionDetails.reasoning;
+             if (reasoningStr.match(/\n\s*(\*|\d+\.|-)/)) {
+                debugThoughtsArray = reasoningStr
+                .split(/\n\s*\*\s*|\n\s*\d+\.\s*|\n\s*-\s*|\n+/g)
+                .map((thought: string) => thought.trim())
+                .filter((thought: string) => thought.length > 0);
+            } else if (reasoningStr.includes('\n')) {
+                debugThoughtsArray = reasoningStr.split('\n').map((thought: string) => thought.trim()).filter((thought: string) => thought.length > 0);
+            } else {
+                debugThoughtsArray = [reasoningStr.trim()].filter(t => t.length > 0);
+            }
+          } else if (Array.isArray(debugSolutionDetails.thoughts)) {
+            debugThoughtsArray = debugSolutionDetails.thoughts.length > 0 ? debugSolutionDetails.thoughts : null;
+          }
+          console.log("[Solutions.tsx] onDebugSuccess: Attempting to set currentThoughts from debugData (parsed):", debugThoughtsArray);
+          setCurrentThoughts(debugThoughtsArray);
+
+          setCurrentTimeComplexity(debugSolutionDetails.time_complexity || null);
+          setCurrentSpaceComplexity(debugSolutionDetails.space_complexity || null);
+          console.log("[Solutions.tsx] onDebugSuccess: Updated state with debug solution.");
         }
       }),
       window.electronAPI.onDebugError(() => {
@@ -284,32 +388,61 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
       })
     ]
     return () => cleanupFunctions.forEach((cleanup) => cleanup())
-  }, [queryClient, refetch, setView, view])
+  }, [
+    queryClient, refetch, setView, view, onProcessingStateChange, 
+    currentProblemStatement, currentSolution, currentThoughts, currentTimeComplexity, currentSpaceComplexity
+  ])
 
   useEffect(() => {
-    const problemStatementFromCache = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
-    setProblemStatementData(problemStatementFromCache || null);
+    const effectId = Math.random().toString(36).substr(2, 5);
+    console.log(`[Solutions.tsx useEffect ${effectId}] Start. currentSolution:`, currentSolution !== null, "currentProblemStatement:", currentProblemStatement !== null);
 
-    const solutionFromCache = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null;
-    setSolutionData(solutionFromCache?.code ?? null);
-    setThoughtsData(solutionFromCache?.thoughts ?? null);
-    setTimeComplexityData(solutionFromCache?.time_complexity ?? null);
-    setSpaceComplexityData(solutionFromCache?.space_complexity ?? null);
+    const problemFromCache = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
+    console.log(`[Solutions.tsx useEffect ${effectId}] problemFromCache exists:`, problemFromCache !== null);
+
+    if (JSON.stringify(problemFromCache) !== JSON.stringify(currentProblemStatement)) {
+        console.warn(`[Solutions.tsx useEffect ${effectId}] problemFromCache !== currentProblemStatement. Updating currentProblemStatement and RESETTING solution.`);
+        setCurrentProblemStatement(problemFromCache);
+        setCurrentSolution(null); 
+        setCurrentThoughts(null);
+        setCurrentTimeComplexity(null);
+        setCurrentSpaceComplexity(null);
+    }
+    
+    let processing = false;
+    if (view === "solutions" && currentProblemStatement && !currentSolution && !isResetting) {
+        processing = true;
+    }
+    console.log(`[Solutions.tsx useEffect ${effectId}] Calculated processing: ${processing}. Calling onProcessingStateChange.`);
+    if (onProcessingStateChange) onProcessingStateChange(processing);
 
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      console.log(`[Solutions.tsx useEffect ${effectId} CACHE SUB] Event type: ${event?.type}, QueryKey: ${event?.query?.queryKey[0]}`);
       if (event?.query.queryKey[0] === "problem_statement") {
-        setProblemStatementData(queryClient.getQueryData(["problem_statement"]) || null)
+        const updatedProblemFromCache = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
+        if (JSON.stringify(updatedProblemFromCache) !== JSON.stringify(currentProblemStatement)) {
+            console.warn(`[Solutions.tsx useEffect ${effectId} CACHE SUB] updatedProblemFromCache !== currentProblemStatement. Updating currentProblemStatement and RESETTING solution.`);
+            setCurrentProblemStatement(updatedProblemFromCache);
+            setCurrentSolution(null);
+            setCurrentThoughts(null);
+            setCurrentTimeComplexity(null);
+            setCurrentSpaceComplexity(null);
+        }
       }
-      if (event?.query.queryKey[0] === "solution") {
-        const solution = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null
-        setSolutionData(solution?.code ?? null)
-        setThoughtsData(solution?.thoughts ?? null)
-        setTimeComplexityData(solution?.time_complexity ?? null)
-        setSpaceComplexityData(solution?.space_complexity ?? null)
+      
+      const latestProblem = currentProblemStatement;
+      let latestProcessing = false;
+      if (view === "solutions" && latestProblem && !currentSolution && !isResetting) { 
+          latestProcessing = true;
       }
-    })
-    return () => unsubscribe()
-  }, [queryClient])
+      console.log(`[Solutions.tsx useEffect ${effectId} CACHE SUB] Calculated latestProcessing: ${latestProcessing}. Calling onProcessingStateChange.`);
+      if (onProcessingStateChange) onProcessingStateChange(latestProcessing);
+    });
+    return () => {
+      console.log(`[Solutions.tsx useEffect ${effectId}] Cleanup.`);
+      unsubscribe();
+    }
+  }, [queryClient, view, onProcessingStateChange, currentProblemStatement, currentSolution, isResetting]);
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
@@ -324,6 +457,88 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
     );
   }
 
+  if (isResetting) {
+    return (
+      <div className="h-full p-4 flex items-center justify-center text-neutral-500">
+        <p>Resetting...</p>
+      </div>
+    );
+  }
+
+  const renderSolutionContent = (problem: ProblemStatementData | null, solution: string | null, thoughts: string[] | null, time: string | null, space: string | null, isCurrent: boolean) => {
+    if (!problem && !solution && !isCurrent) return null;
+    if (!problem && isCurrent && pastSolutions.length === 0 && !isResetting) {
+        return (
+            <div className="text-center py-12">
+                <p className="text-sm text-black/40 font-medium">Solutions will appear here once processed.</p>
+            </div>
+        );
+    }
+    if (!problem && isCurrent) return null;
+
+    return (
+        <div className={`w-full rounded-md text-black/90 font-semibold ${isCurrent ? 'bg-white/60 backdrop-blur-md' : 'bg-white/40 backdrop-blur-sm border border-black/5 opacity-90 hover:opacity-100 transition-opacity'} ${showCommands && problem && isCurrent ? 'pt-24' : 'pt-2'}`}>
+            <div className={`rounded-lg overflow-hidden ${isCurrent ? '' : 'p-3 space-y-3'}`}>
+                {isCurrent ? (
+                    <div className="px-4 py-3 space-y-4 max-w-full">
+                        {problem?.validation_type === "manual" ? (
+                            <ContentSection
+                                title={problem?.output_format?.subtype === "voice" ? "Audio Result" : "Screenshot Result"}
+                                content={problem.problem_statement}
+                                isLoading={false}
+                            />
+                        ) : (
+                            <>
+                                <ContentSection
+                                    title={problem?.output_format?.subtype === "voice" ? "Voice Input" : "Problem Statement"}
+                                    content={problem?.problem_statement}
+                                    isLoading={!problem}
+                                />
+                                {(view === "solutions" && problem && !solution && !isResetting && onProcessingStateChange) && (
+                                    <div className="mt-4 flex">
+                                        <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
+                                            {problem?.output_format?.subtype === "voice" ? "Processing voice input..." : "Generating solution..."}
+                                        </p>
+                                    </div>
+                                )}
+                                {solution && (
+                                    <>
+                                        <ContentSection title="Analysis" content={thoughts && thoughts.map((thought, index) => ( <div key={index} className="flex items-start gap-1.5 text-neutral-700 text-[13px] leading-[1.4] font-semibold"><div className="w-1 h-1 rounded-full bg-blue-500/70 mt-[7px] shrink-0" /><div>{thought}</div></div> )) } isLoading={!thoughts} />
+                                        <SolutionSection title={problem?.output_format?.subtype === "voice" ? "Response" : "Solution"} content={solution} isLoading={!solution} />
+                                        {problem?.output_format?.subtype !== "voice" && (
+                                            <ComplexitySection timeComplexity={time} spaceComplexity={space} isLoading={!time || !space} />
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <h3 className="text-[11px] font-semibold text-black/50 tracking-wider uppercase pb-1 mb-1 border-b border-black/10">Previous Result</h3>
+                        {problem?.validation_type === "manual" ? (
+                             <ContentSection title={problem?.output_format?.subtype === "voice" ? "Input" : "Problem"} content={problem.problem_statement} isLoading={false} />
+                        ) : (
+                            <>
+                                <ContentSection title={problem?.output_format?.subtype === "voice" ? "Input" : "Problem"} content={problem?.problem_statement} isLoading={false}/>
+                                {solution && (
+                                    <>
+                                        <ContentSection title="Analysis" content={thoughts && thoughts.map((thought, index) => ( <div key={index} className="flex items-start gap-1.5 text-neutral-700 text-[13px] leading-[1.4] font-semibold"><div className="w-1 h-1 rounded-full bg-blue-500/70 mt-[7px] shrink-0" /><div>{thought}</div></div> )) } isLoading={!thoughts} />
+                                        <SolutionSection title={problem?.output_format?.subtype === "voice" ? "Response" : "Solution"} content={solution} isLoading={!solution} />
+                                        {problem?.output_format?.subtype !== "voice" && (
+                                            <ComplexitySection timeComplexity={time} spaceComplexity={space} isLoading={!time || !space} />
+                                        )}
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
   return (
     <>
       {view === "debug" && !isResetting && queryClient.getQueryData(["new_solution"]) ? (
@@ -332,7 +547,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
           setIsProcessing={setDebugProcessing}
         />
       ) : (
-        <div ref={contentRef} className="h-full overflow-y-auto p-4 space-y-3 bg-transparent text-sm">
+        <div ref={contentRef} className="h-full overflow-y-auto p-4 pt-2 space-y-3 bg-transparent text-sm">
           <Toast
             open={toastOpen}
             onOpenChange={setToastOpen}
@@ -343,7 +558,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
             <ToastDescription>{toastMessage.description}</ToastDescription>
           </Toast>
 
-          {showCommands && problemStatementData && (
+          {showCommands && currentProblemStatement && (
             <div className="bg-transparent w-fit sticky top-0 z-10 py-1">
               <div className="pb-1">
                 <div className="space-y-3 w-fit">
@@ -357,7 +572,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
             </div>
           )}
 
-          {showCommands && problemStatementData && (
+          {showCommands && currentProblemStatement && (
             <div className="sticky top-12 z-10 py-1 bg-transparent">
               <SolutionCommands
                 extraScreenshots={extraScreenshots}
@@ -366,73 +581,20 @@ const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = tru
             </div>
           )}
 
-          <div className={`w-full bg-white/60 backdrop-blur-md rounded-md text-black/90 font-semibold ${showCommands && problemStatementData ? 'pt-24' : 'pt-2'}`}>
-            <div className="rounded-lg overflow-hidden">
-              <div className="px-4 py-3 space-y-4 max-w-full">
-                {problemStatementData?.validation_type === "manual" ? (
-                  <ContentSection
-                    title={problemStatementData?.output_format?.subtype === "voice" ? "Audio Result" : "Screenshot Result"}
-                    content={problemStatementData.problem_statement}
-                    isLoading={false}
-                  />
-                ) : (
-                  <>
-                    <ContentSection
-                      title={problemStatementData?.output_format?.subtype === "voice" ? "Voice Input" : "Problem Statement"}
-                      content={problemStatementData?.problem_statement}
-                      isLoading={!problemStatementData}
-                    />
-                    {problemStatementData && !solutionData && (
-                      <div className="mt-4 flex">
-                        <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
-                          {problemStatementData?.output_format?.subtype === "voice" 
-                            ? "Processing voice input..." 
-                            : "Generating solutions..."}
-                        </p>
-                      </div>
-                    )}
-                    {solutionData && (
-                      <>
-                        <ContentSection
-                          title="Analysis"
-                          content={
-                            thoughtsData && (
-                              <div className="space-y-3">
-                                <div className="space-y-1">
-                                  {thoughtsData.map((thought, index) => (
-                                    <div
-                                      key={index}
-                                      className="flex items-start gap-2 text-neutral-700 font-semibold"
-                                    >
-                                      <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
-                                      <div>{thought}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )
-                          }
-                          isLoading={!thoughtsData}
-                        />
-                        <SolutionSection
-                          title={problemStatementData?.output_format?.subtype === "voice" ? "Response" : "Solution"}
-                          content={solutionData}
-                          isLoading={!solutionData}
-                        />
-                        {problemStatementData?.output_format?.subtype !== "voice" && (
-                          <ComplexitySection
-                            timeComplexity={timeComplexityData}
-                            spaceComplexity={spaceComplexityData}
-                            isLoading={!timeComplexityData || !spaceComplexityData}
-                          />
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
+          {/* Render Past Solutions */} 
+          {pastSolutions.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {pastSolutions.map(entry => (
+                <div key={entry.id}>
+                 {renderSolutionContent(entry.problemStatementData, entry.solutionData, entry.thoughtsData, entry.timeComplexityData, entry.spaceComplexityData, false)}
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+
+          {/* Render Current Problem & Solution (or placeholder) */} 
+          {renderSolutionContent(currentProblemStatement, currentSolution, currentThoughts, currentTimeComplexity, currentSpaceComplexity, true)}
+
         </div>
       )}
     </>

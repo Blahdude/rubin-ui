@@ -28,6 +28,43 @@ export class LLMHelper {
     return text;
   }
 
+  private getMimeTypeFromPath(filePath: string): string {
+    const extension = filePath.split('.').pop()?.toLowerCase();
+    if (extension === 'mp3') return 'audio/mp3';
+    if (extension === 'wav') return 'audio/wav';
+    // Default or throw error if necessary, for now, defaulting to mpeg as in analyzeAudioFile if not mp3
+    console.warn(`Unknown audio extension: ${extension}, defaulting to audio/mpeg`);
+    return 'audio/mpeg'; 
+  }
+
+  public async extractProblemFromAudio(audioPath: string) {
+    try {
+      const audioData = await fs.promises.readFile(audioPath);
+      const mimeType = this.getMimeTypeFromPath(audioPath);
+      const audioPart = {
+        inlineData: {
+          data: audioData.toString("base64"),
+          mimeType: mimeType
+        }
+      };
+      
+      const prompt = `${this.systemPrompt}\n\nPlease analyze this audio and extract the following information in JSON format:\n{
+  "problem_statement": "A clear statement of the problem or situation revealed in the audio.",
+  "context": "Relevant background or context from the audio.",
+  "suggested_responses": ["First possible answer or action based on the audio", "Second possible answer or action", "..."],
+  "reasoning": "Explanation of why these suggestions are appropriate based on the audio."
+}\nImportant: Return ONLY the JSON object, without any markdown formatting or code blocks.`;
+
+      const result = await this.model.generateContent([prompt, audioPart]);
+      const response = await result.response;
+      const text = this.cleanJsonResponse(response.text());
+      return JSON.parse(text);
+    } catch (error) {
+      console.error("Error extracting problem from audio:", error);
+      throw error;
+    }
+  }
+
   public async extractProblemFromImages(imagePaths: string[]) {
     try {
       const imageParts = await Promise.all(imagePaths.map(path => this.fileToGenerativePart(path)))
