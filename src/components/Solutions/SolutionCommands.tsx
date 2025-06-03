@@ -39,220 +39,146 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
     if (userInput.trim() === "" || !isAiResponseActive) return;
     try {
       console.log(`Sending to AI: ${userInput}`);
-      // Assuming window.electronAPI.userResponseToAi is available globally
-      // and was set up in App.tsx and preload.ts
       const result = await window.electronAPI.userResponseToAi(userInput);
       if (result.success) {
         console.log("User response sent successfully.");
       } else {
         console.error("Failed to send user response:", result.error);
-        // Optionally, show a toast or error message to the user here
       }
-      setUserInput(""); // Clear input after sending
+      setUserInput("");
     } catch (error) {
       console.error("Error calling userResponseToAi:", error);
-      // Optionally, show a toast or error message to the user here
     }
   };
 
   return (
     <div>
-      <div className="pt-2 w-fit font-semibold">
-        <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-3 flex items-center justify-center gap-3 flex-wrap">
-          {/* Show/Hide */}
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none font-semibold">Show/Hide</span>
-            <div className="flex gap-1">
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                ⌘
-              </button>
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                B
-              </button>
-            </div>
+      <div className="w-full bg-neutral-800 border-t border-neutral-700 py-2 px-3 flex items-center gap-2 flex-wrap">
+        {/* Show/Hide */}
+        <div className="flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[10px] leading-none font-normal text-neutral-400">Show/Hide</span>
+          <div className="flex gap-0.5">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+              ⌘
+            </button>
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+              B
+            </button>
           </div>
+        </div>
 
-          {/* Screenshot */}
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none truncate font-semibold">
-              {extraScreenshots.length === 0
-                ? "Screenshot your code"
-                : "Screenshot"}
-            </span>
-            <div className="flex gap-1">
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                ⌘
-              </button>
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                H
-              </button>
-            </div>
+        {/* Start Over */}
+        <div className="flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[10px] leading-none font-normal text-neutral-400">Start over</span>
+          <div className="flex gap-0.5">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+              ⌘
+            </button>
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+              R
+            </button>
           </div>
-          {extraScreenshots.length > 0 && (
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              <span className="text-[11px] leading-none font-semibold">Debug</span>
-              <div className="flex gap-1">
-                <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                  ⌘
-                </button>
-                <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                  ↵
-                </button>
-              </div>
-            </div>
-          )}
+        </div>
 
-          {/* Start Over */}
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none font-semibold">Start over</span>
-            <div className="flex gap-1">
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                ⌘
-              </button>
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                R
-              </button>
-            </div>
+        {/* User Input for Follow-up */}
+        {isAiResponseActive && (
+          <div className="flex items-center gap-1.5 whitespace-nowrap flex-grow min-w-[150px] sm:min-w-[200px]">
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder="Ask a follow-up..."
+              className="px-2 py-1 text-xs text-neutral-200 bg-neutral-700 border border-neutral-600 rounded-md focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 outline-none transition-colors flex-grow placeholder-neutral-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendUserResponse();
+                }
+              }}
+            />
+            <button
+              onClick={handleSendUserResponse}
+              title="Send response"
+              className="bg-neutral-600 hover:bg-neutral-500 text-neutral-200 rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+              disabled={!userInput.trim() || !isAiResponseActive}
+            >
+              <LuSend className="w-3.5 h-3.5" />
+            </button>
           </div>
+        )}
+        
+        {!isAiResponseActive && <div className="flex-grow"></div>}
 
-          {/* User Input for Follow-up - Conditionally rendered and styled */}
-          {isAiResponseActive && (
-            <div className="flex items-center gap-2 whitespace-nowrap flex-grow min-w-[150px]">
-              <input
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder="Ask a follow-up..."
-                className="px-2 py-[5px] text-xs text-black/90 bg-white/70 border border-black/15 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors flex-grow placeholder-black/50"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendUserResponse();
-                  }
-                }}
-              />
-              <button
-                onClick={handleSendUserResponse}
-                title="Send response"
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-md p-[5px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                disabled={!userInput.trim() || !isAiResponseActive}
-              >
-                <LuSend className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-          
-          {/* Spacer to push question mark and sign out to the right if input is not active*/}
-          {!isAiResponseActive && <div className="flex-grow"></div>}
-
-          {/* Question Mark with Tooltip */}
-          <div
-            className="relative inline-block ml-auto"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            <div className="w-6 h-6 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
-              <span className="text-xs text-black/70 font-semibold">?</span>
-            </div>
-            {isTooltipVisible && (
-              <div
-                ref={tooltipRef}
-                className="absolute top-full right-0 mt-2 w-80"
-                style={{ zIndex: 100 }}
-              >
-                <div className="p-3 text-xs bg-white/80 backdrop-blur-md rounded-lg border border-black/10 text-black/90 shadow-lg font-semibold">
-                  <div className="space-y-4">
-                    <h3 className="font-semibold whitespace-nowrap">
-                      Keyboard Shortcuts
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap font-semibold">
-                            Toggle Window
+        {/* Question Mark with Tooltip */}
+        <div
+          className="relative inline-block ml-auto"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <div className="w-7 h-7 rounded-md bg-neutral-700 hover:bg-neutral-600 transition-colors flex items-center justify-center cursor-help z-10">
+            <span className="text-xs text-neutral-300 font-medium">?</span>
+          </div>
+          {isTooltipVisible && (
+            <div
+              ref={tooltipRef}
+              className="absolute bottom-full right-0 mb-2 w-72" 
+              style={{ zIndex: 100 }}
+            >
+              <div className="p-2.5 text-[11px] bg-neutral-800/95 backdrop-blur-sm rounded-md border border-neutral-700 text-neutral-300 shadow-lg font-normal">
+                <div className="space-y-3">
+                  <h3 className="font-medium whitespace-nowrap text-xs text-neutral-200 border-b border-neutral-700 pb-1.5 mb-1.5">
+                    Keyboard Shortcuts
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="whitespace-nowrap font-normal text-neutral-300">
+                          Toggle Window
+                        </span>
+                        <div className="flex gap-0.5">
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            ⌘
                           </span>
-                          <div className="flex gap-1">
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              ⌘
-                            </span>
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              B
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
-                          Show or hide this window.
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap font-semibold">
-                            Take Screenshot
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            B
                           </span>
-                          <div className="flex gap-1">
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              ⌘
-                            </span>
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              H
-                            </span>
-                          </div>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
-                          Capture additional parts of the question or your
-                          solution for debugging help. Up to 5 extra screenshots
-                          are saved.
-                        </p>
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap font-semibold">Debug</span>
-                          <div className="flex gap-1">
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              ⌘
-                            </span>
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              ↵
-                            </span>
-                          </div>
+                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                        Show or hide this window.
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="whitespace-nowrap font-normal text-neutral-300">Start Over</span>
+                        <div className="flex gap-0.5">
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            ⌘
+                          </span>
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            R
+                          </span>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
-                          Generate new solutions based on all previous and newly
-                          added screenshots.
-                        </p>
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap font-semibold">Start Over</span>
-                          <div className="flex gap-1">
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              ⌘
-                            </span>
-                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                              R
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
-                          Start fresh with a new question.
-                        </p>
-                      </div>
+                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                        Start fresh with a new question.
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Sign Out Button */}
-          <button
-            className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer font-semibold ml-1"
-            title="Sign Out"
-            onClick={() => window.electronAPI.quitApp()}
-          >
-            <IoLogOutOutline className="w-4 h-4" />
-          </button>
+            </div>
+          )}
         </div>
+
+        {/* Sign Out Button */}
+        <button
+          className="text-neutral-400 hover:text-red-500 transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-neutral-700 flex items-center justify-center"
+          title="Sign Out"
+          onClick={() => window.electronAPI.quitApp()}
+        >
+          <IoLogOutOutline className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   )

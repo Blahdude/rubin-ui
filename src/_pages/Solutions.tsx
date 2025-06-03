@@ -29,18 +29,18 @@ export const ContentSection = ({
   content: React.ReactNode
   isLoading: boolean
 }) => (
-  <div className="space-y-2 font-semibold">
-    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
+  <div className="space-y-1.5">
+    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
       {title}
     </h2>
     {isLoading ? (
-      <div className="mt-4 flex">
-        <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
+      <div className="mt-2 flex">
+        <p className="text-xs text-neutral-500 animate-pulse font-medium">
           Loading...
         </p>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-neutral-700 max-w-[600px] font-semibold space-y-1">
+      <div className="text-xs leading-[1.5] text-neutral-400 max-w-[600px] font-medium space-y-1">
         {content}
       </div>
     )}
@@ -55,20 +55,20 @@ const SolutionSection = ({
   content: React.ReactNode
   isLoading: boolean
 }) => (
-  <div className="space-y-2 font-semibold">
-    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
+  <div className="space-y-1.5">
+    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
       {title}
     </h2>
     {isLoading ? (
-      <div className="space-y-1.5">
-        <div className="mt-4 flex">
-          <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
+      <div className="space-y-1">
+        <div className="mt-2 flex">
+          <p className="text-xs text-neutral-500 animate-pulse font-medium">
             Loading...
           </p>
         </div>
       </div>
     ) : (
-      <div className="w-full">
+      <div className="w-full text-xs">
         <SyntaxHighlighter
           showLineNumbers
           language="python"
@@ -76,9 +76,11 @@ const SolutionSection = ({
           customStyle={{
             maxWidth: "100%",
             margin: 0,
-            padding: "1rem",
+            padding: "0.75rem 1rem",
             whiteSpace: "pre-wrap",
-            wordBreak: "break-all"
+            wordBreak: "break-all",
+            fontSize: "0.75rem",
+            borderRadius: "0.375rem"
           }}
           wrapLongLines={true}
         >
@@ -98,26 +100,26 @@ export const ComplexitySection = ({
   spaceComplexity: string | null
   isLoading: boolean
 }) => (
-  <div className="space-y-2 font-semibold">
-    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
+  <div className="space-y-1.5">
+    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
       Complexity
     </h2>
     {isLoading ? (
-      <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
+      <p className="text-xs text-neutral-500 animate-pulse font-medium">
         Calculating...
       </p>
     ) : (
-      <div className="space-y-1">
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-neutral-700 font-semibold">
-          <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
+      <div className="space-y-0.5 text-xs">
+        <div className="flex items-start gap-1.5 text-neutral-400 font-medium">
+          <div className="w-1 h-1 rounded-full bg-neutral-500 mt-[5px] shrink-0" />
           <div>
-            <strong className="font-bold">Time:</strong> {timeComplexity}
+            <strong className="font-semibold text-neutral-300">Time:</strong> {timeComplexity}
           </div>
         </div>
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-neutral-700 font-semibold">
-          <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
+        <div className="flex items-start gap-1.5 text-neutral-400 font-medium">
+          <div className="w-1 h-1 rounded-full bg-neutral-500 mt-[5px] shrink-0" />
           <div>
-            <strong className="font-bold">Space:</strong> {spaceComplexity}
+            <strong className="font-semibold text-neutral-300">Space:</strong> {spaceComplexity}
           </div>
         </div>
       </div>
@@ -217,7 +219,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   if (isResetting) {
     return (
       <div className="flex-grow h-full flex items-center justify-center text-neutral-500">
-        <p>Clearing chat...</p>
+        <p className="text-sm">Clearing chat...</p>
       </div>
     );
   }
@@ -227,7 +229,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   };
 
   return (
-    <div className="flex-grow h-full flex flex-col bg-neutral-50/50">
+    <div className="flex-grow h-full flex flex-col bg-neutral-850">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -240,13 +242,13 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
       <div
         ref={contentRef}
-        className="flex-grow overflow-y-auto p-4 md:p-6 space-y-4 scrollbar-thin scrollbar-thumb-neutral-300 hover:scrollbar-thumb-neutral-400 scrollbar-track-transparent scrollbar-thumb-rounded-full"
+        className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full"
         style={{ paddingBottom: `${tooltipHeight + 10}px` }}
       >
         {(!conversation || conversation.length === 0) && (
           <div className="flex items-center justify-center h-full">
-            <p className="text-center text-base text-neutral-500 font-medium p-6">
-              Wingman AI is ready. Send a message or add a screenshot to begin.
+            <p className="text-center text-sm text-neutral-500 font-medium p-6">
+              Wingman AI is ready. Send a message to begin.
             </p>
           </div>
         )}
@@ -254,9 +256,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           if (item.type === 'user_text') {
             return (
               <div key={item.id} className="flex justify-end group">
-                <div className="bg-blue-600 text-white rounded-xl rounded-br-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[65%] relative">
+                <div className="bg-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[70%] relative">
                   {item.content}
-                  <span className="text-xs text-blue-200/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -266,35 +268,35 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             const solution = item.content?.solution;
             return (
               <div key={item.id} className="flex justify-start group">
-                <div className="bg-white border border-neutral-200/90 text-neutral-800 rounded-xl rounded-bl-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[70%] relative">
+                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[75%] relative">
                   {solution?.problem_statement && 
-                    <p className="text-xs italic text-neutral-500 mb-2 pb-1 border-b border-neutral-200">
+                    <p className="text-xs italic text-neutral-400 mb-2 pb-1.5 border-b border-neutral-700">
                       Re: {solution.problem_statement.length > 100 ? solution.problem_statement.substring(0,97) + '...' : solution.problem_statement}
                     </p>
                   }
                   {solution?.code && (
-                    <div className="my-2 bg-neutral-800/95 rounded-md shadow-sm overflow-hidden">
-                      <SyntaxHighlighter language="python" style={dracula} customStyle={{margin:0, padding: "0.8rem 1rem", fontSize: "0.8rem"}} wrapLongLines={true}>
+                    <div className="my-2 bg-neutral-900 rounded-md overflow-hidden">
+                      <SyntaxHighlighter language="python" style={dracula} customStyle={{margin:0, padding: "0.75rem 1rem", fontSize: "0.75rem", background: "transparent"}} wrapLongLines={true}>
                         {solution.code}
                       </SyntaxHighlighter>
                     </div>
                   )}
-                  {solution?.context && <p className="text-xs mt-2 text-neutral-700"><strong className="font-medium text-neutral-600">Context:</strong> {solution.context}</p>}
-                  {solution?.reasoning && <p className="text-xs mt-1.5 text-neutral-700"><strong className="font-medium text-neutral-600">Reasoning:</strong> {solution.reasoning}</p>}
+                  {solution?.context && <p className="text-xs mt-2 text-neutral-400"><strong className="font-medium text-neutral-300">Context:</strong> {solution.context}</p>}
+                  {solution?.reasoning && <p className="text-xs mt-1.5 text-neutral-400"><strong className="font-medium text-neutral-300">Reasoning:</strong> {solution.reasoning}</p>}
                   {solution?.suggested_responses && solution.suggested_responses.length > 0 && (
-                     <div className="mt-2.5 pt-2 border-t border-neutral-200">
-                        <p className="text-xs font-semibold text-neutral-600 mb-1.5">Suggestions:</p>
+                     <div className="mt-2.5 pt-2 border-t border-neutral-700">
+                        <p className="text-xs font-medium text-neutral-400 mb-1.5">Suggestions:</p>
                         <ul className="space-y-1">
                             {solution.suggested_responses.map((s: string, i: number) => 
-                              <li key={i} className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50/70 p-1.5 rounded-md transition-colors cursor-pointer">
+                              <li key={i} className="text-xs text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/60 p-1.5 rounded-md transition-colors cursor-pointer">
                                 {s}
                               </li>
                             )}
                         </ul>
                      </div>
                   )}
-                  {!solution && <p className="text-xs text-red-500">AI response format error.</p>}
-                  <span className="text-xs text-neutral-400/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {!solution && <p className="text-xs text-red-400">AI response format error.</p>}
+                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -303,11 +305,11 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           } else if (item.type === 'user_file') {
             return (
               <div key={item.id} className="flex justify-end group">
-                <div className="bg-blue-500 text-white rounded-xl rounded-br-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[65%] relative">
-                  <p className="font-medium mb-1">Sent: {item.filePath.split(/[\\/]/).pop()}</p>
-                  {item.accompanyingText && <p className="text-xs italic opacity-90 mt-1 mb-1.5">{item.accompanyingText}</p>}
-                  {item.preview && <img src={item.preview} alt="File preview" className="max-w-full max-h-48 rounded-lg mt-1.5 border-2 border-white/30 shadow-sm object-contain" />}
-                  <span className="text-xs text-blue-200/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="bg-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[70%] relative">
+                  {item.filePath && <p className="font-medium text-xs mb-1 text-neutral-300">Sent: {item.filePath.split(/[\\/]/).pop()}</p>}
+                  {item.accompanyingText && <p className="text-xs italic text-neutral-400 mt-1 mb-1.5">{item.accompanyingText}</p>}
+                  {item.preview && <img src={item.preview} alt="File preview" className="max-w-full max-h-48 rounded-md mt-1.5 border border-neutral-600 object-contain" />}
+                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -315,8 +317,8 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             );
           } else if (item.type === 'system_message') {
             return (
-              <div key={item.id} className="text-center my-3">
-                <span className="text-xs text-neutral-500 italic bg-neutral-200/60 px-3 py-1.5 rounded-full shadow-sm">
+              <div key={item.id} className="text-center my-2.5">
+                <span className="text-xs text-neutral-500 italic bg-neutral-800/60 px-3 py-1 rounded-full">
                   {item.content.message}
                 </span>
               </div>
@@ -324,7 +326,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           } else {
             console.warn("Unsupported conversation item type:", item);
             return (
-              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="text-red-500 text-xs p-2 text-center bg-red-50 rounded-md shadow">
+              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="text-red-400 text-xs p-2 text-center bg-red-900/30 rounded-md">
                 Warning: Unsupported message type encountered.
               </div>
             );
@@ -333,7 +335,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       </div>
 
       {showCommands && (
-        <div className="flex-shrink-0 border-t border-neutral-300/70 bg-neutral-100/70 backdrop-blur-md shadow-top-sm p-2 md:p-3">
+        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-0">
           <SolutionCommands 
             extraScreenshots={extraScreenshots}
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
