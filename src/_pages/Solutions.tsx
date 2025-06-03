@@ -248,17 +248,17 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
         {(!conversation || conversation.length === 0) && (
           <div className="flex items-center justify-center h-full">
             <p className="text-center text-sm text-neutral-500 font-medium p-6">
-              Wingman AI is ready. Send a message to begin.
+              Context captured. Ask a follow-up, or the AI will begin processing.
             </p>
           </div>
         )}
         {conversation?.map((item: ConversationItem) => {
           if (item.type === 'user_text') {
             return (
-              <div key={item.id} className="flex justify-end group">
-                <div className="bg-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[70%] relative">
+              <div key={item.id} className="flex justify-center group">
+                <div className="text-neutral-300 px-3.5 py-2 text-sm max-w-[85%] md:max-w-[75%] relative">
                   {item.content}
-                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-[10px] text-neutral-500 absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -267,8 +267,8 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           } else if (item.type === 'ai_response') {
             const solution = item.content?.solution;
             return (
-              <div key={item.id} className="flex justify-start group">
-                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[75%] relative">
+              <div key={item.id} className="flex justify-center group">
+                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative">
                   {solution?.problem_statement && 
                     <p className="text-xs italic text-neutral-400 mb-2 pb-1.5 border-b border-neutral-700">
                       Re: {solution.problem_statement.length > 100 ? solution.problem_statement.substring(0,97) + '...' : solution.problem_statement}
@@ -304,30 +304,34 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             );
           } else if (item.type === 'user_file') {
             return (
-              <div key={item.id} className="flex justify-end group">
-                <div className="bg-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[80%] md:max-w-[70%] relative">
-                  {item.filePath && <p className="font-medium text-xs mb-1 text-neutral-300">Sent: {item.filePath.split(/[\\/]/).pop()}</p>}
-                  {item.accompanyingText && <p className="text-xs italic text-neutral-400 mt-1 mb-1.5">{item.accompanyingText}</p>}
-                  {item.preview && <img src={item.preview} alt="File preview" className="max-w-full max-h-48 rounded-md mt-1.5 border border-neutral-600 object-contain" />}
-                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    {formatTimestamp(item.timestamp)}
+              <div key={item.id} className="flex justify-center group">
+                <div className="text-left my-1">
+                  <span className="text-[10px] text-neutral-600 italic px-2 py-0.5 rounded-full">
+                    Initial context provided to AI.
+                    <span className="text-[9px] text-neutral-600/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-1">
+                      ({formatTimestamp(item.timestamp)})
+                    </span>
                   </span>
                 </div>
               </div>
             );
           } else if (item.type === 'system_message') {
             return (
-              <div key={item.id} className="text-center my-2.5">
-                <span className="text-xs text-neutral-500 italic bg-neutral-800/60 px-3 py-1 rounded-full">
-                  {item.content.message}
-                </span>
+              <div key={item.id} className="flex justify-center group">
+                <div className="text-center my-2.5">
+                  <span className="text-xs text-neutral-500 italic bg-neutral-800/60 px-3 py-1 rounded-full">
+                    {item.content.message}
+                  </span>
+                </div>
               </div>
             );
           } else {
             console.warn("Unsupported conversation item type:", item);
             return (
-              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="text-red-400 text-xs p-2 text-center bg-red-900/30 rounded-md">
-                Warning: Unsupported message type encountered.
+              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="flex justify-center group">
+                <div className="text-red-400 text-xs p-2 text-center bg-red-900/30 rounded-md max-w-md">
+                  Warning: Unsupported message type encountered.
+                </div>
               </div>
             );
           }
