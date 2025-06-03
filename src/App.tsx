@@ -45,7 +45,7 @@ declare global {
       // Audio Recording and Generation
       onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void;
       onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void;
-      generateMusicContinuation: (inputFilePath: string) => Promise<string>; // Returns the path to the generated audio
+      generateMusicContinuation: (inputFilePath: string) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>;
 
       // VAD Events
       onVadWaiting: (callback: () => void) => () => void;
@@ -61,8 +61,8 @@ declare global {
       startFileDrag: (filePath: string) => void;
 
       // For notifying about newly generated audio
-      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => void;
-      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string }) => void) => () => void;
+      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void;
+      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void;
     }
   }
 }

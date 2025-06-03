@@ -12,6 +12,7 @@ const replicate_1 = __importDefault(require("replicate"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const https_1 = __importDefault(require("https")); // For downloading
 const child_process_1 = require("child_process"); // For calling ffmpeg
+const child_process_2 = require("child_process"); // For calling python script
 // Load environment variables from .env file
 // Consider DX: for development, process.cwd() might be better if .env is in project root
 // and app.getAppPath() points deeper into electron build folders.
@@ -269,7 +270,51 @@ function initializeIpcHandlers(appState) {
                         reject(err);
                     });
                 });
-                return localOutputPath; // Return the local path of the downloaded file
+                // After downloading, extract BPM and Key using the Python script
+                let audioFeatures = { bpm: "N/A", key: "N/A" };
+                try {
+                    console.log(`[IPC Main] Calling Python script to extract features for: ${localOutputPath}`);
+                    const pythonProcess = (0, child_process_2.spawn)("python", [path_1.default.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
+                    let scriptOutput = "";
+                    let scriptError = "";
+                    pythonProcess.stdout.on("data", (data) => {
+                        scriptOutput += data.toString();
+                    });
+                    pythonProcess.stderr.on("data", (data) => {
+                        scriptError += data.toString();
+                    });
+                    await new Promise((resolveProcess, rejectProcess) => {
+                        pythonProcess.on("close", (code) => {
+                            if (code === 0) {
+                                try {
+                                    audioFeatures = JSON.parse(scriptOutput);
+                                    console.log(`[IPC Main] Python script success. Features:`, audioFeatures);
+                                }
+                                catch (parseError) {
+                                    console.error("[IPC Main] Error parsing Python script output:", parseError, "Raw output:", scriptOutput, "Stderr:", scriptError);
+                                    // Keep default N/A features
+                                }
+                                resolveProcess();
+                            }
+                            else {
+                                console.error(`[IPC Main] Python script exited with code ${code}. STDOUT: ${scriptOutput} STDERR: ${scriptError}`);
+                                // Keep default N/A features
+                                // rejectProcess(new Error(`Python script error: ${scriptError || `exit code ${code}`}`));
+                                resolveProcess(); // Resolve anyway to not break the flow, features will be N/A
+                            }
+                        });
+                        pythonProcess.on("error", (err) => {
+                            console.error("[IPC Main] Failed to start Python script (spawn error):", err, "STDERR:", scriptError);
+                            // rejectProcess(err);
+                            resolveProcess(); // Resolve anyway
+                        });
+                    });
+                }
+                catch (pyError) {
+                    console.error("[IPC Main] Error executing or processing Python script for audio features:", pyError);
+                    // audioFeatures remains N/A
+                }
+                return { generatedPath: localOutputPath, features: audioFeatures }; // Return path and features
             }
             else {
                 console.error(`[IPC Main] Replicate prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);

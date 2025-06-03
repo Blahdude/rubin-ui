@@ -151,8 +151,8 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         electron_1.ipcRenderer.send("ondragstart-file", filePath);
     },
     generateMusicContinuation: (inputFilePath) => electron_1.ipcRenderer.invoke("generate-music-continuation", inputFilePath),
-    notifyGeneratedAudioReady: (generatedPath, originalPath) => {
-        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath });
+    notifyGeneratedAudioReady: (generatedPath, originalPath, features) => {
+        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
     },
     onGeneratedAudioReady: (callback) => {
         const channel = "generated-audio-ready";

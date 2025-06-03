@@ -9,6 +9,7 @@ import dotenv from "dotenv";
 import https from "https"; // For downloading
 import { exec } from "child_process"; // For calling ffmpeg
 import { open } from "fs/promises"; // For opening files
+import { spawn } from "child_process"; // For calling python script
 
 // Load environment variables from .env file
 // Consider DX: for development, process.cwd() might be better if .env is in project root
@@ -295,7 +296,54 @@ export function initializeIpcHandlers(appState: AppState): void {
               reject(err);
             });
           });
-          return localOutputPath; // Return the local path of the downloaded file
+
+          // After downloading, extract BPM and Key using the Python script
+          let audioFeatures = { bpm: "N/A", key: "N/A" };
+          try {
+            console.log(`[IPC Main] Calling Python script to extract features for: ${localOutputPath}`);
+            const pythonProcess = spawn("python", [path.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
+            
+            let scriptOutput = "";
+            let scriptError = "";
+
+            pythonProcess.stdout.on("data", (data) => {
+              scriptOutput += data.toString();
+            });
+
+            pythonProcess.stderr.on("data", (data) => {
+              scriptError += data.toString();
+            });
+
+            await new Promise<void>((resolveProcess, rejectProcess) => {
+              pythonProcess.on("close", (code) => {
+                if (code === 0) {
+                  try {
+                    audioFeatures = JSON.parse(scriptOutput);
+                    console.log(`[IPC Main] Python script success. Features:`, audioFeatures);
+                  } catch (parseError: any) {
+                    console.error("[IPC Main] Error parsing Python script output:", parseError, "Raw output:", scriptOutput, "Stderr:", scriptError);
+                    // Keep default N/A features
+                  }
+                  resolveProcess();
+                } else {
+                  console.error(`[IPC Main] Python script exited with code ${code}. STDOUT: ${scriptOutput} STDERR: ${scriptError}`);
+                  // Keep default N/A features
+                  // rejectProcess(new Error(`Python script error: ${scriptError || `exit code ${code}`}`));
+                  resolveProcess(); // Resolve anyway to not break the flow, features will be N/A
+                }
+              });
+              pythonProcess.on("error", (err) => {
+                console.error("[IPC Main] Failed to start Python script (spawn error):", err, "STDERR:", scriptError);
+                // rejectProcess(err);
+                resolveProcess(); // Resolve anyway
+              });
+            });
+          } catch (pyError: any) {
+            console.error("[IPC Main] Error executing or processing Python script for audio features:", pyError);
+            // audioFeatures remains N/A
+          }
+
+          return { generatedPath: localOutputPath, features: audioFeatures }; // Return path and features
         } else {
           console.error(`[IPC Main] Replicate prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
           throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);
@@ -309,7 +357,7 @@ export function initializeIpcHandlers(appState: AppState): void {
   );
 
   // Handler for when renderer notifies that a generated audio is ready
-  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedPath: string, originalPath: string }) => {
+  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
     console.log(`[IPC Main] Received notify-generated-audio-ready. Broadcasting to all windows:`, data);
     // Broadcast to all windows. Assumes appState.getMainWindow() returns the relevant window
     // or you might need a way to iterate over all windows if multiple are possible.

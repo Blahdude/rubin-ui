@@ -116,10 +116,10 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
       
       try {
         showToast("Processing", "Generating music continuation...", "neutral");
-        const generatedAudioPath = await window.electronAPI.generateMusicContinuation(data.path);
-        showToast("Success", `Generated audio saved to ${generatedAudioPath}`, "success");
+        const { generatedPath, features } = await window.electronAPI.generateMusicContinuation(data.path);
+        showToast("Success", `Generated audio saved to ${generatedPath}. BPM: ${features.bpm}, Key: ${features.key}`, "success");
         // Notify that a new generated audio is ready
-        window.electronAPI.notifyGeneratedAudioReady(generatedAudioPath, data.path);
+        window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
       } catch (error: any) {
         console.error("Error generating music continuation (UI):", error);
         showToast("Generation Failed (UI)", error.message || "Could not generate audio continuation.", "error");

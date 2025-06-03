@@ -19,6 +19,8 @@ interface GeneratedAudioClip {
   path: string; // Path to the generated audio
   originalPath: string; // Path to the original audio it was based on
   timestamp: Date;
+  bpm: string | number;
+  key: string;
 }
 
 const QueueCommands: React.FC<QueueCommandsProps> = ({
@@ -101,13 +103,15 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     const unsubscribeError = window.electronAPI.onAudioRecordingError(handleAudioRecordingError);
 
     // Listener for newly generated audio clips
-    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string }) => {
-      console.log("Generated audio ready (QueueCommands):", data.generatedPath, "from original:", data.originalPath);
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
+      console.log("Generated audio ready (QueueCommands):", data.generatedPath, "from original:", data.originalPath, "Features:", data.features);
       const newGeneratedClip: GeneratedAudioClip = {
         id: `gen-clip-${Date.now()}`,
         path: data.generatedPath,
         originalPath: data.originalPath,
-        timestamp: new Date()
+        timestamp: new Date(),
+        bpm: data.features.bpm,
+        key: data.features.key
       };
       setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
     };
@@ -412,12 +416,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                 </div>
                 <p className="text-[11px] font-medium text-teal-100 truncate mb-1 flex items-center">
                   <span className="mr-1.5">🎵</span>
-                  <span className="truncate" title={clip.path}>{clip.path.split(/[\\\\/]/).pop()}</span>
+                  <span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span>
                 </p>
-                 <p className="text-[9px] text-teal-300 truncate mb-2 flex items-center" title={`Original: ${clip.originalPath.split(/[\\\\/]/).pop()}`}>
+                 <p className="text-[9px] text-teal-300 truncate mb-2 flex items-center" title={`Original: ${clip.originalPath.split(/[\\/]/).pop()}`}>
                   <span className="mr-1.5">🔙</span>
-                  <span className="truncate">Orig: {clip.originalPath.split(/[\\\\/]/).pop()}</span>
+                  <span className="truncate">Orig: {clip.originalPath.split(/[\\/]/).pop()}</span>
                 </p>
+                <div className="text-[9px] text-teal-200 mb-2 flex justify-between">
+                  <span>BPM: {clip.bpm}</span>
+                  <span>Key: {clip.key}</span>
+                </div>
                 <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-md"> 
                   Your browser does not support the audio element.
                 </audio>

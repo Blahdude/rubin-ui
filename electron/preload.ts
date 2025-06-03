@@ -39,9 +39,9 @@ interface ElectronAPI {
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
-  generateMusicContinuation: (inputFilePath: string) => Promise<any>
-  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => void
-  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string }) => void) => () => void
+  generateMusicContinuation: (inputFilePath: string) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void
+  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -219,12 +219,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.send("ondragstart-file", filePath)
   },
   generateMusicContinuation: (inputFilePath: string) => ipcRenderer.invoke("generate-music-continuation", inputFilePath),
-  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => {
-    ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath });
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => {
+    ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
   },
   onGeneratedAudioReady: (callback) => {
     const channel = "generated-audio-ready";
-    const handler = (event: IpcRendererEvent, data: { generatedPath: string, originalPath: string }) => callback(data);
+    const handler = (event: IpcRendererEvent, data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => callback(data);
     ipcRenderer.on(channel, handler);
     return () => {
       ipcRenderer.removeListener(channel, handler);
