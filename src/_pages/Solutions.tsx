@@ -1,6 +1,6 @@
 // Solutions.tsx
 import React, { useState, useEffect, useRef } from "react"
-import { useQuery, useQueryClient } from "react-query"
+import { useQuery } from "react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
 
@@ -144,7 +144,6 @@ interface SolutionsProps {
 }
 
 const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessingStateChange, conversation }) => {
-  const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
 
   const [toastOpen, setToastOpen] = useState(false)
@@ -159,11 +158,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
   const [isResetting, setIsResetting] = useState(false)
 
-  const { data: extraScreenshots = [], refetch: refetchExtraScreenshots } = useQuery<Array<{ path: string; preview: string }>, Error>(
+  const { data: extraScreenshots = [] } = useQuery<Array<{ path: string; preview: string }>, Error>(
     ["extras"],
-    async () => {
-      return window.electronAPI.getScreenshots ? await window.electronAPI.getScreenshots() : [];
-    },
+    async () => window.electronAPI.getScreenshots ? await window.electronAPI.getScreenshots() : [],
     {
       staleTime: Infinity,
       cacheTime: Infinity
@@ -188,7 +185,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       )
 
       if (response.success) {
-        refetchExtraScreenshots()
+        // Refetch extra screenshots
       } else {
         console.error("Failed to delete extra screenshot:", response.error)
       }
@@ -225,8 +222,12 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
     );
   }
 
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   return (
-    <div className="flex-grow h-full flex flex-col">
+    <div className="flex-grow h-full flex flex-col bg-neutral-50/50">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -237,73 +238,93 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
         <ToastDescription>{toastMessage.description}</ToastDescription>
       </Toast>
 
-      <div ref={contentRef} className="flex-grow overflow-y-auto p-3 space-y-3 bg-white/60 backdrop-blur-md rounded-lg shadow-inner" style={{ paddingBottom: `${tooltipHeight + 20}px` }}>
+      <div
+        ref={contentRef}
+        className="flex-grow overflow-y-auto p-4 md:p-6 space-y-4 scrollbar-thin scrollbar-thumb-neutral-300 hover:scrollbar-thumb-neutral-400 scrollbar-track-transparent scrollbar-thumb-rounded-full"
+        style={{ paddingBottom: `${tooltipHeight + 10}px` }}
+      >
         {(!conversation || conversation.length === 0) && (
           <div className="flex items-center justify-center h-full">
-            <p className="text-center text-sm text-black/60 font-medium p-4">
-              No messages yet. Start by typing a message or adding a screenshot.
+            <p className="text-center text-base text-neutral-500 font-medium p-6">
+              Wingman AI is ready. Send a message or add a screenshot to begin.
             </p>
           </div>
         )}
         {conversation?.map((item: ConversationItem) => {
           if (item.type === 'user_text') {
             return (
-              <div key={item.id} className="flex justify-end">
-                <div className="bg-blue-500 text-white rounded-lg px-3.5 py-2.5 text-sm shadow-md max-w-[70%]">
+              <div key={item.id} className="flex justify-end group">
+                <div className="bg-blue-600 text-white rounded-xl rounded-br-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[65%] relative">
                   {item.content}
+                  <span className="text-xs text-blue-200/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {formatTimestamp(item.timestamp)}
+                  </span>
                 </div>
               </div>
             );
           } else if (item.type === 'ai_response') {
             const solution = item.content?.solution;
             return (
-              <div key={item.id} className="flex justify-start">
-                <div className="bg-neutral-100 border border-neutral-200/70 text-black rounded-lg px-3.5 py-2.5 text-sm shadow-md max-w-[70%]">
-                  {solution?.problem_statement && <p className="text-xs italic text-neutral-600 mb-1.5">Re: {solution.problem_statement}</p>}
+              <div key={item.id} className="flex justify-start group">
+                <div className="bg-white border border-neutral-200/90 text-neutral-800 rounded-xl rounded-bl-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[70%] relative">
+                  {solution?.problem_statement && 
+                    <p className="text-xs italic text-neutral-500 mb-2 pb-1 border-b border-neutral-200">
+                      Re: {solution.problem_statement.length > 100 ? solution.problem_statement.substring(0,97) + '...' : solution.problem_statement}
+                    </p>
+                  }
                   {solution?.code && (
-                    <div className="my-1.5">
-                      <SyntaxHighlighter language="python" style={dracula} customStyle={{margin:0, padding: "0.6rem 0.8rem", fontSize: "0.8rem", borderRadius:"0.375rem"}} wrapLongLines={true}>
+                    <div className="my-2 bg-neutral-800/95 rounded-md shadow-sm overflow-hidden">
+                      <SyntaxHighlighter language="python" style={dracula} customStyle={{margin:0, padding: "0.8rem 1rem", fontSize: "0.8rem"}} wrapLongLines={true}>
                         {solution.code}
                       </SyntaxHighlighter>
                     </div>
                   )}
-                  {solution?.context && <p className="text-xs mt-1.5 text-neutral-700"><strong className="font-medium">Context:</strong> {solution.context}</p>}
-                  {solution?.reasoning && <p className="text-xs mt-1.5 text-neutral-700"><strong className="font-medium">Reasoning:</strong> {solution.reasoning}</p>}
+                  {solution?.context && <p className="text-xs mt-2 text-neutral-700"><strong className="font-medium text-neutral-600">Context:</strong> {solution.context}</p>}
+                  {solution?.reasoning && <p className="text-xs mt-1.5 text-neutral-700"><strong className="font-medium text-neutral-600">Reasoning:</strong> {solution.reasoning}</p>}
                   {solution?.suggested_responses && solution.suggested_responses.length > 0 && (
-                     <div className="mt-2">
-                        <p className="text-xs font-medium text-neutral-700 mb-1">Suggestions:</p>
-                        <ul className="list-disc list-inside text-xs text-neutral-600 space-y-0.5">
-                            {solution.suggested_responses.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                     <div className="mt-2.5 pt-2 border-t border-neutral-200">
+                        <p className="text-xs font-semibold text-neutral-600 mb-1.5">Suggestions:</p>
+                        <ul className="space-y-1">
+                            {solution.suggested_responses.map((s: string, i: number) => 
+                              <li key={i} className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50/70 p-1.5 rounded-md transition-colors cursor-pointer">
+                                {s}
+                              </li>
+                            )}
                         </ul>
                      </div>
                   )}
-                  {!solution && <p className="text-xs text-neutral-500">AI response format unexpected.</p>}
+                  {!solution && <p className="text-xs text-red-500">AI response format error.</p>}
+                  <span className="text-xs text-neutral-400/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {formatTimestamp(item.timestamp)}
+                  </span>
                 </div>
               </div>
             );
           } else if (item.type === 'user_file') {
             return (
-              <div key={item.id} className="flex justify-end">
-                <div className="bg-blue-400 text-white rounded-lg px-3.5 py-2.5 text-sm shadow-md max-w-[70%]">
-                  <p className="font-medium">Sent: {item.filePath.split(/[\\/]/).pop()}</p>
-                  {item.accompanyingText && <p className="text-xs italic mt-1 mb-1.5">{item.accompanyingText}</p>}
-                  {item.preview && <img src={item.preview} alt="preview" className="max-w-xs max-h-40 rounded-md mt-1.5 border border-white/20" />}
+              <div key={item.id} className="flex justify-end group">
+                <div className="bg-blue-500 text-white rounded-xl rounded-br-lg px-4 py-2.5 text-sm shadow-md max-w-[75%] md:max-w-[65%] relative">
+                  <p className="font-medium mb-1">Sent: {item.filePath.split(/[\\/]/).pop()}</p>
+                  {item.accompanyingText && <p className="text-xs italic opacity-90 mt-1 mb-1.5">{item.accompanyingText}</p>}
+                  {item.preview && <img src={item.preview} alt="File preview" className="max-w-full max-h-48 rounded-lg mt-1.5 border-2 border-white/30 shadow-sm object-contain" />}
+                  <span className="text-xs text-blue-200/80 absolute bottom-1.5 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {formatTimestamp(item.timestamp)}
+                  </span>
                 </div>
               </div>
             );
           } else if (item.type === 'system_message') {
             return (
-              <div key={item.id} className="text-center my-2">
-                <span className="text-xs text-neutral-500 italic bg-neutral-100/70 px-2 py-1 rounded-md">
+              <div key={item.id} className="text-center my-3">
+                <span className="text-xs text-neutral-500 italic bg-neutral-200/60 px-3 py-1.5 rounded-full shadow-sm">
                   {item.content.message}
                 </span>
               </div>
             );
           } else {
-            // Fallback for unknown item types, ensuring a key and satisfying TypeScript
             console.warn("Unsupported conversation item type:", item);
             return (
-              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="text-red-500 text-xs p-2 text-center">
+              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="text-red-500 text-xs p-2 text-center bg-red-50 rounded-md shadow">
                 Warning: Unsupported message type encountered.
               </div>
             );
@@ -312,7 +333,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       </div>
 
       {showCommands && (
-        <div className="flex-shrink-0 p-1.5 border-t border-neutral-200/80 bg-white/30 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-t border-neutral-300/70 bg-neutral-100/70 backdrop-blur-md shadow-top-sm p-2 md:p-3">
           <SolutionCommands 
             extraScreenshots={extraScreenshots}
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
