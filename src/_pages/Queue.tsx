@@ -11,10 +11,10 @@ import {
 import QueueCommands from "../components/Queue/QueueCommands"
 import Solutions from "./Solutions"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
+import { ConversationItem } from "../App"
 
 interface QueueProps {
-  setView: React.Dispatch<React.SetStateAction<"queue" | "solutions" | "debug">>
-  view: "queue" | "solutions" | "debug"
+  conversation: ConversationItem[]
 }
 
 // Remove AudioQueueItem interface for now, will re-evaluate when integrating properly
@@ -26,7 +26,7 @@ interface QueueProps {
 //   originalPath?: string; 
 // }
 
-const Queue: React.FC<QueueProps> = ({ setView, view }) => {
+const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
@@ -118,6 +118,7 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
         showToast("Processing", "Generating music continuation...", "neutral");
         const { generatedPath, features } = await window.electronAPI.generateMusicContinuation(data.path);
         showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
+        console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features });
         window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
       } catch (error: any) {
         console.error("Error generating music continuation (Queue.tsx):", error);
@@ -126,9 +127,20 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
     };
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
     const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
-      console.log("Generated audio ready (Queue.tsx):", data.generatedPath);
-      const newGeneratedClip: GeneratedAudioClip = { id: `gen-clip-${Date.now()}`, path: data.generatedPath, originalPath: data.originalPath, timestamp: new Date(), bpm: data.features.bpm, key: data.features.key };
-      setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+      console.log("[Queue.tsx] handleGeneratedAudioReady triggered. Data:", data);
+      const newGeneratedClip: GeneratedAudioClip = { 
+        id: `gen-clip-${Date.now()}`,
+        path: data.generatedPath,
+        originalPath: data.originalPath,
+        timestamp: new Date(),
+        bpm: data.features.bpm,
+        key: data.features.key
+      };
+      setGeneratedAudioClips(prevClips => {
+        const updatedClips = [newGeneratedClip, ...prevClips];
+        console.log("[Queue.tsx] Updated generatedAudioClips state:", updatedClips);
+        return updatedClips;
+      });
     };
 
     const unsubscribes = [
@@ -139,18 +151,28 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
       window.electronAPI.onAudioRecordingError(handleAudioRecordingError),
       window.electronAPI.onGeneratedAudioReady(handleGeneratedAudioReady),
       window.electronAPI.onScreenshotTaken(() => refetch()),
-      window.electronAPI.onResetView(() => { refetch(); setGlobalRecordings([]); setGeneratedAudioClips([]); }), // Also clear local audio lists on reset
+      window.electronAPI.onResetView(() => { 
+        console.log("[Queue.tsx] onResetView triggered. Clearing audio lists.");
+        refetch(); 
+      }),
       window.electronAPI.onSolutionError((error: string) => { showToast("Solution Error", error, "error"); }),
       window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "neutral"); })
     ];
     return () => { unsubscribes.forEach(unsub => unsub()); clearVadStatusTimeout(); };
-  }, [refetch]); // Removed setView from dependencies for this specific effect
+  }, [refetch]);
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
     setTooltipHeight(height)
     // App.tsx MutationObserver/ResizeObserver will handle any DOM changes that affect overall size.
   }
+
+  // Log conversation changes for debugging
+  useEffect(() => {
+    console.log("[Queue.tsx] Conversation updated (for main chat view):", conversation);
+    console.log("[Queue.tsx] Current globalRecordings state:", globalRecordings);
+    console.log("[Queue.tsx] Current generatedAudioClips state:", generatedAudioClips);
+  }, [conversation, globalRecordings, generatedAudioClips]);
 
   return (
     <div className="flex flex-col h-full bg-transparent pt-0 pb-2 px-2 space-y-1.5">
@@ -227,10 +249,9 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
 
         <div className="w-full p-0.5">
           <Solutions 
-            view={view} 
-            setView={setView} 
-            showCommands={false} 
+            showCommands={true}
             onProcessingStateChange={setIsProcessingSolution}
+            conversation={conversation}
           />
         </div>
       </div>

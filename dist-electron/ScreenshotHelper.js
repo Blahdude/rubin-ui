@@ -43,22 +43,27 @@ class ScreenshotHelper {
         return this.extraScreenshotQueue;
     }
     clearQueues() {
-        // Clear screenshotQueue
-        this.screenshotQueue.forEach((screenshotPath) => {
-            node_fs_1.default.unlink(screenshotPath, (err) => {
-                if (err)
-                    console.error(`Error deleting screenshot at ${screenshotPath}:`, err);
-            });
-        });
+        // Clear screenshotQueue - DO NOT DELETE FILES FROM DISK HERE
+        // this.screenshotQueue.forEach((screenshotPath) => {
+        //   fs.unlink(screenshotPath, (err) => {
+        //     if (err)
+        //       console.error(`Error deleting screenshot at ${screenshotPath}:`, err)
+        //   })
+        // })
         this.screenshotQueue = [];
-        // Clear extraScreenshotQueue
-        this.extraScreenshotQueue.forEach((screenshotPath) => {
-            node_fs_1.default.unlink(screenshotPath, (err) => {
-                if (err)
-                    console.error(`Error deleting extra screenshot at ${screenshotPath}:`, err);
-            });
-        });
+        console.log("[ScreenshotHelper] Main screenshot queue array cleared.");
+        // Clear extraScreenshotQueue - DO NOT DELETE FILES FROM DISK HERE
+        // this.extraScreenshotQueue.forEach((screenshotPath) => {
+        //   fs.unlink(screenshotPath, (err) => {
+        //     if (err)
+        //       console.error(
+        //         `Error deleting extra screenshot at ${screenshotPath}:`,
+        //         err
+        //       )
+        //   })
+        // })
         this.extraScreenshotQueue = [];
+        console.log("[ScreenshotHelper] Extra screenshot queue array cleared.");
     }
     async takeScreenshot(hideMainWindow, showMainWindow) {
         hideMainWindow();

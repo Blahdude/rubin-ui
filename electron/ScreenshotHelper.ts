@@ -52,26 +52,28 @@ export class ScreenshotHelper {
   }
 
   public clearQueues(): void {
-    // Clear screenshotQueue
-    this.screenshotQueue.forEach((screenshotPath) => {
-      fs.unlink(screenshotPath, (err) => {
-        if (err)
-          console.error(`Error deleting screenshot at ${screenshotPath}:`, err)
-      })
-    })
+    // Clear screenshotQueue - DO NOT DELETE FILES FROM DISK HERE
+    // this.screenshotQueue.forEach((screenshotPath) => {
+    //   fs.unlink(screenshotPath, (err) => {
+    //     if (err)
+    //       console.error(`Error deleting screenshot at ${screenshotPath}:`, err)
+    //   })
+    // })
     this.screenshotQueue = []
+    console.log("[ScreenshotHelper] Main screenshot queue array cleared.");
 
-    // Clear extraScreenshotQueue
-    this.extraScreenshotQueue.forEach((screenshotPath) => {
-      fs.unlink(screenshotPath, (err) => {
-        if (err)
-          console.error(
-            `Error deleting extra screenshot at ${screenshotPath}:`,
-            err
-          )
-      })
-    })
+    // Clear extraScreenshotQueue - DO NOT DELETE FILES FROM DISK HERE
+    // this.extraScreenshotQueue.forEach((screenshotPath) => {
+    //   fs.unlink(screenshotPath, (err) => {
+    //     if (err)
+    //       console.error(
+    //         `Error deleting extra screenshot at ${screenshotPath}:`,
+    //         err
+    //       )
+    //   })
+    // })
     this.extraScreenshotQueue = []
+    console.log("[ScreenshotHelper] Extra screenshot queue array cleared.");
   }
 
   public async takeScreenshot(

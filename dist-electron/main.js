@@ -21,6 +21,8 @@ class AppState {
     view = "queue";
     problemInfo = null; // Allow null
     hasDebugged = false;
+    lastAiResponse = null; // Will be superseded by conversationHistory
+    conversationHistory = []; // ADDED
     // Processing events
     PROCESSING_EVENTS = {
         //global states
@@ -34,7 +36,11 @@ class AppState {
         //states for processing the debugging
         DEBUG_START: "debug-start",
         DEBUG_SUCCESS: "debug-success",
-        DEBUG_ERROR: "debug-error"
+        DEBUG_ERROR: "debug-error",
+        // ADDED for follow-up
+        FOLLOW_UP_SUCCESS: "follow-up-success", // To be replaced
+        FOLLOW_UP_ERROR: "follow-up-error", // To be replaced
+        CHAT_UPDATED: "chat-updated" // ADDED - for new AI messages in chat
     };
     constructor() {
         // Initialize WindowHelper with this
@@ -142,6 +148,27 @@ class AppState {
     }
     getHasDebugged() {
         return this.hasDebugged;
+    }
+    // ADDED getter and setter for lastAiResponse
+    getLastAiResponse() {
+        return this.lastAiResponse;
+    }
+    setLastAiResponse(response) {
+        this.lastAiResponse = response;
+    }
+    // ADDED Conversation History Methods
+    getConversationHistory() {
+        return this.conversationHistory;
+    }
+    addToConversationHistory(item) {
+        this.conversationHistory.push(item);
+        // Optionally, could emit CHAT_UPDATED here if AppState manages UI updates directly
+        // For now, ProcessingHelper will explicitly send the event with the new AI message.
+    }
+    clearConversationHistory() {
+        this.conversationHistory = [];
+        this.lastAiResponse = null; // Also clear the old single response state
+        // Optionally, emit CHAT_UPDATED here with an empty history or initial message
     }
 }
 exports.AppState = AppState;

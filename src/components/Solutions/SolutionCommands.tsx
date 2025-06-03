@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef } from "react"
 import { IoLogOutOutline } from "react-icons/io5"
+import { LuSend } from "react-icons/lu"
 
 interface SolutionCommandsProps {
   extraScreenshots: any[]
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void
+  isAiResponseActive?: boolean;
 }
 
 const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   extraScreenshots,
-  onTooltipVisibilityChange
+  onTooltipVisibilityChange,
+  isAiResponseActive = true
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const [userInput, setUserInput] = useState("")
 
   useEffect(() => {
     if (onTooltipVisibilityChange) {
@@ -31,10 +35,30 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
     setIsTooltipVisible(false)
   }
 
+  const handleSendUserResponse = async () => {
+    if (userInput.trim() === "" || !isAiResponseActive) return;
+    try {
+      console.log(`Sending to AI: ${userInput}`);
+      // Assuming window.electronAPI.userResponseToAi is available globally
+      // and was set up in App.tsx and preload.ts
+      const result = await window.electronAPI.userResponseToAi(userInput);
+      if (result.success) {
+        console.log("User response sent successfully.");
+      } else {
+        console.error("Failed to send user response:", result.error);
+        // Optionally, show a toast or error message to the user here
+      }
+      setUserInput(""); // Clear input after sending
+    } catch (error) {
+      console.error("Error calling userResponseToAi:", error);
+      // Optionally, show a toast or error message to the user here
+    }
+  };
+
   return (
     <div>
       <div className="pt-2 w-fit font-semibold">
-        <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+        <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-3 flex items-center justify-center gap-3 flex-wrap">
           {/* Show/Hide */}
           <div className="flex items-center gap-2 whitespace-nowrap">
             <span className="text-[11px] leading-none font-semibold">Show/Hide</span>
@@ -91,18 +115,45 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             </div>
           </div>
 
+          {/* User Input for Follow-up - Conditionally rendered and styled */}
+          {isAiResponseActive && (
+            <div className="flex items-center gap-2 whitespace-nowrap flex-grow min-w-[150px]">
+              <input
+                type="text"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Ask a follow-up..."
+                className="px-2 py-[5px] text-xs text-black/90 bg-white/70 border border-black/15 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors flex-grow placeholder-black/50"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendUserResponse();
+                  }
+                }}
+              />
+              <button
+                onClick={handleSendUserResponse}
+                title="Send response"
+                className="bg-blue-500 hover:bg-blue-600 text-white rounded-md p-[5px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                disabled={!userInput.trim() || !isAiResponseActive}
+              >
+                <LuSend className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          
+          {/* Spacer to push question mark and sign out to the right if input is not active*/}
+          {!isAiResponseActive && <div className="flex-grow"></div>}
+
           {/* Question Mark with Tooltip */}
           <div
-            className="relative inline-block"
+            className="relative inline-block ml-auto"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            {/* Question mark circle */}
             <div className="w-6 h-6 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
               <span className="text-xs text-black/70 font-semibold">?</span>
             </div>
-
-            {/* Tooltip Content */}
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
@@ -110,13 +161,11 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                 style={{ zIndex: 100 }}
               >
                 <div className="p-3 text-xs bg-white/80 backdrop-blur-md rounded-lg border border-black/10 text-black/90 shadow-lg font-semibold">
-                  {/* Tooltip content */}
                   <div className="space-y-4">
                     <h3 className="font-semibold whitespace-nowrap">
                       Keyboard Shortcuts
                     </h3>
                     <div className="space-y-3">
-                      {/* Toggle Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="whitespace-nowrap font-semibold">
@@ -135,7 +184,6 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                           Show or hide this window.
                         </p>
                       </div>
-                      {/* Screenshot Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="whitespace-nowrap font-semibold">
@@ -156,7 +204,6 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                           are saved.
                         </p>
                       </div>
-                      {/* Debug Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="whitespace-nowrap font-semibold">Debug</span>
@@ -174,7 +221,6 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                           added screenshots.
                         </p>
                       </div>
-                      {/* Start Over Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="whitespace-nowrap font-semibold">Start Over</span>
@@ -200,7 +246,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
           {/* Sign Out Button */}
           <button
-            className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer font-semibold"
+            className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer font-semibold ml-1"
             title="Sign Out"
             onClick={() => window.electronAPI.quitApp()}
           >

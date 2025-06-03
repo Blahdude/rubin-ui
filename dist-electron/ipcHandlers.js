@@ -314,7 +314,8 @@ function initializeIpcHandlers(appState) {
                     console.error("[IPC Main] Error executing or processing Python script for audio features:", pyError);
                     // audioFeatures remains N/A
                 }
-                return { generatedPath: localOutputPath, features: audioFeatures }; // Return path and features
+                console.log("[IPC Main] handleGenerateMusicContinuation returning successfully with:", { generatedPath: localOutputPath, features: audioFeatures });
+                return { generatedPath: localOutputPath, features: audioFeatures };
             }
             else {
                 console.error(`[IPC Main] Replicate prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
@@ -326,14 +327,41 @@ function initializeIpcHandlers(appState) {
             throw new Error(`Failed to generate music continuation: ${error.message}`);
         }
     });
-    // Handler for when renderer notifies that a generated audio is ready
     electron_1.ipcMain.on("notify-generated-audio-ready", (event, data) => {
-        console.log(`[IPC Main] Received notify-generated-audio-ready. Broadcasting to all windows:`, data);
-        // Broadcast to all windows. Assumes appState.getMainWindow() returns the relevant window
-        // or you might need a way to iterate over all windows if multiple are possible.
+        console.log(`[IPC Main] Received notify-generated-audio-ready. Data:`, data);
         const mainWindow = appState.getMainWindow();
         if (mainWindow && !mainWindow.isDestroyed()) {
+            console.log("[IPC Main] Broadcasting 'generated-audio-ready' to renderer with data:", data);
             mainWindow.webContents.send("generated-audio-ready", data);
+        }
+        else {
+            console.warn("[IPC Main] No main window to send 'generated-audio-ready' event to, or window destroyed.");
+        }
+    });
+    // ADDED IPC Handler for user follow-up responses
+    electron_1.ipcMain.handle("user-response-to-ai", async (_event, userText) => {
+        if (!appState)
+            return { success: false, error: "AppState not initialized" };
+        try {
+            await appState.processingHelper.processUserText(userText);
+            return { success: true };
+        }
+        catch (error) {
+            console.error("Failed to process user text input via IPC:", error);
+            return { success: false, error: error.message };
+        }
+    });
+    // ADDED: Handler for starting a new chat
+    electron_1.ipcMain.handle("start-new-chat", async () => {
+        if (!appState)
+            return { success: false, error: "AppState not initialized" };
+        try {
+            await appState.processingHelper.startNewChat();
+            return { success: true };
+        }
+        catch (error) {
+            console.error("Failed to start new chat via IPC:", error);
+            return { success: false, error: error.message };
         }
     });
 }

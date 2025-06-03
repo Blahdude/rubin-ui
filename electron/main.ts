@@ -27,6 +27,8 @@ export class AppState {
   } | null = null // Allow null
 
   private hasDebugged: boolean = false
+  private lastAiResponse: any | null = null; // Will be superseded by conversationHistory
+  private conversationHistory: ConversationItem[] = []; // ADDED
 
   // Processing events
   public readonly PROCESSING_EVENTS = {
@@ -43,7 +45,13 @@ export class AppState {
     //states for processing the debugging
     DEBUG_START: "debug-start",
     DEBUG_SUCCESS: "debug-success",
-    DEBUG_ERROR: "debug-error"
+    DEBUG_ERROR: "debug-error",
+
+    // ADDED for follow-up
+    FOLLOW_UP_SUCCESS: "follow-up-success", // To be replaced
+    FOLLOW_UP_ERROR: "follow-up-error",   // To be replaced
+
+    CHAT_UPDATED: "chat-updated" // ADDED - for new AI messages in chat
   } as const
 
   constructor() {
@@ -193,7 +201,40 @@ export class AppState {
   public getHasDebugged(): boolean {
     return this.hasDebugged
   }
+
+  // ADDED getter and setter for lastAiResponse
+  public getLastAiResponse(): any | null {
+    return this.lastAiResponse;
+  }
+
+  public setLastAiResponse(response: any | null): void {
+    this.lastAiResponse = response;
+  }
+
+  // ADDED Conversation History Methods
+  public getConversationHistory(): ConversationItem[] {
+    return this.conversationHistory;
+  }
+
+  public addToConversationHistory(item: ConversationItem): void {
+    this.conversationHistory.push(item);
+    // Optionally, could emit CHAT_UPDATED here if AppState manages UI updates directly
+    // For now, ProcessingHelper will explicitly send the event with the new AI message.
+  }
+
+  public clearConversationHistory(): void {
+    this.conversationHistory = [];
+    this.lastAiResponse = null; // Also clear the old single response state
+    // Optionally, emit CHAT_UPDATED here with an empty history or initial message
+  }
 }
+
+// Define ConversationItem type (can be moved to a types file later if preferred)
+export type ConversationItem =
+  | { type: "user_text"; content: string; timestamp: number; id: string; }
+  | { type: "user_file"; filePath: string; preview?: string; accompanyingText?: string; timestamp: number; id: string; }
+  | { type: "ai_response"; content: any; timestamp: number; id: string; }
+  | { type: "system_message"; content: { message: string }; timestamp: number; id: string; };
 
 // Application initialization
 async function initializeApp() {

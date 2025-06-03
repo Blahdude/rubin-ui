@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessingHelper = void 0;
 const LLMHelper_1 = require("./LLMHelper");
 const dotenv_1 = __importDefault(require("dotenv"));
+const uuid_1 = require("uuid");
 dotenv_1.default.config();
 const isDev = process.env.NODE_ENV === "development";
 const isDevTest = process.env.IS_DEV_TEST === "true";
@@ -24,118 +25,163 @@ class ProcessingHelper {
         }
         this.llmHelper = new LLMHelper_1.LLMHelper(apiKey);
     }
+    async startNewChat() {
+        const mainWindow = this.appState.getMainWindow();
+        if (!mainWindow)
+            return;
+        try {
+            console.log("[ProcessingHelper] Starting new chat...");
+            const initialAiResponse = await this.llmHelper.newChat();
+            this.appState.clearConversationHistory();
+            const messageToSendToUi = initialAiResponse && initialAiResponse.solution
+                ? { id: (0, uuid_1.v4)(), type: "ai_response", content: initialAiResponse, timestamp: Date.now() }
+                : { id: (0, uuid_1.v4)(), type: "system_message", content: { message: "New chat started" }, timestamp: Date.now() };
+            if (messageToSendToUi.type === "ai_response") {
+                this.appState.addToConversationHistory(messageToSendToUi);
+            }
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, messageToSendToUi);
+            console.log("[ProcessingHelper] New chat started and history cleared.");
+        }
+        catch (error) {
+            console.error("[ProcessingHelper] Error starting new chat:", error);
+            const errorItem = {
+                id: (0, uuid_1.v4)(),
+                type: "ai_response",
+                content: { solution: { code: "Error starting new chat.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "Could not initialize AI chat." } },
+                timestamp: Date.now(),
+            };
+            this.appState.addToConversationHistory(errorItem);
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, errorItem);
+        }
+    }
+    async processUserText(userText) {
+        const mainWindow = this.appState.getMainWindow();
+        if (!mainWindow || !userText.trim())
+            return;
+        console.log(`[ProcessingHelper] Processing user text: ${userText}`);
+        const userMessageItem = {
+            id: (0, uuid_1.v4)(),
+            type: "user_text",
+            content: userText,
+            timestamp: Date.now(),
+        };
+        this.appState.addToConversationHistory(userMessageItem);
+        mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, userMessageItem);
+        try {
+            const aiResponse = await this.llmHelper.sendMessage([{ text: userText }]);
+            const aiMessageItem = {
+                id: (0, uuid_1.v4)(),
+                type: "ai_response",
+                content: aiResponse,
+                timestamp: Date.now(),
+            };
+            this.appState.addToConversationHistory(aiMessageItem);
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, aiMessageItem);
+        }
+        catch (error) {
+            console.error("[ProcessingHelper] Error sending text to LLM:", error);
+            const errorItem = {
+                id: (0, uuid_1.v4)(),
+                type: "ai_response",
+                content: { solution: { code: "Error processing message.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "Could not get AI response." } },
+                timestamp: Date.now(),
+            };
+            this.appState.addToConversationHistory(errorItem);
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, errorItem);
+        }
+    }
+    async processUserFile(filePath, accompanyingText) {
+        const mainWindow = this.appState.getMainWindow();
+        if (!mainWindow)
+            return;
+        console.log(`[ProcessingHelper] Processing user file: ${filePath} with text: "${accompanyingText || ''}"`);
+        let preview;
+        try {
+            if (filePath.endsWith('.png') || filePath.endsWith('.jpeg') || filePath.endsWith('.jpg')) {
+                preview = await this.appState.getImagePreview(filePath);
+            }
+        }
+        catch (e) {
+            console.warn(`Could not generate preview for file: ${filePath}`, e);
+        }
+        const userFileMessageItem = {
+            id: (0, uuid_1.v4)(),
+            type: "user_file",
+            filePath: filePath,
+            preview: preview,
+            accompanyingText: accompanyingText,
+            timestamp: Date.now(),
+        };
+        this.appState.addToConversationHistory(userFileMessageItem);
+        mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, userFileMessageItem);
+        try {
+            const messageParts = [];
+            if (accompanyingText) {
+                messageParts.push(accompanyingText);
+            }
+            messageParts.push({ filePath: filePath });
+            const aiResponse = await this.llmHelper.sendMessage(messageParts);
+            const aiMessageItem = {
+                id: (0, uuid_1.v4)(),
+                type: "ai_response",
+                content: aiResponse,
+                timestamp: Date.now(),
+            };
+            this.appState.addToConversationHistory(aiMessageItem);
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, aiMessageItem);
+        }
+        catch (error) {
+            console.error("[ProcessingHelper] Error sending file to LLM:", error);
+            const errorItem = {
+                id: (0, uuid_1.v4)(),
+                type: "ai_response",
+                content: { solution: { code: "Error processing file.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "Could not get AI response for file." } },
+                timestamp: Date.now(),
+            };
+            this.appState.addToConversationHistory(errorItem);
+            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, errorItem);
+        }
+    }
     async processScreenshots() {
         const mainWindow = this.appState.getMainWindow();
         if (!mainWindow)
             return;
         const mainScreenshotQueue = this.appState.getScreenshotHelper().getScreenshotQueue();
-        const currentViewFromState = this.appState.getView();
-        // Priority 1: If mainScreenshotQueue has items, process them as a new problem definition.
+        const extraScreenshotQueue = this.appState.getScreenshotHelper().getExtraScreenshotQueue();
+        let screenshotProcessed = false;
+        let screenshotPathToProcess;
+        let accompanyingTextForFile;
         if (mainScreenshotQueue.length > 0) {
-            const screenshotPath = mainScreenshotQueue[mainScreenshotQueue.length - 1]; // Get the last one to process
-            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.INITIAL_START);
-            this.currentProcessingAbortController = new AbortController();
+            screenshotPathToProcess = mainScreenshotQueue[mainScreenshotQueue.length - 1];
+            accompanyingTextForFile = "Analyze this screenshot in our current conversation context:";
+            console.log(`[ProcessingHelper] processScreenshots: Identified from main queue: ${screenshotPathToProcess}`);
+        }
+        else if (extraScreenshotQueue.length > 0) {
+            screenshotPathToProcess = extraScreenshotQueue[extraScreenshotQueue.length - 1];
+            accompanyingTextForFile = "Regarding our conversation, also consider this extra screenshot:";
+            console.log(`[ProcessingHelper] processScreenshots: Identified from extra queue: ${screenshotPathToProcess}`);
+        }
+        if (screenshotPathToProcess && accompanyingTextForFile) {
             try {
-                let problemInfoFromExtraction; // Define structure based on previous versions
-                if (screenshotPath.endsWith(".mp3") || screenshotPath.endsWith(".wav")) {
-                    const extractedAudioInfo = await this.llmHelper.extractProblemFromAudio(screenshotPath);
-                    problemInfoFromExtraction = {
-                        problem_statement: extractedAudioInfo.problem_statement,
-                        input_format: { description: extractedAudioInfo.context || "Context from audio", parameters: [] },
-                        output_format: { description: "Output based on audio analysis", type: "string", subtype: "text" },
-                        complexity: { time: "N/A", space: "N/A" },
-                        test_cases: [],
-                        constraints: [],
-                        validation_type: "manual",
-                        difficulty: "custom",
-                        // Optional: Store original LLM outputs if needed elsewhere
-                        // context_from_llm: extractedAudioInfo.context,
-                        // suggested_responses_from_llm: extractedAudioInfo.suggested_responses,
-                        // reasoning_from_llm: extractedAudioInfo.reasoning
-                    };
-                }
-                else {
-                    const extractedImageInfo = await this.llmHelper.extractProblemFromImages([screenshotPath]);
-                    problemInfoFromExtraction = {
-                        problem_statement: extractedImageInfo.problem_statement,
-                        input_format: { description: extractedImageInfo.context || "Context from image", parameters: [] },
-                        output_format: { description: "Output based on image analysis", type: "string", subtype: "text" },
-                        complexity: { time: "N/A", space: "N/A" },
-                        test_cases: [],
-                        constraints: [],
-                        validation_type: "manual",
-                        difficulty: "custom",
-                        // Optional: Store original LLM outputs if needed elsewhere
-                        // context_from_llm: extractedImageInfo.context,
-                        // suggested_responses_from_llm: extractedImageInfo.suggested_responses,
-                        // reasoning_from_llm: extractedImageInfo.reasoning
-                    };
-                }
-                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.PROBLEM_EXTRACTED, problemInfoFromExtraction);
-                this.appState.setProblemInfo(problemInfoFromExtraction);
-                this.appState.getScreenshotHelper().clearQueues(); // Clear ALL queues after new problem is defined
+                await this.processUserFile(screenshotPathToProcess, accompanyingTextForFile);
+                screenshotProcessed = true;
             }
             catch (error) {
-                console.error("Initial problem extraction error (image/audio):", error);
-                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR, error.message);
-                // Potentially clear queues here too, or ensure screenshot isn't stuck if extraction fails
-                this.appState.getScreenshotHelper().clearQueues();
+                console.error(`[ProcessingHelper] Error during processUserFile for ${screenshotPathToProcess}:`, error);
+                // Decide if queue should be cleared even on error, or if item should remain for retry.
+                // For now, let's clear to prevent loops with a problematic file.
             }
             finally {
-                this.currentProcessingAbortController = null;
-            }
-            return; // Done for this call, new problem defined.
-        }
-        // Priority 2: If mainScreenshotQueue is empty, proceed based on current appState.view.
-        else if (currentViewFromState === "solutions") {
-            // This is the "solve existing problem" or "debug existing problem" path.
-            // Ensure problemInfo exists.
-            const problemInfo = this.appState.getProblemInfo();
-            if (!problemInfo) {
-                console.error("Cannot process in 'solutions' view: Problem information is missing.");
-                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_ERROR, // Or a more generic error
-                "Cannot process: Problem information is missing.");
-                return;
-            }
-            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_START); // Signify start of this phase
-            this.currentExtraProcessingAbortController = new AbortController();
-            try {
-                // TODO: Optimize: Avoid re-generating solution if it already exists and we are only debugging.
-                // For now, keeping original logic which always generates solution first here.
-                const solutionResult = await this.llmHelper.generateSolution(problemInfo);
-                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.SOLUTION_SUCCESS, solutionResult);
-                const extraScreenshotQueue = this.appState.getScreenshotHelper().getExtraScreenshotQueue();
-                if (extraScreenshotQueue.length > 0) {
-                    const currentCode = solutionResult.solution.code;
-                    const debugResult = await this.llmHelper.debugSolutionWithImages(problemInfo, currentCode, extraScreenshotQueue);
-                    this.appState.setHasDebugged(true);
-                    mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_SUCCESS, debugResult);
-                    this.appState.getScreenshotHelper().clearQueues(); // Clear extra queue and main (which should be empty)
-                }
-                else {
-                    // No extra screenshots to debug with. Solution already sent.
-                    // Main queue is empty, extra queue is empty. No specific clear needed here
-                    // if previous steps guarantee clearance. However, to be safe:
-                    if (this.appState.getScreenshotHelper().getExtraScreenshotQueue().length > 0 || this.appState.getScreenshotHelper().getScreenshotQueue().length > 0) {
-                        // This case implies queues were not empty as expected. Clear them to prevent loops.
-                        console.warn("Queues were not empty in solutions view without debug images, clearing them.");
-                        this.appState.getScreenshotHelper().clearQueues();
-                    }
-                }
-            }
-            catch (error) {
-                console.error("Solution/Debug processing error:", error);
-                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.DEBUG_ERROR, error.message);
-                // Clear queues on error to prevent stuck states
+                // Always clear queues after attempting to process a screenshot from them,
+                // regardless of success or failure of processUserFile, to prevent reprocessing loops.
                 this.appState.getScreenshotHelper().clearQueues();
-            }
-            finally {
-                this.currentExtraProcessingAbortController = null;
+                console.log("[ProcessingHelper] Queues cleared after screenshot processing attempt.");
             }
         }
-        // Priority 3: If main queue empty and view is "queue" (i.e., no new screenshots for problem def)
-        else if (currentViewFromState === "queue" && mainScreenshotQueue.length === 0) {
+        if (!screenshotProcessed && this.appState.getView() === "queue") {
+            // This condition means no screenshot was identified in queues initially.
             mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.NO_SCREENSHOTS);
+            console.log("[ProcessingHelper] processScreenshots: No screenshots in queues, view is queue. Sent NO_SCREENSHOTS.");
         }
     }
     cancelOngoingRequests() {
@@ -148,8 +194,6 @@ class ProcessingHelper {
             this.currentExtraProcessingAbortController = null;
         }
         this.appState.setHasDebugged(false);
-        // Potentially clear queues on cancel too, to prevent reprocessing of stale items
-        // this.appState.getScreenshotHelper().clearQueues();
     }
     async processAudioBase64(data, mimeType) {
         return this.llmHelper.analyzeAudioFromBase64(data, mimeType);

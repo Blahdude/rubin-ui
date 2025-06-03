@@ -8,36 +8,124 @@ const generative_ai_1 = require("@google/generative-ai");
 const fs_1 = __importDefault(require("fs"));
 class LLMHelper {
     model;
-    systemPrompt = `You are Wingman AI, a helpful, proactive assistant for any kind of problem or situation (not just coding). For any user input, analyze the situation, provide a clear problem statement, relevant context, and suggest several possible responses or actions the user could take next. Always explain your reasoning. Present your suggestions as a list of options or next steps.`;
+    chat = null;
+    systemPrompt = `You are Wingman AI, a helpful, proactive assistant for any kind of problem or situation (not just coding). For any user input, analyze the situation, provide a clear problem statement, relevant context, and suggest several possible responses or actions the user could take next. Always explain your reasoning. Present your suggestions as a list of options or next steps. Ensure your main output is always a JSON object with a 'solution' key, structured like this: { "solution": { "code": "Primary answer/code/text...", "problem_statement": "Restated problem...", "context": "Relevant context...", "suggested_responses": ["Suggestion 1", "Suggestion 2"], "reasoning": "Your reasoning..." } }. If the user provides an image, incorporate your analysis of the image into this structure.`;
     constructor(apiKey) {
         const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
-        this.model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        this.model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // CHANGED from gemini-1.5-flash-latest
+        this.initializeChat();
     }
-    async fileToGenerativePart(imagePath) {
-        const imageData = await fs_1.default.promises.readFile(imagePath);
+    initializeChat() {
+        // Initialize the chat with the system prompt as the initial context from the model's perspective (or user, depending on desired behavior)
+        // For a system prompt, it's often better to frame it as the first part of the first user message or as history.
+        // Here, we'll prepend it to the first actual user message if the chat needs to be started.
+        // More robustly, startChat can take an initial history. Let's use that.
+        this.chat = this.model.startChat({
+            history: [
+                {
+                    role: "user",
+                    parts: [{ text: this.systemPrompt + "\nBegin interaction by analyzing the user's first message and responding in the specified JSON format." }]
+                },
+                {
+                    role: "model", // Prime the model with an empty successful-looking response structure to guide its output format.
+                    parts: [{ text: JSON.stringify({ solution: { code: "Waiting for user input.", problem_statement: "N/A", context: "N/A", suggested_responses: [], reasoning: "I am ready to assist." } }, null, 2) }]
+                }
+            ]
+            // generationConfig: { ... } // Optional: add temperature, etc.
+        });
+    }
+    async newChat() {
+        this.initializeChat();
+        console.log("[LLMHelper] New chat session started.");
+        // Optionally return a confirmation or the initial primed model response
+        return { solution: { code: "New chat started. How can I help?", problem_statement: "New Session", context: "", suggested_responses: [], reasoning: "Chat has been reset." } };
+    }
+    async fileToGenerativePart(filePath) {
+        const data = await fs_1.default.promises.readFile(filePath);
+        let mimeType = "";
+        const extension = filePath.split('.').pop()?.toLowerCase();
+        if (extension === 'png')
+            mimeType = 'image/png';
+        else if (extension === 'jpg' || extension === 'jpeg')
+            mimeType = 'image/jpeg';
+        else if (extension === 'mp3')
+            mimeType = 'audio/mp3';
+        else if (extension === 'wav')
+            mimeType = 'audio/wav';
+        // Add more mime types as needed or throw an error for unsupported types
+        else
+            throw new Error(`Unsupported file type: ${extension}`);
         return {
             inlineData: {
-                data: imageData.toString("base64"),
-                mimeType: "image/png"
+                data: data.toString("base64"),
+                mimeType
             }
         };
     }
     cleanJsonResponse(text) {
         // Remove markdown code block syntax if present
-        text = text.replace(/^```(?:json)?\n/, '').replace(/\n```$/, '');
-        // Remove any leading/trailing whitespace
-        text = text.trim();
-        return text;
+        let cleanedText = text.replace(/^```(?:json)?\n/, '').replace(/\n```$/, '');
+        // Attempt to extract the main JSON object if there's surrounding text
+        const firstBrace = cleanedText.indexOf('{');
+        const lastBrace = cleanedText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+            // Ensure we are extracting a string that at least starts and ends like an object.
+            cleanedText = cleanedText.substring(firstBrace, lastBrace + 1);
+        }
+        else {
+            // If no clear braces are found, or they are in the wrong order, 
+            // this might not be JSON, or it's severely malformed.
+            // Log this situation, as trim() alone might not be enough.
+            console.warn("[LLMHelper.cleanJsonResponse] Could not find clear JSON braces, proceeding with basic trim. Original text prefix:", text.substring(0, 100));
+        }
+        // Remove any leading/trailing whitespace from the potentially extracted JSON
+        cleanedText = cleanedText.trim();
+        return cleanedText;
     }
-    getMimeTypeFromPath(filePath) {
-        const extension = filePath.split('.').pop()?.toLowerCase();
-        if (extension === 'mp3')
-            return 'audio/mp3';
-        if (extension === 'wav')
-            return 'audio/wav';
-        // Default or throw error if necessary, for now, defaulting to mpeg as in analyzeAudioFile if not mp3
-        console.warn(`Unknown audio extension: ${extension}, defaulting to audio/mpeg`);
-        return 'audio/mpeg';
+    // New primary method for sending messages to the chat
+    async sendMessage(messageContent) {
+        if (!this.chat) {
+            console.log("[LLMHelper] Chat not initialized. Initializing now.");
+            this.initializeChat();
+            if (!this.chat)
+                throw new Error("Chat initialization failed critically.");
+        }
+        const messageParts = [];
+        for (const content of messageContent) {
+            if (typeof content === 'string') {
+                messageParts.push({ text: content });
+            }
+            else if ('filePath' in content) {
+                try {
+                    const filePart = await this.fileToGenerativePart(content.filePath);
+                    messageParts.push(filePart);
+                }
+                catch (error) {
+                    console.error(`[LLMHelper] Error processing file ${content.filePath}:`, error);
+                    messageParts.push({ text: `(System: Failed to load file ${content.filePath})` });
+                }
+            }
+            else if ('text' in content) {
+                messageParts.push({ text: content.text });
+            }
+        }
+        // Add an explicit instruction to respond in JSON to every message for consistency
+        messageParts.push({ text: "\nImportant: Respond ONLY with the JSON object as specified in the initial instructions." });
+        console.log("[LLMHelper] Sending message to chat with parts:", JSON.stringify(messageParts.map(p => p.text ? { text: p.text.substring(0, 100) + "..." } : { inlineData: "..." })));
+        try {
+            const result = await this.chat.sendMessage(messageParts);
+            const response = await result.response;
+            const text = this.cleanJsonResponse(response.text());
+            console.log("[LLMHelper] Raw chat response text:", text.substring(0, 200) + "...");
+            const parsed = JSON.parse(text);
+            console.log("[LLMHelper] Parsed chat response:", parsed);
+            return parsed;
+        }
+        catch (error) {
+            console.error("[LLMHelper] Error in sendMessage or parsing response:", error);
+            // Fallback or error structure
+            return { solution: { code: "Error processing request.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "An error occurred with the AI model or parsing its response." } };
+        }
     }
     async extractProblemFromAudio(audioPath) {
         try {
@@ -191,6 +279,51 @@ class LLMHelper {
             console.error("Error analyzing image file:", error);
             throw error;
         }
+    }
+    async generateFollowUp(previousAiResponse, userQuery) {
+        const prompt = `${this.systemPrompt}
+
+You previously provided the following information/solution:
+${JSON.stringify(previousAiResponse, null, 2)}
+
+The user has now responded with:
+${userQuery}
+
+Please provide an updated or follow-up response based on the user's input. Maintain the same JSON output format as your previous response, focusing on addressing the user's specific feedback, question, or correction. For example:
+{
+  "solution": {
+    "code": "Updated code or main answer, if applicable, based on user feedback.",
+    "problem_statement": "Restate or confirm the problem/situation, potentially clarified by user.",
+    "context": "Updated or relevant background/context, incorporating user input.",
+    "suggested_responses": ["New suggestions based on user feedback...", "Further actions..."],
+    "reasoning": "Explanation for this follow-up, addressing the user's query."
+  }
+}
+Important: Return ONLY the JSON object, without any markdown formatting or code blocks. If the user's query is a simple question not requiring a full structured update, you can put the answer primarily in the 'reasoning' or 'context' field, and reiterate previous relevant fields.`;
+        console.log("[LLMHelper] Calling Gemini LLM for follow-up...");
+        try {
+            const result = await this.model.generateContent(prompt);
+            console.log("[LLMHelper] Gemini LLM returned result for follow-up.");
+            const response = await result.response;
+            const text = this.cleanJsonResponse(response.text());
+            const parsed = JSON.parse(text);
+            console.log("[LLMHelper] Parsed follow-up LLM response:", parsed);
+            return parsed;
+        }
+        catch (error) {
+            console.error("[LLMHelper] Error in generateFollowUp:", error);
+            throw error;
+        }
+    }
+    getMimeTypeFromPath(filePath) {
+        const extension = filePath.split('.').pop()?.toLowerCase();
+        if (extension === 'mp3')
+            return 'audio/mp3';
+        if (extension === 'wav')
+            return 'audio/wav';
+        // Default or throw error if necessary, for now, defaulting to mpeg as in analyzeAudioFile if not mp3
+        console.warn(`Unknown audio extension: ${extension}, defaulting to audio/mpeg`);
+        return 'audio/mpeg';
     }
 }
 exports.LLMHelper = LLMHelper;

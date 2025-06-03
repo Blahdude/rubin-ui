@@ -42,6 +42,15 @@ interface ElectronAPI {
   generateMusicContinuation: (inputFilePath: string) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void
+
+  // ADDED for user follow-up
+  userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
+  onFollowUpSuccess: (callback: (data: any) => void) => () => void;
+  onFollowUpError: (callback: (error: string) => void) => () => void;
+
+  // CHAT RELATED - NEW AND REVISED
+  startNewChat: () => Promise<void>
+  onChatUpdated: (callback: (data: any /* ConversationItem from main.ts */) => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -229,5 +238,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => {
       ipcRenderer.removeListener(channel, handler);
     };
-  }
+  },
+
+  // ADDED for user follow-up
+  userResponseToAi: (userText: string) => ipcRenderer.invoke('user-response-to-ai', userText),
+  onFollowUpSuccess: (callback) => {
+    const channel = "follow-up-success"; // Make sure this matches event in AppState
+    ipcRenderer.on(channel, (_event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
+  onFollowUpError: (callback) => {
+    const channel = "follow-up-error"; // Make sure this matches event in AppState
+    ipcRenderer.on(channel, (_event, error) => callback(error));
+    return () => ipcRenderer.removeAllListeners(channel);
+  },
+
+  // CHAT RELATED - NEW AND REVISED
+  startNewChat: () => ipcRenderer.invoke('start-new-chat'),
+  onChatUpdated: (callback: (data: any /* ConversationItem from main.ts */) => void) => {
+    const handler = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on('chat-updated', handler);
+    return () => ipcRenderer.removeListener('chat-updated', handler);
+  },
 } as ElectronAPI)

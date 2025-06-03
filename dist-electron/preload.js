@@ -161,6 +161,25 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         return () => {
             electron_1.ipcRenderer.removeListener(channel, handler);
         };
-    }
+    },
+    // ADDED for user follow-up
+    userResponseToAi: (userText) => electron_1.ipcRenderer.invoke('user-response-to-ai', userText),
+    onFollowUpSuccess: (callback) => {
+        const channel = "follow-up-success"; // Make sure this matches event in AppState
+        electron_1.ipcRenderer.on(channel, (_event, data) => callback(data));
+        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+    },
+    onFollowUpError: (callback) => {
+        const channel = "follow-up-error"; // Make sure this matches event in AppState
+        electron_1.ipcRenderer.on(channel, (_event, error) => callback(error));
+        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+    },
+    // CHAT RELATED - NEW AND REVISED
+    startNewChat: () => electron_1.ipcRenderer.invoke('start-new-chat'),
+    onChatUpdated: (callback) => {
+        const handler = (_event, data) => callback(data);
+        electron_1.ipcRenderer.on('chat-updated', handler);
+        return () => electron_1.ipcRenderer.removeListener('chat-updated', handler);
+    },
 });
 //# sourceMappingURL=preload.js.map
