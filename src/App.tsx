@@ -42,10 +42,27 @@ declare global {
       // Audio Processing
       analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
       analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
+      // Audio Recording and Generation
+      onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void;
+      onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void;
+      generateMusicContinuation: (inputFilePath: string) => Promise<string>; // Returns the path to the generated audio
 
+      // VAD Events
+      onVadWaiting: (callback: () => void) => () => void;
+      onVadRecordingStarted: (callback: () => void) => () => void;
+      onVadTimeout: (callback: () => void) => () => void;
+
+      // Window/App Controls
       moveWindowLeft: () => Promise<void>
       moveWindowRight: () => Promise<void>
       quitApp: () => Promise<void>
+
+      // Drag and Drop
+      startFileDrag: (filePath: string) => void;
+
+      // For notifying about newly generated audio
+      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => void;
+      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string }) => void) => () => void;
     }
   }
 }

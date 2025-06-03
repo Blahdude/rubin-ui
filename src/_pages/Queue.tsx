@@ -14,6 +14,15 @@ interface QueueProps {
   setView: React.Dispatch<React.SetStateAction<"queue" | "solutions" | "debug">>
 }
 
+// Remove AudioQueueItem interface for now, will re-evaluate when integrating properly
+// interface AudioQueueItem {
+//   id: string; 
+//   path: string;
+//   type: "recorded" | "generated";
+//   status?: "generating" | "failed" | "ready";
+//   originalPath?: string; 
+// }
+
 const Queue: React.FC<QueueProps> = ({ setView }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
@@ -26,7 +35,12 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
   const [tooltipHeight, setTooltipHeight] = useState(0)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const { data: screenshots = [], refetch } = useQuery<Array<{ path: string; preview: string }>, Error>(
+  // Remove audioQueue state for now
+  // const [audioQueue, setAudioQueue] = useState<AudioQueueItem[]>([])
+
+  const { data: screenshots = [], refetch } = useQuery<
+    Array<{ path: string; preview: string }>
+    , Error>(
     ["screenshots"],
     async () => {
       try {
@@ -95,6 +109,23 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
     }
     updateDimensions()
 
+    // Listener for completed audio recordings - temporarily simplified
+    const cleanupAudioListener = window.electronAPI.onAudioRecordingComplete(async (data: { path: string }) => {
+      console.log("Audio recording complete (UI):", data.path);
+      showToast("Recording Saved (UI)", `Audio saved to ${data.path}`, "success");
+      
+      try {
+        showToast("Processing", "Generating music continuation...", "neutral");
+        const generatedAudioPath = await window.electronAPI.generateMusicContinuation(data.path);
+        showToast("Success", `Generated audio saved to ${generatedAudioPath}`, "success");
+        // Notify that a new generated audio is ready
+        window.electronAPI.notifyGeneratedAudioReady(generatedAudioPath, data.path);
+      } catch (error: any) {
+        console.error("Error generating music continuation (UI):", error);
+        showToast("Generation Failed (UI)", error.message || "Could not generate audio continuation.", "error");
+      }
+    });
+
     const cleanupFunctions = [
       window.electronAPI.onScreenshotTaken(() => refetch()),
       window.electronAPI.onResetView(() => refetch()),
@@ -113,14 +144,15 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
           "There are no screenshots to process.",
           "neutral"
         )
-      })
+      }),
+      cleanupAudioListener 
     ]
 
     return () => {
       resizeObserver.disconnect()
       cleanupFunctions.forEach((cleanup) => cleanup())
     }
-  }, [isTooltipVisible, tooltipHeight])
+  }, [isTooltipVisible, tooltipHeight, refetch, setView]) 
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
@@ -146,6 +178,7 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
             screenshots={screenshots}
             onDeleteScreenshot={handleDeleteScreenshot}
           />
+          {/* The offensive audio queue UI has been removed from here */}
           <QueueCommands
             screenshots={screenshots}
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
@@ -156,4 +189,7 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
   )
 }
 
-export default Queue
+export default Queue;
+
+// Remove the custom path.basename shim
+// import path from "path"; // Avoid importing Node.js modules directly in renderer if not essential

@@ -148,7 +148,19 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     analyzeImageFile: (path) => electron_1.ipcRenderer.invoke("analyze-image-file", path),
     quitApp: () => electron_1.ipcRenderer.invoke("quit-app"),
     startFileDrag: (filePath) => {
-        electron_1.ipcRenderer.send('ondragstart-file', filePath);
+        electron_1.ipcRenderer.send("ondragstart-file", filePath);
+    },
+    generateMusicContinuation: (inputFilePath) => electron_1.ipcRenderer.invoke("generate-music-continuation", inputFilePath),
+    notifyGeneratedAudioReady: (generatedPath, originalPath) => {
+        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath });
+    },
+    onGeneratedAudioReady: (callback) => {
+        const channel = "generated-audio-ready";
+        const handler = (event, data) => callback(data);
+        electron_1.ipcRenderer.on(channel, handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener(channel, handler);
+        };
     }
 });
 //# sourceMappingURL=preload.js.map

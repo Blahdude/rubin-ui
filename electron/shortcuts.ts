@@ -19,8 +19,8 @@ function calculateRMS(pcmData: Buffer): number {
 }
 
 const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound
-const VAD_WAIT_TIMEOUT_MS = 15000;
-const RECORDING_DURATION_MS = 10000;
+const VAD_WAIT_TIMEOUT_MS = 3000; // Max time to wait for sound (changed from 15000)
+const RECORDING_DURATION_MS = 2000; // Max recording time after sound starts (changed from 10000)
 
 // Reverted: Removed constants for auto-cropping
 // const SILENCE_RMS_THRESHOLD = 50; 

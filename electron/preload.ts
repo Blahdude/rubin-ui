@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron"
+import { contextBridge, ipcRenderer, IpcRendererEvent } from "electron"
 
 // Types for the exposed Electron API
 interface ElectronAPI {
@@ -39,6 +39,9 @@ interface ElectronAPI {
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
+  generateMusicContinuation: (inputFilePath: string) => Promise<any>
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => void
+  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string }) => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -213,6 +216,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
   analyzeImageFile: (path: string) => ipcRenderer.invoke("analyze-image-file", path),
   quitApp: () => ipcRenderer.invoke("quit-app"),
   startFileDrag: (filePath: string) => {
-    ipcRenderer.send('ondragstart-file', filePath);
+    ipcRenderer.send("ondragstart-file", filePath)
+  },
+  generateMusicContinuation: (inputFilePath: string) => ipcRenderer.invoke("generate-music-continuation", inputFilePath),
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string) => {
+    ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath });
+  },
+  onGeneratedAudioReady: (callback) => {
+    const channel = "generated-audio-ready";
+    const handler = (event: IpcRendererEvent, data: { generatedPath: string, originalPath: string }) => callback(data);
+    ipcRenderer.on(channel, handler);
+    return () => {
+      ipcRenderer.removeListener(channel, handler);
+    };
   }
 } as ElectronAPI)

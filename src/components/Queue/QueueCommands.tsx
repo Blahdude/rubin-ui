@@ -13,6 +13,14 @@ interface GlobalRecording {
   timestamp: Date;
 }
 
+// Interface for generated audio clips
+interface GeneratedAudioClip {
+  id: string;
+  path: string; // Path to the generated audio
+  originalPath: string; // Path to the original audio it was based on
+  timestamp: Date;
+}
+
 const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   screenshots
@@ -26,6 +34,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   // State for the new global audio recording shortcut
   const [globalRecordings, setGlobalRecordings] = useState<GlobalRecording[]>([])
+  // State for generated audio clips
+  const [generatedAudioClips, setGeneratedAudioClips] = useState<GeneratedAudioClip[]>([])
   const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
   const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null); // New state for VAD status
   const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for managing vadStatusMessage timeout
@@ -90,12 +100,26 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     };
     const unsubscribeError = window.electronAPI.onAudioRecordingError(handleAudioRecordingError);
 
+    // Listener for newly generated audio clips
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string }) => {
+      console.log("Generated audio ready (QueueCommands):", data.generatedPath, "from original:", data.originalPath);
+      const newGeneratedClip: GeneratedAudioClip = {
+        id: `gen-clip-${Date.now()}`,
+        path: data.generatedPath,
+        originalPath: data.originalPath,
+        timestamp: new Date()
+      };
+      setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+    };
+    const unsubscribeGeneratedAudio = window.electronAPI.onGeneratedAudioReady(handleGeneratedAudioReady);
+
     return () => {
       unsubscribeVadWaiting();
       unsubscribeVadRecordingStarted();
       unsubscribeVadTimeout();
       unsubscribeComplete();
       unsubscribeError();
+      unsubscribeGeneratedAudio(); // Unsubscribe from generated audio listener
       clearVadStatusTimeout(); // Clear timeout on unmount
     }
   }, [])
@@ -193,7 +217,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         {/* Record Audio (10s) - Global Shortcut */}
         <div className="flex items-center gap-2">
           <span className="text-[11px] leading-none truncate">
-            Record Audio (10s)
+            Record Audio (2s)
           </span>
           <div className="flex gap-1">
             <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
@@ -362,6 +386,44 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       {globalRecordingError && (
         <div className="mt-2 p-2 bg-red-500/30 rounded text-white text-xs max-w-md border border-red-500/50">
           <span className="font-semibold">Audio Recording Error:</span> {globalRecordingError}
+        </div>
+      )}
+      {/* Generated Audio Clips Display */}
+      {generatedAudioClips.length > 0 && (
+         <div className="mt-4 p-3 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs max-w-md space-y-3 shadow-lg border border-white/10">
+          <h4 className="font-semibold text-[11px] text-white/80 border-b border-white/20 pb-1 mb-2">Generated Audio Clips</h4>
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
+            {generatedAudioClips.map((clip) => (
+              <div 
+                key={clip.id} 
+                className="flex flex-col p-3 bg-teal-800/80 rounded-lg shadow hover:bg-teal-700/80 transition-colors duration-150 ease-in-out border border-teal-700/50 cursor-grab"
+                draggable="true"
+                onDragStart={(event) => {
+                  event.preventDefault(); 
+                  console.log(`[Dragger] Dragging generated: ${clip.path}`);
+                  window.electronAPI.startFileDrag(clip.path);
+                }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center text-[10px] text-teal-300">
+                    <span className="mr-1">⏰</span>
+                    <span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] font-medium text-teal-100 truncate mb-1 flex items-center">
+                  <span className="mr-1.5">🎵</span>
+                  <span className="truncate" title={clip.path}>{clip.path.split(/[\\\\/]/).pop()}</span>
+                </p>
+                 <p className="text-[9px] text-teal-300 truncate mb-2 flex items-center" title={`Original: ${clip.originalPath.split(/[\\\\/]/).pop()}`}>
+                  <span className="mr-1.5">🔙</span>
+                  <span className="truncate">Orig: {clip.originalPath.split(/[\\\\/]/).pop()}</span>
+                </p>
+                <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-md"> 
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
