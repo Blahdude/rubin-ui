@@ -159,18 +159,16 @@ const App: React.FC = () => {
         console.log("View reset to 'queue' via Command+R shortcut")
       }),
       window.electronAPI.onProblemExtracted((data: any) => {
-        if (view === "queue") {
-          console.log("Problem extracted successfully")
-          queryClient.invalidateQueries(["problem_statement"])
-          queryClient.setQueryData(["problem_statement"], data)
-        }
+        console.log("Problem extracted successfully, data:", data)
+        queryClient.invalidateQueries(["problem_statement"])
+        queryClient.setQueryData(["problem_statement"], data)
       })
     ]
     return () => cleanupFunctions.forEach((cleanup) => cleanup())
   }, [])
 
   return (
-    <div ref={containerRef} className="min-h-0">
+    <div ref={containerRef} className="min-h-0 bg-transparent">
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           {view === "queue" ? (

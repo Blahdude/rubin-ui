@@ -173,16 +173,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   }
 
   return (
-    <div className="pt-2 w-fit">
-      <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+    <div className="pt-2 w-fit font-semibold">
+      <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
         {/* Show/Hide */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] leading-none">Show/Hide</span>
+          <span className="text-[11px] leading-none font-semibold">Show/Hide</span>
           <div className="flex gap-1">
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               ⌘
             </button>
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               B
             </button>
           </div>
@@ -190,14 +190,14 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
         {/* Screenshot */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] leading-none truncate">
+          <span className="text-[11px] leading-none truncate font-semibold">
             {screenshots.length === 0 ? "Take first screenshot" : "Screenshot"}
           </span>
           <div className="flex gap-1">
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               ⌘
             </button>
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               H
             </button>
           </div>
@@ -206,28 +206,28 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         {/* Solve Command */}
         {screenshots.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] leading-none">Solve</span>
+            <span className="text-[11px] leading-none font-semibold">Solve</span>
             <div className="flex gap-1">
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 ⌘
               </button>
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 ↵
               </button>
             </div>
           </div>
         )}
 
-        {/* Record Audio (10s) - Global Shortcut */}
+        {/* Record Audio (2s) - Global Shortcut */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] leading-none truncate">
+          <span className="text-[11px] leading-none truncate font-semibold">
             Record Audio (2s)
           </span>
           <div className="flex gap-1">
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               ⌘
             </button>
-            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+            <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               ;
             </button>
           </div>
@@ -236,14 +236,14 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         {/* Voice Recording Button */}
         <div className="flex items-center gap-2">
           <button
-            className={`bg-white/10 hover:bg-white/20 transition-colors rounded-md px-2 py-1 text-[11px] leading-none text-white/70 flex items-center gap-1 ${isRecording ? 'bg-red-500/70 hover:bg-red-500/90' : ''}`}
+            className={`bg-black/10 hover:bg-black/20 transition-colors rounded-md px-2 py-1 text-[11px] leading-none text-black/70 flex items-center gap-1 font-semibold ${isRecording ? 'bg-red-500/70 hover:bg-red-500/90 text-white' : ''}`}
             onClick={handleRecordClick}
             type="button"
           >
             {isRecording ? (
-              <span className="animate-pulse">● Stop Recording</span>
+              <span className="animate-pulse font-semibold">● Stop Recording</span>
             ) : (
-              <span>🎤 Record Voice</span>
+              <span className="font-semibold">🎤 Record Voice</span>
             )}
           </button>
         </div>
@@ -254,8 +254,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
-            <span className="text-xs text-white/70">?</span>
+          <div className="w-6 h-6 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
+            <span className="text-xs text-black/70 font-semibold">?</span>
           </div>
 
           {/* Tooltip Content */}
@@ -264,41 +264,41 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
               ref={tooltipRef}
               className="absolute top-full right-0 mt-2 w-80"
             >
-              <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg">
+              <div className="p-3 text-xs bg-white/80 backdrop-blur-md rounded-lg border border-black/10 text-black/90 shadow-lg font-semibold">
                 <div className="space-y-4">
-                  <h3 className="font-medium truncate">Keyboard Shortcuts</h3>
+                  <h3 className="font-semibold truncate">Keyboard Shortcuts</h3>
                   <div className="space-y-3">
                     {/* Toggle Command */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="truncate">Toggle Window</span>
+                        <span className="truncate font-semibold">Toggle Window</span>
                         <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             ⌘
                           </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             B
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
+                      <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">
                         Show or hide this window.
                       </p>
                     </div>
                     {/* Screenshot Command */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="truncate">Take Screenshot</span>
+                        <span className="truncate font-semibold">Take Screenshot</span>
                         <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             ⌘
                           </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             H
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
+                      <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">
                         Take a screenshot of the problem description. The tool
                         will extract and analyze the problem. The 5 latest
                         screenshots are saved.
@@ -308,17 +308,17 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                     {/* Solve Command */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="truncate">Solve Problem</span>
+                        <span className="truncate font-semibold">Solve Problem</span>
                         <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             ⌘
                           </span>
-                          <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                             ↵
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-relaxed text-white/70 truncate">
+                      <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">
                         Generate a solution based on the current problem.
                       </p>
                     </div>
@@ -330,11 +330,11 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         </div>
 
         {/* Separator */}
-        <div className="mx-2 h-4 w-px bg-white/20" />
+        <div className="mx-2 h-4 w-px bg-black/20" />
 
         {/* Sign Out Button - Moved to end */}
         <button
-          className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer"
+          className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer font-semibold"
           title="Sign Out"
           onClick={() => window.electronAPI.quitApp()}
         >
@@ -343,25 +343,25 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       </div>
       {/* Audio Result Display for in-app recording */}
       {audioResult && (
-        <div className="mt-2 p-2 bg-white/10 rounded text-white text-xs max-w-md">
+        <div className="mt-2 p-2 bg-stone-100/70 border border-stone-300/50 rounded text-stone-700 text-xs max-w-md font-semibold">
           <span className="font-semibold">Audio Analysis Result (In-app):</span> {audioResult}
         </div>
       )}
       {/* VAD Status Message */}
       {vadStatusMessage && (
-        <div className={`mt-2 p-2 rounded text-white text-xs max-w-md ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-600/30 border border-yellow-700/50' : 'bg-blue-500/20 border border-blue-600/40'}`}>
+        <div className={`mt-2 p-2 rounded text-xs max-w-md font-semibold ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/30 border border-yellow-500/50 text-yellow-800' : 'bg-blue-400/30 border border-blue-500/50 text-blue-800'}`}>
           {vadStatusMessage}
         </div>
       )}
       {/* Global Shortcut Audio Recording Status Display */}
       {globalRecordings.length > 0 && (
-         <div className="mt-4 p-3 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs max-w-md space-y-3 shadow-lg border border-white/10">
-          <h4 className="font-semibold text-[11px] text-white/80 border-b border-white/20 pb-1 mb-2">Recorded Audio Clips (⌘;)</h4>
+         <div className="mt-4 p-3 bg-white/70 backdrop-blur-md rounded-lg text-black text-xs max-w-md space-y-3 shadow-lg border border-black/10 font-semibold">
+          <h4 className="font-semibold text-[11px] text-black/80 border-b border-black/20 pb-1 mb-2">Recorded Audio Clips (⌘;)</h4>
           <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
             {globalRecordings.map((rec) => (
               <div 
                 key={rec.id} 
-                className="flex flex-col p-3 bg-neutral-800/80 rounded-lg shadow hover:bg-neutral-700/80 transition-colors duration-150 ease-in-out border border-neutral-700/50 cursor-grab"
+                className="flex flex-col p-3 bg-neutral-100/80 rounded-lg shadow hover:bg-neutral-200/80 transition-colors duration-150 ease-in-out border border-neutral-300/50 cursor-grab font-semibold"
                 draggable="true"
                 onDragStart={(event) => {
                   event.preventDefault(); // Important to allow Electron to take over
@@ -370,12 +370,12 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center text-[10px] text-neutral-400">
+                  <div className="flex items-center text-[10px] text-neutral-600 font-semibold">
                     <span className="mr-1">⏰</span>
                     <span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                   </div>
                 </div>
-                <p className="text-[11px] font-medium text-neutral-200 truncate mb-2 flex items-center">
+                <p className="text-[11px] font-medium text-neutral-700 truncate mb-2 flex items-center font-semibold">
                   <span className="mr-1.5">📄</span>
                   <span className="truncate">{rec.path.split(/[\\/]/).pop()}</span>
                 </p>
@@ -388,19 +388,19 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         </div>
       )}
       {globalRecordingError && (
-        <div className="mt-2 p-2 bg-red-500/30 rounded text-white text-xs max-w-md border border-red-500/50">
+        <div className="mt-2 p-2 bg-red-500/30 rounded text-white text-xs max-w-md border border-red-500/50 font-semibold">
           <span className="font-semibold">Audio Recording Error:</span> {globalRecordingError}
         </div>
       )}
       {/* Generated Audio Clips Display */}
       {generatedAudioClips.length > 0 && (
-         <div className="mt-4 p-3 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs max-w-md space-y-3 shadow-lg border border-white/10">
-          <h4 className="font-semibold text-[11px] text-white/80 border-b border-white/20 pb-1 mb-2">Generated Audio Clips</h4>
+         <div className="mt-4 p-3 bg-white/70 backdrop-blur-md rounded-lg text-black text-xs max-w-md space-y-3 shadow-lg border border-black/10 font-semibold">
+          <h4 className="font-semibold text-[11px] text-black/80 border-b border-black/20 pb-1 mb-2">Generated Audio Clips</h4>
           <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
             {generatedAudioClips.map((clip) => (
               <div 
                 key={clip.id} 
-                className="flex flex-col p-3 bg-teal-800/80 rounded-lg shadow hover:bg-teal-700/80 transition-colors duration-150 ease-in-out border border-teal-700/50 cursor-grab"
+                className="flex flex-col p-3 bg-teal-100/60 rounded-lg shadow hover:bg-teal-200/60 transition-colors duration-150 ease-in-out border border-teal-300/50 cursor-grab font-semibold"
                 draggable="true"
                 onDragStart={(event) => {
                   event.preventDefault(); 
@@ -409,20 +409,20 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center text-[10px] text-teal-300">
+                  <div className="flex items-center text-[10px] text-teal-700 font-semibold">
                     <span className="mr-1">⏰</span>
                     <span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                   </div>
                 </div>
-                <p className="text-[11px] font-medium text-teal-100 truncate mb-1 flex items-center">
+                <p className="text-[11px] font-medium text-teal-800 truncate mb-1 flex items-center font-semibold">
                   <span className="mr-1.5">🎵</span>
                   <span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span>
                 </p>
-                 <p className="text-[9px] text-teal-300 truncate mb-2 flex items-center" title={`Original: ${clip.originalPath.split(/[\\/]/).pop()}`}>
+                 <p className="text-[9px] text-teal-700 truncate mb-2 flex items-center font-semibold">
                   <span className="mr-1.5">🔙</span>
                   <span className="truncate">Orig: {clip.originalPath.split(/[\\/]/).pop()}</span>
                 </p>
-                <div className="text-[9px] text-teal-200 mb-2 flex justify-between">
+                <div className="text-[9px] text-teal-800 mb-2 flex justify-between font-semibold">
                   <span>BPM: {clip.bpm}</span>
                   <span>Key: {clip.key}</span>
                 </div>

@@ -33,16 +33,16 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
   return (
     <div>
-      <div className="pt-2 w-fit">
-        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+      <div className="pt-2 w-fit font-semibold">
+        <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
           {/* Show/Hide */}
           <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none">Show/Hide</span>
+            <span className="text-[11px] leading-none font-semibold">Show/Hide</span>
             <div className="flex gap-1">
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 ⌘
               </button>
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 B
               </button>
             </div>
@@ -50,28 +50,28 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
           {/* Screenshot */}
           <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none truncate">
+            <span className="text-[11px] leading-none truncate font-semibold">
               {extraScreenshots.length === 0
                 ? "Screenshot your code"
                 : "Screenshot"}
             </span>
             <div className="flex gap-1">
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 ⌘
               </button>
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 H
               </button>
             </div>
           </div>
           {extraScreenshots.length > 0 && (
             <div className="flex items-center gap-2 whitespace-nowrap">
-              <span className="text-[11px] leading-none">Debug</span>
+              <span className="text-[11px] leading-none font-semibold">Debug</span>
               <div className="flex gap-1">
-                <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                   ⌘
                 </button>
-                <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+                <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                   ↵
                 </button>
               </div>
@@ -80,12 +80,12 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
           {/* Start Over */}
           <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-[11px] leading-none">Start over</span>
+            <span className="text-[11px] leading-none font-semibold">Start over</span>
             <div className="flex gap-1">
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 ⌘
               </button>
-              <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
                 R
               </button>
             </div>
@@ -98,8 +98,8 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
             onMouseLeave={handleMouseLeave}
           >
             {/* Question mark circle */}
-            <div className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
-              <span className="text-xs text-white/70">?</span>
+            <div className="w-6 h-6 rounded-full bg-black/10 hover:bg-black/20 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
+              <span className="text-xs text-black/70 font-semibold">?</span>
             </div>
 
             {/* Tooltip Content */}
@@ -109,48 +109,48 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                 className="absolute top-full right-0 mt-2 w-80"
                 style={{ zIndex: 100 }}
               >
-                <div className="p-3 text-xs bg-black/80 backdrop-blur-md rounded-lg border border-white/10 text-white/90 shadow-lg">
+                <div className="p-3 text-xs bg-white/80 backdrop-blur-md rounded-lg border border-black/10 text-black/90 shadow-lg font-semibold">
                   {/* Tooltip content */}
                   <div className="space-y-4">
-                    <h3 className="font-medium whitespace-nowrap">
+                    <h3 className="font-semibold whitespace-nowrap">
                       Keyboard Shortcuts
                     </h3>
                     <div className="space-y-3">
                       {/* Toggle Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap">
+                          <span className="whitespace-nowrap font-semibold">
                             Toggle Window
                           </span>
                           <div className="flex gap-1">
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               ⌘
                             </span>
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               B
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-white/70 whitespace-nowrap truncate">
+                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
                           Show or hide this window.
                         </p>
                       </div>
                       {/* Screenshot Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap">
+                          <span className="whitespace-nowrap font-semibold">
                             Take Screenshot
                           </span>
                           <div className="flex gap-1">
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               ⌘
                             </span>
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               H
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-white/70 whitespace-nowrap truncate">
+                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
                           Capture additional parts of the question or your
                           solution for debugging help. Up to 5 extra screenshots
                           are saved.
@@ -159,17 +159,17 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                       {/* Debug Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap">Debug</span>
+                          <span className="whitespace-nowrap font-semibold">Debug</span>
                           <div className="flex gap-1">
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               ⌘
                             </span>
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               ↵
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-white/70 whitespace-nowrap truncate">
+                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
                           Generate new solutions based on all previous and newly
                           added screenshots.
                         </p>
@@ -177,17 +177,17 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                       {/* Start Over Command */}
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <span className="whitespace-nowrap">Start Over</span>
+                          <span className="whitespace-nowrap font-semibold">Start Over</span>
                           <div className="flex gap-1">
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               ⌘
                             </span>
-                            <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                            <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
                               R
                             </span>
                           </div>
                         </div>
-                        <p className="text-[10px] leading-relaxed text-white/70 whitespace-nowrap truncate">
+                        <p className="text-[10px] leading-relaxed text-black/70 whitespace-nowrap truncate font-semibold">
                           Start fresh with a new question.
                         </p>
                       </div>
@@ -200,7 +200,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
           {/* Sign Out Button */}
           <button
-            className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer"
+            className="text-red-500/70 hover:text-red-500/90 transition-colors hover:cursor-pointer font-semibold"
             title="Sign Out"
             onClick={() => window.electronAPI.quitApp()}
           >

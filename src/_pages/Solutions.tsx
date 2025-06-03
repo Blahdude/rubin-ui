@@ -28,18 +28,18 @@ export const ContentSection = ({
   content: React.ReactNode
   isLoading: boolean
 }) => (
-  <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide">
+  <div className="space-y-2 font-semibold">
+    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
       {title}
     </h2>
     {isLoading ? (
       <div className="mt-4 flex">
-        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+        <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
           Extracting problem statement...
         </p>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px]">
+      <div className="text-[13px] leading-[1.4] text-neutral-700 max-w-[600px] font-semibold">
         {content}
       </div>
     )}
@@ -54,14 +54,14 @@ const SolutionSection = ({
   content: React.ReactNode
   isLoading: boolean
 }) => (
-  <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide">
+  <div className="space-y-2 font-semibold">
+    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
       {title}
     </h2>
     {isLoading ? (
       <div className="space-y-1.5">
         <div className="mt-4 flex">
-          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+          <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
             Loading solutions...
           </p>
         </div>
@@ -97,26 +97,26 @@ export const ComplexitySection = ({
   spaceComplexity: string | null
   isLoading: boolean
 }) => (
-  <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide">
+  <div className="space-y-2 font-semibold">
+    <h2 className="text-[13px] font-semibold text-black/90 tracking-wide">
       Complexity (Updated)
     </h2>
     {isLoading ? (
-      <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+      <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
         Calculating complexity...
       </p>
     ) : (
       <div className="space-y-1">
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-neutral-700 font-semibold">
+          <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
           <div>
-            <strong>Time:</strong> {timeComplexity}
+            <strong className="font-bold">Time:</strong> {timeComplexity}
           </div>
         </div>
-        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-gray-100">
-          <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+        <div className="flex items-start gap-2 text-[13px] leading-[1.4] text-neutral-700 font-semibold">
+          <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
           <div>
-            <strong>Space:</strong> {spaceComplexity}
+            <strong className="font-bold">Space:</strong> {spaceComplexity}
           </div>
         </div>
       </div>
@@ -205,28 +205,6 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   }
 
   useEffect(() => {
-    // Height update logic
-    const updateDimensions = () => {
-      if (contentRef.current) {
-        let contentHeight = contentRef.current.scrollHeight
-        const contentWidth = contentRef.current.scrollWidth
-        if (isTooltipVisible) {
-          contentHeight += tooltipHeight
-        }
-        window.electronAPI.updateContentDimensions({
-          width: contentWidth,
-          height: contentHeight
-        })
-      }
-    }
-
-    // Initialize resize observer
-    const resizeObserver = new ResizeObserver(updateDimensions)
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current)
-    }
-    updateDimensions()
-
     // Set up event listeners
     const cleanupFunctions = [
       window.electronAPI.onScreenshotTaken(() => refetch()),
@@ -376,10 +354,9 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
     ]
 
     return () => {
-      resizeObserver.disconnect()
       cleanupFunctions.forEach((cleanup) => cleanup())
     }
-  }, [isTooltipVisible, tooltipHeight])
+  }, [queryClient, setView])
 
   useEffect(() => {
     setProblemStatementData(
@@ -453,7 +430,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
           />
         </>
       ) : (
-        <div ref={contentRef} className="relative space-y-3 px-4 py-3">
+        <div ref={contentRef} className="relative space-y-3 px-4 py-3 bg-transparent">
           <Toast
             open={toastOpen}
             onOpenChange={setToastOpen}
@@ -486,7 +463,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
           />
 
           {/* Main Content - Modified width constraints */}
-          <div className="w-full text-sm text-black bg-black/60 rounded-md">
+          <div className="w-full text-sm bg-white/60 backdrop-blur-md rounded-md text-black/90 font-semibold">
             <div className="rounded-lg overflow-hidden">
               <div className="px-4 py-3 space-y-4 max-w-full">
                 {/* Show Screenshot or Audio Result as main output if validation_type is manual */}
@@ -507,7 +484,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
                     {/* Show loading state when waiting for solution */}
                     {problemStatementData && !solutionData && (
                       <div className="mt-4 flex">
-                        <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+                        <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
                           {problemStatementData?.output_format?.subtype === "voice" 
                             ? "Processing voice input..." 
                             : "Generating solutions..."}
@@ -526,9 +503,9 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
                                   {thoughtsData.map((thought, index) => (
                                     <div
                                       key={index}
-                                      className="flex items-start gap-2"
+                                      className="flex items-start gap-2 text-neutral-700 font-semibold"
                                     >
-                                      <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                                      <div className="w-1 h-1 rounded-full bg-blue-500/80 mt-2 shrink-0" />
                                       <div>{thought}</div>
                                     </div>
                                   ))}

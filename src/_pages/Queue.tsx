@@ -89,27 +89,9 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
   }
 
   useEffect(() => {
-    const updateDimensions = () => {
-      if (contentRef.current) {
-        let contentHeight = contentRef.current.scrollHeight
-        const contentWidth = contentRef.current.scrollWidth
-        if (isTooltipVisible) {
-          contentHeight += tooltipHeight
-        }
-        window.electronAPI.updateContentDimensions({
-          width: contentWidth,
-          height: contentHeight
-        })
-      }
-    }
+    // This useEffect is for Queue.tsx internal logic and listeners.
+    // The updateContentDimensions call is handled by App.tsx's useEffect based on containerRef there.
 
-    const resizeObserver = new ResizeObserver(updateDimensions)
-    if (contentRef.current) {
-      resizeObserver.observe(contentRef.current)
-    }
-    updateDimensions()
-
-    // Listener for completed audio recordings - temporarily simplified
     const cleanupAudioListener = window.electronAPI.onAudioRecordingComplete(async (data: { path: string }) => {
       console.log("Audio recording complete (UI):", data.path);
       showToast("Recording Saved (UI)", `Audio saved to ${data.path}`, "success");
@@ -118,7 +100,6 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
         showToast("Processing", "Generating music continuation...", "neutral");
         const { generatedPath, features } = await window.electronAPI.generateMusicContinuation(data.path);
         showToast("Success", `Generated audio saved to ${generatedPath}. BPM: ${features.bpm}, Key: ${features.key}`, "success");
-        // Notify that a new generated audio is ready
         window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
       } catch (error: any) {
         console.error("Error generating music continuation (UI):", error);
@@ -149,18 +130,23 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
     ]
 
     return () => {
-      resizeObserver.disconnect()
       cleanupFunctions.forEach((cleanup) => cleanup())
     }
-  }, [isTooltipVisible, tooltipHeight, refetch, setView]) 
+  // Removed isTooltipVisible and tooltipHeight from dependencies as they don't directly relate to these listeners
+  // The App.tsx useEffect handles resizes based on its own containerRef which Queue.tsx content affects.
+  }, [refetch, setView]) 
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
     setTooltipHeight(height)
+    // App.tsx MutationObserver/ResizeObserver will handle any DOM changes that affect overall size.
   }
 
   return (
-    <div ref={contentRef} className={`bg-transparent w-1/2`}>
+    // MODIFIED: Removed w-1/2. Class is now just bg-transparent.
+    // The inner div with w-fit will determine content width.
+    // App.tsx's containerRef will observe this and resize the window.
+    <div ref={contentRef} className={`bg-transparent`}> 
       <div className="px-4 py-3">
         <Toast
           open={toastOpen}
@@ -172,7 +158,7 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
           <ToastDescription>{toastMessage.description}</ToastDescription>
         </Toast>
 
-        <div className="space-y-3 w-fit">
+        <div className="space-y-3 w-fit"> 
           <ScreenshotQueue
             isLoading={false}
             screenshots={screenshots}
