@@ -81,6 +81,12 @@ class AppState {
     getExtraScreenshotQueue() {
         return this.screenshotHelper.getExtraScreenshotQueue();
     }
+    // ADDED: Method to get all screenshots (paths) for the shortcut handler check
+    getScreenshots() {
+        const mainPaths = this.screenshotHelper.getScreenshotQueue().map(p => ({ path: p }));
+        const extraPaths = this.screenshotHelper.getExtraScreenshotQueue().map(p => ({ path: p }));
+        return [...mainPaths, ...extraPaths];
+    }
     // Window management methods
     createWindow() {
         this.windowHelper.createWindow();

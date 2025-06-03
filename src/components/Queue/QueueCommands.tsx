@@ -173,7 +173,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   }
 
   return (
-    <div className="pt-2 w-full font-semibold">
+    <div className="w-full font-semibold">
       <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
         {/* Show/Hide */}
         <div className="flex items-center gap-2">
@@ -188,35 +188,18 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
-        {/* Screenshot */}
+        {/* Solve Command - Now always visible */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] leading-none truncate font-semibold">
-            {screenshots.length === 0 ? "Take first screenshot" : "Screenshot"}
-          </span>
+          <span className="text-[11px] leading-none font-semibold">Solve</span>
           <div className="flex gap-1">
             <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
               ⌘
             </button>
             <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-              H
+              ↵
             </button>
           </div>
         </div>
-
-        {/* Solve Command */}
-        {screenshots.length > 0 && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] leading-none font-semibold">Solve</span>
-            <div className="flex gap-1">
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                ⌘
-              </button>
-              <button className="bg-black/10 hover:bg-black/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-black/70 font-semibold">
-                ↵
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Record Audio (2s) - Global Shortcut */}
         <div className="flex items-center gap-2">
@@ -258,7 +241,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             <span className="text-xs text-black/70 font-semibold">?</span>
           </div>
 
-          {/* Tooltip Content */}
+          {/* Tooltip Content - Screenshot shortcut description remains removed */}
           {isTooltipVisible && (
             <div
               ref={tooltipRef}
@@ -285,25 +268,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         Show or hide this window.
                       </p>
                     </div>
-                    {/* Screenshot Command */}
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate font-semibold">Take Screenshot</span>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                            ⌘
-                          </span>
-                          <span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">
-                            H
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">
-                        Take a screenshot of the problem description. The tool
-                        will extract and analyze the problem. The 5 latest
-                        screenshots are saved.
-                      </p>
-                    </div>
 
                     {/* Solve Command */}
                     <div className="space-y-1">
@@ -319,8 +283,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                         </div>
                       </div>
                       <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">
-                        Generate a solution based on the current problem.
+                        Generate a solution based on the current problem. (Now auto-takes screenshot)
                       </p>
+                    </div>
+                     {/* Record Audio (2s) Global Shortcut */}
+                     <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate font-semibold">Record Audio (2s)</span>
+                        <div className="flex gap-1 flex-shrink-0"><span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">⌘</span><span className="bg-black/10 px-1.5 py-0.5 rounded text-[10px] leading-none text-black/70 font-semibold">;</span></div>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-black/70 truncate font-semibold">Record 2s of audio using VAD for music generation.</p>
                     </div>
                   </div>
                 </div>

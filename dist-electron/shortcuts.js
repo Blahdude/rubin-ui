@@ -9,7 +9,12 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const wav_1 = require("wav"); // Import WavWriter
 const child_process_1 = require("child_process"); // For running SoX
-const NodeRecordLpcm16 = require("node-record-lpcm16"); // Use require for CommonJS
+const node_record_lpcm16_1 = __importDefault(require("node-record-lpcm16")); // Use require for CommonJS
+// VAD Constants (assuming they were defined here or should be)
+const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound (default, adjust as needed)
+const VAD_SILENCE_TIMEOUT_MS = 2000; // Time of silence before stopping (default, adjust as needed)
+const VAD_WAIT_TIMEOUT_MS = 3000; // Max time to wait for sound
+const RECORDING_DURATION_MS = 2000; // Max recording time after sound starts
 // Helper function to calculate RMS of an audio chunk (16-bit PCM)
 function calculateRMS(pcmData) {
     if (pcmData.length === 0)
@@ -22,13 +27,6 @@ function calculateRMS(pcmData) {
     }
     return Math.sqrt(sumSquares / (pcmData.length / 2));
 }
-const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound
-const VAD_WAIT_TIMEOUT_MS = 3000; // Max time to wait for sound (changed from 15000)
-const RECORDING_DURATION_MS = 2000; // Max recording time after sound starts (changed from 10000)
-// Reverted: Removed constants for auto-cropping
-// const SILENCE_RMS_THRESHOLD = 50; 
-// const AUTO_CROP_SILENCE_DURATION_MS = 2000; 
-// const MIN_SILENT_CHUNKS_FOR_AUTO_STOP = Math.ceil(AUTO_CROP_SILENCE_DURATION_MS / 50);
 const TEMP_LOG_RMS_MODE = false; // SET TO false FOR NORMAL VAD OPERATION
 const INITIAL_CHUNKS_TO_SKIP = 3; // Skip the first few chunks to avoid initial spike
 // SoX command parameters for trimming trailing silence
@@ -43,24 +41,72 @@ class ShortcutsHelper {
     }
     registerGlobalShortcuts() {
         electron_1.globalShortcut.register("CommandOrControl+H", async () => {
-            const mainWindow = this.appState.getMainWindow();
+            // This shortcut is now effectively OBSOLETE as Solve will auto-screenshot
+            // We can leave it for debugging or remove it later if desired.
+            // For now, let's comment out its direct action to avoid confusion.
+            console.log("CommandOrControl+H pressed, but its primary function is now part of 'Solve'.");
+            /*
+            const mainWindow = this.appState.getMainWindow()
             if (mainWindow) {
-                console.log("Taking screenshot...");
-                try {
-                    const screenshotPath = await this.appState.takeScreenshot();
-                    const preview = await this.appState.getImagePreview(screenshotPath);
-                    mainWindow.webContents.send("screenshot-taken", {
-                        path: screenshotPath,
-                        preview
-                    });
-                }
-                catch (error) {
-                    console.error("Error capturing screenshot:", error);
-                }
+              console.log("Taking screenshot (Manual ⌘H)...")
+              try {
+                const screenshotPath = await this.appState.takeScreenshot()
+                const preview = await this.appState.getImagePreview(screenshotPath)
+                mainWindow.webContents.send("screenshot-taken", {
+                  path: screenshotPath,
+                  preview
+                })
+              } catch (error) {
+                console.error("Error capturing screenshot (Manual ⌘H):", error)
+              }
             }
+            */
         });
         electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
-            await this.appState.processingHelper.processScreenshots();
+            console.log("'Solve' (CommandOrControl+Enter) triggered.");
+            const mainWindow = this.appState.getMainWindow();
+            let screenshotTakenSuccessfully = false;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                console.log("Automatically taking screenshot for 'Solve' command...");
+                try {
+                    const screenshotPath = await this.appState.takeScreenshot();
+                    if (screenshotPath) {
+                        const preview = await this.appState.getImagePreview(screenshotPath);
+                        mainWindow.webContents.send("screenshot-taken", {
+                            path: screenshotPath,
+                            preview
+                        });
+                        console.log(`Autoscreenshot for 'Solve' successful: ${screenshotPath}`);
+                        screenshotTakenSuccessfully = true;
+                    }
+                    else {
+                        console.error("Autoscreenshot for 'Solve' failed: takeScreenshot returned no path.");
+                    }
+                }
+                catch (error) {
+                    console.error("Error auto-capturing screenshot for 'Solve':", error);
+                    // Optionally, notify the user of screenshot failure if desired
+                    // mainWindow.webContents.send("solve-error", { message: "Failed to take screenshot for solving." });
+                    // return; // Potentially stop if screenshot is critical
+                }
+            }
+            else {
+                console.warn("Main window not available for 'Solve' command's auto-screenshot.");
+                // Decide if to proceed without a screenshot or stop
+                // For now, let's assume proceeding might be possible if there are old screenshots
+            }
+            // Proceed to process screenshots, which should now include the one just taken (if successful)
+            // or rely on existing screenshots if the auto-screenshot failed but some are present.
+            if (this.appState.getScreenshots().length > 0 || screenshotTakenSuccessfully) {
+                console.log("Proceeding to processScreenshots for 'Solve' command.");
+                await this.appState.processingHelper.processScreenshots();
+            }
+            else {
+                console.warn("'Solve' command: No screenshots available (auto-capture failed and none existing). Nothing to process.");
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send("processing-no-screenshots"); // Notify renderer
+                }
+            }
         });
         electron_1.globalShortcut.register("CommandOrControl+R", () => {
             console.log("Command + R pressed. Canceling requests and resetting queues...");
@@ -273,16 +319,14 @@ class ShortcutsHelper {
                 hasStartedSaving: false,
                 audioPath: audioPath,
                 chunksProcessedCounter: 0,
-                // Reverted: Removed consecutiveSilentChunks initialization
             };
             const session = this.vadState[sessionId];
-            session.recordingInstance = NodeRecordLpcm16.record({
+            session.recordingInstance = node_record_lpcm16_1.default.record({
                 sampleRate: 16000,
                 channels: 1,
                 bitDepth: 16, // Ensure this matches WavWriter options
                 recorder: "sox",
                 device: "BlackHole 2ch",
-                // Removed VAD-specific sox options as we handle VAD manually
             });
             session.recordingInstance.stream()
                 .on('data', (chunk) => {
@@ -328,7 +372,6 @@ class ShortcutsHelper {
                 }
                 else if (session.hasStartedSaving && session.wavWriterInstance) {
                     session.wavWriterInstance.write(chunk);
-                    // Reverted: Removed auto-cropping logic here
                 }
             })
                 .on('error', (err) => {
