@@ -333,7 +333,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             {globalRecordings.map((rec) => (
               <div 
                 key={rec.id} 
-                className="flex flex-col p-3 bg-neutral-800/80 rounded-lg shadow hover:bg-neutral-700/80 transition-colors duration-150 ease-in-out border border-neutral-700/50"
+                className="flex flex-col p-3 bg-neutral-800/80 rounded-lg shadow hover:bg-neutral-700/80 transition-colors duration-150 ease-in-out border border-neutral-700/50 cursor-grab"
+                draggable="true"
+                onDragStart={(event) => {
+                  event.preventDefault(); // Important to allow Electron to take over
+                  console.log(`[Dragger] Dragging: ${rec.path}`);
+                  window.electronAPI.startFileDrag(rec.path);
+                }}
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center text-[10px] text-neutral-400">

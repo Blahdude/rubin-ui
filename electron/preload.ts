@@ -38,6 +38,7 @@ interface ElectronAPI {
   onVadWaiting: (callback: () => void) => () => void
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
+  startFileDrag: (filePath: string) => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -210,5 +211,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   analyzeAudioFromBase64: (data: string, mimeType: string) => ipcRenderer.invoke("analyze-audio-base64", data, mimeType),
   analyzeAudioFile: (path: string) => ipcRenderer.invoke("analyze-audio-file", path),
   analyzeImageFile: (path: string) => ipcRenderer.invoke("analyze-image-file", path),
-  quitApp: () => ipcRenderer.invoke("quit-app")
+  quitApp: () => ipcRenderer.invoke("quit-app"),
+  startFileDrag: (filePath: string) => {
+    ipcRenderer.send('ondragstart-file', filePath);
+  }
 } as ElectronAPI)

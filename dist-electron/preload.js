@@ -146,6 +146,9 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     analyzeAudioFromBase64: (data, mimeType) => electron_1.ipcRenderer.invoke("analyze-audio-base64", data, mimeType),
     analyzeAudioFile: (path) => electron_1.ipcRenderer.invoke("analyze-audio-file", path),
     analyzeImageFile: (path) => electron_1.ipcRenderer.invoke("analyze-image-file", path),
-    quitApp: () => electron_1.ipcRenderer.invoke("quit-app")
+    quitApp: () => electron_1.ipcRenderer.invoke("quit-app"),
+    startFileDrag: (filePath) => {
+        electron_1.ipcRenderer.send('ondragstart-file', filePath);
+    }
 });
 //# sourceMappingURL=preload.js.map

@@ -40,6 +40,7 @@ interface ElectronAPI {
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   analyzeImageFile: (path: string) => Promise<void>
   quitApp: () => Promise<void>
+  startFileDrag: (filePath: string) => void
 }
 
 // Extend the global Window interface

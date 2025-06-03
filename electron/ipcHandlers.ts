@@ -2,6 +2,8 @@
 
 import { ipcMain, app } from "electron"
 import { AppState } from "./main"
+import path from "path"; // Import path for icon handling if needed later
+import fs from "fs";
 
 export function initializeIpcHandlers(appState: AppState): void {
   ipcMain.handle(
@@ -106,4 +108,26 @@ export function initializeIpcHandlers(appState: AppState): void {
   ipcMain.handle("quit-app", () => {
     app.quit()
   })
+
+  // Handler for starting a file drag operation
+  ipcMain.on('ondragstart-file', async (event, filePath: string) => {
+    console.log(`[IPC Main] Received ondragstart-file for: ${filePath}`);
+    if (!filePath || !fs.existsSync(filePath)) {
+      console.error(`[IPC Main] Drag failed: File path "${filePath}" is invalid or file does not exist.`);
+      return;
+    }
+    try {
+      const icon = await app.getFileIcon(filePath);
+      event.sender.startDrag({
+        file: filePath,
+        icon: icon
+      });
+    } catch (error) {
+      console.error(`[IPC Main] Failed to start drag for ${filePath}:`, error);
+      // Optionally, you could try to drag without a custom icon as a fallback,
+      // but given the previous errors, it might be better to just log and not drag.
+      // For example, to try with the potentially problematic empty string icon path:
+      // event.sender.startDrag({ file: filePath, icon: '' });
+    }
+  });
 }

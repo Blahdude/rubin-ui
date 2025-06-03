@@ -1,8 +1,12 @@
 "use strict";
 // ipcHandlers.ts
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initializeIpcHandlers = initializeIpcHandlers;
 const electron_1 = require("electron");
+const fs_1 = __importDefault(require("fs"));
 function initializeIpcHandlers(appState) {
     electron_1.ipcMain.handle("update-content-dimensions", async (event, { width, height }) => {
         if (width && height) {
@@ -96,6 +100,28 @@ function initializeIpcHandlers(appState) {
     });
     electron_1.ipcMain.handle("quit-app", () => {
         electron_1.app.quit();
+    });
+    // Handler for starting a file drag operation
+    electron_1.ipcMain.on('ondragstart-file', async (event, filePath) => {
+        console.log(`[IPC Main] Received ondragstart-file for: ${filePath}`);
+        if (!filePath || !fs_1.default.existsSync(filePath)) {
+            console.error(`[IPC Main] Drag failed: File path "${filePath}" is invalid or file does not exist.`);
+            return;
+        }
+        try {
+            const icon = await electron_1.app.getFileIcon(filePath);
+            event.sender.startDrag({
+                file: filePath,
+                icon: icon
+            });
+        }
+        catch (error) {
+            console.error(`[IPC Main] Failed to start drag for ${filePath}:`, error);
+            // Optionally, you could try to drag without a custom icon as a fallback,
+            // but given the previous errors, it might be better to just log and not drag.
+            // For example, to try with the potentially problematic empty string icon path:
+            // event.sender.startDrag({ file: filePath, icon: '' });
+        }
     });
 }
 //# sourceMappingURL=ipcHandlers.js.map
