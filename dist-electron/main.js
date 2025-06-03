@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppState = void 0;
 const electron_1 = require("electron");
@@ -7,6 +10,7 @@ const WindowHelper_1 = require("./WindowHelper");
 const ScreenshotHelper_1 = require("./ScreenshotHelper");
 const shortcuts_1 = require("./shortcuts");
 const ProcessingHelper_1 = require("./ProcessingHelper");
+const node_fs_1 = __importDefault(require("node:fs"));
 class AppState {
     static instance = null;
     windowHelper;
@@ -142,8 +146,39 @@ async function initializeApp() {
     (0, ipcHandlers_1.initializeIpcHandlers)(appState);
     electron_1.app.whenReady().then(() => {
         console.log("App is ready");
+        // Register custom protocol for local audio files
+        electron_1.protocol.registerFileProtocol("clp", (request, callback) => {
+            // The URL will be like clp:///absolute/path/to/your/audio.wav
+            // We need to strip `clp://` and handle potential leading slashes if on Windows
+            let requestedPath = request.url.slice("clp://".length);
+            // Decode URI components (e.g., %20 for spaces)
+            requestedPath = decodeURIComponent(requestedPath);
+            // IMPORTANT: Add security checks here if necessary!
+            // For example, ensure the path is within an allowed directory.
+            // For now, we assume the path sent from the renderer is already vetted or safe.
+            // A basic check could be to ensure it's an absolute path and within the app's data or recordings dir.
+            // Example (very basic, adjust as needed):
+            // const allowedDir = path.join(app.getAppPath(), "local_recordings");
+            // if (!path.isAbsolute(requestedPath) || !requestedPath.startsWith(allowedDir)) {
+            //   console.error("Attempt to access unauthorized path with clp protocol:", requestedPath);
+            //   return callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+            // }
+            try {
+                // Check if file exists before attempting to serve
+                if (node_fs_1.default.existsSync(requestedPath)) {
+                    callback({ path: requestedPath });
+                }
+                else {
+                    console.error(`File not found for clp protocol: ${requestedPath}`);
+                    callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+                }
+            }
+            catch (error) {
+                console.error(`Error handling clp protocol request for ${requestedPath}:`, error);
+                callback({ error: -2 }); // net::ERR_FAILED
+            }
+        });
         appState.createWindow();
-        // Register global shortcuts using ShortcutsHelper
         appState.shortcutsHelper.registerGlobalShortcuts();
         appState.shortcutsHelper.registerAudioShortcut();
     });

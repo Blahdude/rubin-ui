@@ -6,6 +6,12 @@ interface QueueCommandsProps {
   screenshots: Array<{ path: string; preview: string }>
 }
 
+interface GlobalRecording {
+  id: string;
+  path: string;
+  timestamp: Date;
+}
+
 const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   screenshots
@@ -18,7 +24,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const chunks = useRef<Blob[]>([])
 
   // State for the new global audio recording shortcut
-  const [lastGlobalRecordingPath, setLastGlobalRecordingPath] = useState<string | null>(null)
+  const [globalRecordings, setGlobalRecordings] = useState<GlobalRecording[]>([])
   const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -34,7 +40,12 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     const unsubscribeComplete = window.electronAPI.onAudioRecordingComplete(
       (data: { path: string }) => {
         console.log("Global audio recording complete:", data.path)
-        setLastGlobalRecordingPath(data.path)
+        const newRecording: GlobalRecording = {
+          id: `global-rec-${Date.now()}`,
+          path: data.path,
+          timestamp: new Date()
+        };
+        setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]); // Add to beginning of list
         setGlobalRecordingError(null)
       }
     )
@@ -43,7 +54,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       (data: { message: string }) => {
         console.error("Global audio recording error:", data.message)
         setGlobalRecordingError(data.message)
-        setLastGlobalRecordingPath(null)
+        // Optionally clear recordings on error, or leave them: setGlobalRecordings([]) 
       }
     )
 
@@ -273,21 +284,25 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         </div>
       )}
       {/* Global Shortcut Audio Recording Status Display */}
-      {lastGlobalRecordingPath && (
-        <div className="mt-2 p-2 bg-green-500/20 rounded text-white text-xs max-w-md">
-          <span className="font-semibold">Audio clip saved:</span>{" "}
-          <a
-            href={`file://${lastGlobalRecordingPath}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-green-300"
-          >
-            {lastGlobalRecordingPath}
-          </a>
+      {globalRecordings.length > 0 && (
+         <div className="mt-4 p-3 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs max-w-md space-y-3 shadow-lg border border-white/10">
+          <h4 className="font-semibold text-[11px] text-white/80 border-b border-white/20 pb-1 mb-2">Recorded Audio Clips (⌘;)</h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+            {globalRecordings.map((rec) => (
+              <div key={rec.id} className="p-2 bg-white/5 hover:bg-white/10 transition-colors rounded">
+                <p className="truncate text-[10px] text-white/70 mb-1">
+                  {rec.timestamp.toLocaleTimeString()} - {rec.path.split(/[\\/]/).pop()}
+                </p>
+                <audio controls src={`clp://${rec.path}`} className="w-full h-7">
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            ))}
+          </div>
         </div>
       )}
       {globalRecordingError && (
-        <div className="mt-2 p-2 bg-red-500/20 rounded text-white text-xs max-w-md">
+        <div className="mt-2 p-2 bg-red-500/30 rounded text-white text-xs max-w-md border border-red-500/50">
           <span className="font-semibold">Audio Recording Error:</span> {globalRecordingError}
         </div>
       )}

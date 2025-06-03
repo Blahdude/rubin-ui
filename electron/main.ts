@@ -1,9 +1,11 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, protocol } from "electron"
 import { initializeIpcHandlers } from "./ipcHandlers"
 import { WindowHelper } from "./WindowHelper"
 import { ScreenshotHelper } from "./ScreenshotHelper"
 import { ShortcutsHelper } from "./shortcuts"
 import { ProcessingHelper } from "./ProcessingHelper"
+import path from "node:path"
+import fs from "node:fs"
 
 export class AppState {
   private static instance: AppState | null = null
@@ -195,8 +197,42 @@ async function initializeApp() {
 
   app.whenReady().then(() => {
     console.log("App is ready")
+
+    // Register custom protocol for local audio files
+    protocol.registerFileProtocol("clp", (request, callback) => {
+      // The URL will be like clp:///absolute/path/to/your/audio.wav
+      // We need to strip `clp://` and handle potential leading slashes if on Windows
+      let requestedPath = request.url.slice("clp://".length)
+      
+      // Decode URI components (e.g., %20 for spaces)
+      requestedPath = decodeURIComponent(requestedPath)
+
+      // IMPORTANT: Add security checks here if necessary!
+      // For example, ensure the path is within an allowed directory.
+      // For now, we assume the path sent from the renderer is already vetted or safe.
+      // A basic check could be to ensure it's an absolute path and within the app's data or recordings dir.
+      // Example (very basic, adjust as needed):
+      // const allowedDir = path.join(app.getAppPath(), "local_recordings");
+      // if (!path.isAbsolute(requestedPath) || !requestedPath.startsWith(allowedDir)) {
+      //   console.error("Attempt to access unauthorized path with clp protocol:", requestedPath);
+      //   return callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+      // }
+
+      try {
+        // Check if file exists before attempting to serve
+        if (fs.existsSync(requestedPath)) {
+          callback({ path: requestedPath })
+        } else {
+          console.error(`File not found for clp protocol: ${requestedPath}`);
+          callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
+        }
+      } catch (error) {
+        console.error(`Error handling clp protocol request for ${requestedPath}:`, error);
+        callback({ error: -2 }); // net::ERR_FAILED
+      }
+    })
+
     appState.createWindow()
-    // Register global shortcuts using ShortcutsHelper
     appState.shortcutsHelper.registerGlobalShortcuts()
     appState.shortcutsHelper.registerAudioShortcut()
   })
