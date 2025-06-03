@@ -113,6 +113,27 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
             electron_1.ipcRenderer.removeListener("audio-recording-error", subscription);
         };
     },
+    onVadWaiting: (callback) => {
+        const subscription = () => callback();
+        electron_1.ipcRenderer.on("vad-waiting", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("vad-waiting", subscription);
+        };
+    },
+    onVadRecordingStarted: (callback) => {
+        const subscription = () => callback();
+        electron_1.ipcRenderer.on("vad-recording-started", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("vad-recording-started", subscription);
+        };
+    },
+    onVadTimeout: (callback) => {
+        const subscription = () => callback();
+        electron_1.ipcRenderer.on("vad-timeout", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("vad-timeout", subscription);
+        };
+    },
     onUnauthorized: (callback) => {
         const subscription = () => callback();
         electron_1.ipcRenderer.on(exports.PROCESSING_EVENTS.UNAUTHORIZED, subscription);

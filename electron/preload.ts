@@ -35,6 +35,9 @@ interface ElectronAPI {
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   analyzeImageFile: (path: string) => Promise<void>
   quitApp: () => Promise<void>
+  onVadWaiting: (callback: () => void) => () => void
+  onVadRecordingStarted: (callback: () => void) => () => void
+  onVadTimeout: (callback: () => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -172,6 +175,27 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("audio-recording-error", subscription)
     return () => {
       ipcRenderer.removeListener("audio-recording-error", subscription)
+    }
+  },
+  onVadWaiting: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("vad-waiting", subscription)
+    return () => {
+      ipcRenderer.removeListener("vad-waiting", subscription)
+    }
+  },
+  onVadRecordingStarted: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("vad-recording-started", subscription)
+    return () => {
+      ipcRenderer.removeListener("vad-recording-started", subscription)
+    }
+  },
+  onVadTimeout: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("vad-timeout", subscription)
+    return () => {
+      ipcRenderer.removeListener("vad-timeout", subscription)
     }
   },
   onUnauthorized: (callback: () => void) => {

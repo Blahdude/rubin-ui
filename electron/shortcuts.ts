@@ -2,10 +2,53 @@ import { globalShortcut, app } from "electron"
 import { AppState } from "./main" // Adjust the import path if necessary
 import fs from "fs"
 import path from "path"
+import { Writer as WavWriter } from "wav"; // Import WavWriter
+import { exec } from "child_process"; // For running SoX
 const NodeRecordLpcm16 = require("node-record-lpcm16") // Use require for CommonJS
+
+// Helper function to calculate RMS of an audio chunk (16-bit PCM)
+function calculateRMS(pcmData: Buffer): number {
+  if (pcmData.length === 0) return 0;
+  let sumSquares = 0;
+  for (let i = 0; i < pcmData.length; i += 2) {
+    // Assuming 16-bit Little Endian PCM
+    const sample = pcmData.readInt16LE(i);
+    sumSquares += (sample * sample);
+  }
+  return Math.sqrt(sumSquares / (pcmData.length / 2));
+}
+
+const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound
+const VAD_WAIT_TIMEOUT_MS = 15000;
+const RECORDING_DURATION_MS = 10000;
+
+// Reverted: Removed constants for auto-cropping
+// const SILENCE_RMS_THRESHOLD = 50; 
+// const AUTO_CROP_SILENCE_DURATION_MS = 2000; 
+// const MIN_SILENT_CHUNKS_FOR_AUTO_STOP = Math.ceil(AUTO_CROP_SILENCE_DURATION_MS / 50);
+
+const TEMP_LOG_RMS_MODE = false; // SET TO false FOR NORMAL VAD OPERATION
+
+const INITIAL_CHUNKS_TO_SKIP = 3; // Skip the first few chunks to avoid initial spike
+
+// SoX command parameters for trimming trailing silence
+const SOX_SILENCE_THRESHOLD = "0.5%" // Percentage of max volume to be considered silence
+const SOX_SILENCE_DURATION = "0.5"   // Duration in seconds of silence to trigger trim
 
 export class ShortcutsHelper {
   private appState: AppState
+  // To manage VAD state for potentially multiple concurrent attempts (though unlikely with global shortcut)
+  private vadState: { [key: string]: { 
+      isDetecting: boolean;
+      hasStartedSaving: boolean;
+      recordingInstance?: any; // To store the NodeRecordLpcm16 instance
+      fileStream?: fs.WriteStream;
+      wavWriterInstance?: WavWriter; // Added WavWriter instance
+      stopTimeoutId?: NodeJS.Timeout; // Main 10s timer
+      vadWaitTimeoutId?: NodeJS.Timeout; // VAD initial wait timer
+      audioPath?: string;
+      chunksProcessedCounter: number; // New: to count chunks for skipping initial ones
+    }} = {};
 
   constructor(appState: AppState) {
     this.appState = appState
@@ -96,56 +139,250 @@ export class ShortcutsHelper {
     // Unregister shortcuts when quitting
     app.on("will-quit", () => {
       globalShortcut.unregisterAll()
+      // Clean up any ongoing recordings on quit
+      Object.keys(this.vadState).forEach(key => {
+        this.cleanupVadSession(key, false); // Don't send completion message
+      });
     })
+  }
+
+  private async trimAudioWithSox(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const originalPath = filePath;
+      const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
+      // SoX command: sox original.wav trimmed.wav silence 1 0.1 1% reverse silence 1 0.1 1% reverse
+      // The parameters are: 1 period of silence, duration (SOX_SILENCE_DURATION), threshold (SOX_SILENCE_THRESHOLD)
+      const soxCommand = `sox "${originalPath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
+
+      console.log(`[SoX Trimming] Executing: ${soxCommand}`);
+      exec(soxCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`[SoX Trimming] Error during SoX execution for ${originalPath}:`, error);
+          console.error(`[SoX Trimming] SoX stderr: ${stderr}`);
+          // If SoX fails, we still have the original file.
+          // Depending on the error, SoX might create an empty/corrupt trimmed file, ensure it's removed.
+          if (fs.existsSync(trimmedPath)) {
+            try { fs.unlinkSync(trimmedPath); } catch (e) { /* ignore */ }
+          }
+          reject(error); // Reject with error, original path will be used as fallback
+          return;
+        }
+        console.log(`[SoX Trimming] Successfully trimmed ${originalPath} to ${trimmedPath}. SoX stdout: ${stdout}`);
+        // Replace original with trimmed version
+        try {
+          fs.unlinkSync(originalPath);
+          fs.renameSync(trimmedPath, originalPath);
+          console.log(`[SoX Trimming] Replaced ${originalPath} with trimmed version.`);
+          resolve(originalPath); // Resolve with the original path, now pointing to the trimmed audio
+        } catch (fileError) {
+          console.error(`[SoX Trimming] Error replacing original file with trimmed version for ${originalPath}:`, fileError);
+          // If replacing fails, try to resolve with trimmedPath if it exists, otherwise original
+          if(fs.existsSync(trimmedPath)) resolve(trimmedPath); else resolve(originalPath);
+        }
+      });
+    });
+  }
+
+  private cleanupVadSession(sessionId: string, sendCompleteMessage: boolean = true) {
+    const session = this.vadState[sessionId];
+    if (!session) return;
+
+    console.log(`[VAD Cleanup] Starting cleanup for session ${sessionId}`);
+
+    if (session.vadWaitTimeoutId) clearTimeout(session.vadWaitTimeoutId);
+    if (session.stopTimeoutId) clearTimeout(session.stopTimeoutId);
+
+    if (session.recordingInstance) {
+      console.log(`[VAD Cleanup] Stopping recordingInstance for session ${sessionId}`);
+      session.recordingInstance.stop();
+      // Attempt to remove listeners to prevent further data processing
+      if (session.recordingInstance.stream && typeof session.recordingInstance.stream === 'function') {
+        session.recordingInstance.stream().removeAllListeners('data');
+        session.recordingInstance.stream().removeAllListeners('error');
+        console.log(`[VAD Cleanup] Removed data/error listeners from recordingInstance stream for session ${sessionId}`);
+      }
+    }
+
+    // End WavWriter if it exists
+    if (session.wavWriterInstance) {
+      console.log(`[VAD Cleanup] Ending wavWriterInstance for session ${sessionId}`);
+      session.wavWriterInstance.end(); // This will in turn end the fileStream it's piped to
+    } else if (session.fileStream && !session.hasStartedSaving) {
+      // If VAD timed out before recording started, but filestream was somehow created (shouldn't happen with current logic)
+      console.log(`[VAD Cleanup] Ending fileStream (no WavWriter) for session ${sessionId} as recording didn't start.`);
+      session.fileStream.end();
+    } else if (session.fileStream) {
+       console.log(`[VAD Cleanup] fileStream exists but no WavWriter, session started saving: ${session.hasStartedSaving}. This is unusual.`);
+       session.fileStream.end(); // Ensure it's closed
+    }
+    
+    if (session.fileStream) {
+        console.log(`[VAD Cleanup] Setting up fileStream finish/error handlers for session ${sessionId}`);
+        session.fileStream.once('finish', async () => {
+            console.log(`[VAD Cleanup] fileStream finished for session ${sessionId}`);
+            if (sendCompleteMessage && session.audioPath && session.hasStartedSaving) {
+                let finalAudioPath = session.audioPath;
+                try {
+                    console.log(`[VAD Cleanup] Attempting to trim audio for ${session.audioPath}`);
+                    finalAudioPath = await this.trimAudioWithSox(session.audioPath);
+                    console.log(`[VAD Cleanup] Audio trimming successful. Final path: ${finalAudioPath}`);
+                } catch (trimError) {
+                    console.warn(`[VAD Cleanup] Audio trimming failed for ${session.audioPath}. Using original. Error:`, trimError.message);
+                    // finalAudioPath remains session.audioPath (the original untrimmed file)
+                }
+
+                console.log(`Audio saved (final path after potential trim): ${finalAudioPath}`);
+                const mainWindow = this.appState.getMainWindow();
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send("audio-recording-complete", { path: finalAudioPath });
+                }
+            } else if (!session.hasStartedSaving) {
+                if(session.audioPath && fs.existsSync(session.audioPath)) {
+                    try { 
+                        fs.unlinkSync(session.audioPath); 
+                        console.log(`[VAD Cleanup] Cleaned up unused audio file (no save): ${session.audioPath}`);
+                    } catch(e) { 
+                        console.error("[VAD Cleanup] Error deleting unused audio file:", e, session.audioPath);
+                    }
+                }
+            }
+        });
+         session.fileStream.once('error', (err) => {
+            console.error(`[VAD Cleanup] Error with file stream during cleanup for session ${sessionId}:`, err);
+        });
+    } else if (!session.hasStartedSaving && session.audioPath && fs.existsSync(session.audioPath)) {
+        // Case where VAD timed out, no filestream was ever created (correct), but the empty file might exist.
+        // This is because audioPath is determined before recordingInstance starts.
+        console.log(`[VAD Cleanup] VAD timed out for ${sessionId}, no fileStream created. Checking for orphaned empty file: ${session.audioPath}`);
+        try { 
+            fs.unlinkSync(session.audioPath); 
+            console.log(`[VAD Cleanup] Cleaned up orphaned empty audio file (VAD timeout): ${session.audioPath}`);
+        } catch(e) { 
+            // Ignore if file doesn't exist or other minor error, as it's just cleanup
+            console.warn("[VAD Cleanup] Minor error or file not found while trying to delete orphaned empty audio file:", e, session.audioPath);
+        }
+    }
+
+    console.log(`[VAD Cleanup] Deleting VAD state for session ${sessionId}`);
+    delete this.vadState[sessionId];
   }
 
   public registerAudioShortcut(): void {
     globalShortcut.register("Command+;", () => {
-      console.log("Command+; pressed. Starting audio recording...")
-
-      // const { record } = await import("node-record-lpcm16-ts") // Removed dynamic import
-
-      // Changed audio directory to be local to the project root
-      const audioDir = path.join(app.getAppPath(), "local_recordings")
-
-      if (!fs.existsSync(audioDir)) {
-        fs.mkdirSync(audioDir, { recursive: true })
+      const activeSessionId = Object.keys(this.vadState)[0];
+      if (activeSessionId) {
+        console.log(`Command+; pressed again. Stopping active session: ${activeSessionId}`);
+        this.cleanupVadSession(activeSessionId, true); 
+        return;
       }
 
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-      const audioPath = path.join(audioDir, `recording-${timestamp}.wav`)
-      const file = fs.createWriteStream(audioPath, { encoding: "binary" })
+      const sessionId = `vad-session-${Date.now()}`;
+      
+      console.log(`Command+; pressed. Starting new session ${sessionId}. VAD_RMS_THRESHOLD = ${VAD_RMS_THRESHOLD}`);
+      const mainWindow = this.appState.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vad-waiting");
+      }
 
-      const recording = NodeRecordLpcm16.record({
+      const audioDir = path.join(app.getAppPath(), "local_recordings");
+      if (!fs.existsSync(audioDir)) {
+        fs.mkdirSync(audioDir, { recursive: true });
+      }
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const audioPath = path.join(audioDir, `recording-${timestamp}.wav`);
+
+      this.vadState[sessionId] = {
+        isDetecting: true, 
+        hasStartedSaving: false,
+        audioPath: audioPath,
+        chunksProcessedCounter: 0,
+        // Reverted: Removed consecutiveSilentChunks initialization
+      };
+      const session = this.vadState[sessionId];
+
+      session.recordingInstance = NodeRecordLpcm16.record({
         sampleRate: 16000,
         channels: 1,
-        recorder: "sox",
-        device: "BlackHole 2ch"
-      })
+        bitDepth: 16, // Ensure this matches WavWriter options
+        recorder: "sox", 
+        device: "BlackHole 2ch",
+        // Removed VAD-specific sox options as we handle VAD manually
+      });
 
-      recording.stream().pipe(file)
+      session.recordingInstance.stream()
+        .on('data', (chunk: Buffer) => {
+          if (!this.vadState[sessionId]) {
+            console.log(`[Data Handler] Session ${sessionId} no longer exists. Ignoring chunk.`);
+            return;
+          }
 
-      console.log(`Recording started. Saving to: ${audioPath}`)
+          session.chunksProcessedCounter++;
 
-      setTimeout(() => {
-        recording.stop()
-        console.log("Recording stopped.")
-        file.end(() => {
-          console.log(`Audio saved: ${audioPath}`)
-          const mainWindow = this.appState.getMainWindow()
-          if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send("audio-recording-complete", { path: audioPath })
+          if (session.chunksProcessedCounter <= INITIAL_CHUNKS_TO_SKIP && session.isDetecting) {
+            return; 
+          }
+
+          const rms = calculateRMS(chunk);
+
+          if (session.isDetecting) {
+            if (rms > VAD_RMS_THRESHOLD) {
+              console.log(`Sound detected (RMS: ${rms.toFixed(2)} after skipping ${INITIAL_CHUNKS_TO_SKIP} chunks). Starting to save for session ${sessionId}.`);
+              session.isDetecting = false;
+              session.hasStartedSaving = true;
+              if (session.vadWaitTimeoutId) clearTimeout(session.vadWaitTimeoutId);
+              session.vadWaitTimeoutId = undefined; 
+
+              session.wavWriterInstance = new WavWriter({
+                channels: 1,
+                sampleRate: 16000,
+                bitDepth: 16
+              });
+              session.fileStream = fs.createWriteStream(audioPath);
+              session.wavWriterInstance.pipe(session.fileStream);
+              session.wavWriterInstance.write(chunk);
+
+              const currentMainWindow = this.appState.getMainWindow();
+              if (currentMainWindow && !currentMainWindow.isDestroyed()) {
+                currentMainWindow.webContents.send("vad-recording-started");
+              }
+
+              session.stopTimeoutId = setTimeout(() => {
+                if (this.vadState[sessionId]) {
+                    console.log(`10s recording duration reached for session ${sessionId}. Stopping.`);
+                    this.cleanupVadSession(sessionId, true);
+                } else {
+                    console.log(`10s timer for ${sessionId} fired, but session already cleaned up.`);
+                }
+              }, RECORDING_DURATION_MS);
+            }
+          } else if (session.hasStartedSaving && session.wavWriterInstance) {
+            session.wavWriterInstance.write(chunk);
+            // Reverted: Removed auto-cropping logic here
           }
         })
-      }, 10000) // Record for 10 seconds
+        .on('error', (err: Error) => {
+          if (!this.vadState[sessionId]) {
+            console.log(`[Error Handler] Session ${sessionId} no longer exists. Ignoring recorder error:`, err.message);
+            return;
+          }
+          console.error(`Recorder error for session ${sessionId}:`, err);
+          const mw = this.appState.getMainWindow();
+          if (mw && !mw.isDestroyed()) {
+            mw.webContents.send("audio-recording-error", { message: err.message });
+          }
+          this.cleanupVadSession(sessionId, false);
+        });
 
-      recording.stream().on("error", (err: Error) => {
-        console.error("Recorder error:", err)
-        const mainWindow = this.appState.getMainWindow()
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send("audio-recording-error", { message: err.message })
+      session.vadWaitTimeoutId = setTimeout(() => {
+        if (this.vadState[sessionId] && this.vadState[sessionId].isDetecting) {
+          console.log(`VAD timed out for session ${sessionId} after ${VAD_WAIT_TIMEOUT_MS / 1000}s. No sound detected.`);
+          const mw = this.appState.getMainWindow();
+          if (mw && !mw.isDestroyed()) {
+            mw.webContents.send("vad-timeout");
+          }
+          this.cleanupVadSession(sessionId, false); // Cleanup without sending completion
         }
-      })
-    })
+      }, VAD_WAIT_TIMEOUT_MS);
+    });
   }
 }

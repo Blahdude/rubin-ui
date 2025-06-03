@@ -28,6 +28,9 @@ interface ElectronAPI {
   onSolutionSuccess: (callback: (data: any) => void) => () => void
   onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void
   onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void
+  onVadWaiting: (callback: () => void) => () => void
+  onVadRecordingStarted: (callback: () => void) => () => void
+  onVadTimeout: (callback: () => void) => () => void
   onUnauthorized: (callback: () => void) => () => void
   onDebugError: (callback: (error: string) => void) => () => void
   takeScreenshot: () => Promise<void>

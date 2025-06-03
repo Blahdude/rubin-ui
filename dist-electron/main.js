@@ -148,11 +148,20 @@ async function initializeApp() {
         console.log("App is ready");
         // Register custom protocol for local audio files
         electron_1.protocol.registerFileProtocol("clp", (request, callback) => {
+            console.log(`[CLP Protocol] Received request for URL: ${request.url}`);
             // The URL will be like clp:///absolute/path/to/your/audio.wav
             // We need to strip `clp://` and handle potential leading slashes if on Windows
             let requestedPath = request.url.slice("clp://".length);
+            console.log(`[CLP Protocol] Path after stripping protocol: ${requestedPath}`);
             // Decode URI components (e.g., %20 for spaces)
-            requestedPath = decodeURIComponent(requestedPath);
+            try {
+                requestedPath = decodeURIComponent(requestedPath);
+                console.log(`[CLP Protocol] Path after decodeURIComponent: ${requestedPath}`);
+            }
+            catch (e) {
+                console.error(`[CLP Protocol] Error decoding URI component for path: ${requestedPath}`, e);
+                return callback({ error: -2 }); // net::ERR_FAILED or a more specific error
+            }
             // IMPORTANT: Add security checks here if necessary!
             // For example, ensure the path is within an allowed directory.
             // For now, we assume the path sent from the renderer is already vetted or safe.
@@ -165,16 +174,18 @@ async function initializeApp() {
             // }
             try {
                 // Check if file exists before attempting to serve
-                if (node_fs_1.default.existsSync(requestedPath)) {
+                const fileExists = node_fs_1.default.existsSync(requestedPath);
+                console.log(`[CLP Protocol] Checking existence of: ${requestedPath}. Exists: ${fileExists}`);
+                if (fileExists) {
                     callback({ path: requestedPath });
                 }
                 else {
-                    console.error(`File not found for clp protocol: ${requestedPath}`);
+                    console.error(`[CLP Protocol] File not found: ${requestedPath}`);
                     callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
                 }
             }
             catch (error) {
-                console.error(`Error handling clp protocol request for ${requestedPath}:`, error);
+                console.error(`[CLP Protocol] Error accessing file ${requestedPath}:`, error);
                 callback({ error: -2 }); // net::ERR_FAILED
             }
         });

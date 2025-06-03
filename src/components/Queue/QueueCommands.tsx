@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { IoLogOutOutline } from "react-icons/io5"
+import { FiClock, FiFileText } from "react-icons/fi"
 
 interface QueueCommandsProps {
   onTooltipVisibilityChange: (visible: boolean, height: number) => void
@@ -26,6 +27,8 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   // State for the new global audio recording shortcut
   const [globalRecordings, setGlobalRecordings] = useState<GlobalRecording[]>([])
   const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
+  const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null); // New state for VAD status
+  const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Ref for managing vadStatusMessage timeout
 
   useEffect(() => {
     let tooltipHeight = 0
@@ -35,32 +38,65 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
   }, [isTooltipVisible])
 
-  // Effect for global audio recording events
+  // Effect for global audio recording events & VAD events
   useEffect(() => {
-    const unsubscribeComplete = window.electronAPI.onAudioRecordingComplete(
-      (data: { path: string }) => {
-        console.log("Global audio recording complete:", data.path)
-        const newRecording: GlobalRecording = {
-          id: `global-rec-${Date.now()}`,
-          path: data.path,
-          timestamp: new Date()
-        };
-        setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]); // Add to beginning of list
-        setGlobalRecordingError(null)
+    const clearVadStatusTimeout = () => {
+      if (vadStatusTimeoutRef.current) {
+        clearTimeout(vadStatusTimeoutRef.current);
+        vadStatusTimeoutRef.current = null;
       }
-    )
+    };
 
-    const unsubscribeError = window.electronAPI.onAudioRecordingError(
-      (data: { message: string }) => {
-        console.error("Global audio recording error:", data.message)
-        setGlobalRecordingError(data.message)
-        // Optionally clear recordings on error, or leave them: setGlobalRecordings([]) 
-      }
-    )
+    const handleVadWaiting = () => {
+      clearVadStatusTimeout();
+      setVadStatusMessage("Waiting for audio...");
+      setGlobalRecordingError(null); // Clear previous errors
+    };
+    const unsubscribeVadWaiting = window.electronAPI.onVadWaiting(handleVadWaiting);
+
+    const handleVadRecordingStarted = () => {
+      clearVadStatusTimeout();
+      setVadStatusMessage("Recording audio...");
+    };
+    const unsubscribeVadRecordingStarted = window.electronAPI.onVadRecordingStarted(handleVadRecordingStarted);
+
+    const handleVadTimeout = () => {
+      setVadStatusMessage("No sound detected. Recording timed out.");
+      clearVadStatusTimeout(); // Clear any existing timeout before setting a new one
+      vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); // Clear message after 5s
+    };
+    const unsubscribeVadTimeout = window.electronAPI.onVadTimeout(handleVadTimeout);
+
+    const handleAudioRecordingComplete = (data: { path: string }) => {
+      console.log("Global audio recording complete:", data.path)
+      const newRecording: GlobalRecording = {
+        id: `global-rec-${Date.now()}`,
+        path: data.path,
+        timestamp: new Date()
+      };
+      setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]);
+      setGlobalRecordingError(null);
+      clearVadStatusTimeout();
+      setVadStatusMessage(null); // Clear VAD status on completion
+    };
+    const unsubscribeComplete = window.electronAPI.onAudioRecordingComplete(handleAudioRecordingComplete);
+
+    const handleAudioRecordingError = (data: { message: string }) => {
+      console.error("Global audio recording error:", data.message)
+      setGlobalRecordingError(data.message)
+      clearVadStatusTimeout();
+      setVadStatusMessage("Recording error. See console."); // Or use data.message if appropriate
+      vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); // Clear message after 5s
+    };
+    const unsubscribeError = window.electronAPI.onAudioRecordingError(handleAudioRecordingError);
 
     return () => {
-      unsubscribeComplete()
-      unsubscribeError()
+      unsubscribeVadWaiting();
+      unsubscribeVadRecordingStarted();
+      unsubscribeVadTimeout();
+      unsubscribeComplete();
+      unsubscribeError();
+      clearVadStatusTimeout(); // Clear timeout on unmount
     }
   }, [])
 
@@ -283,17 +319,33 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           <span className="font-semibold">Audio Analysis Result (In-app):</span> {audioResult}
         </div>
       )}
+      {/* VAD Status Message */}
+      {vadStatusMessage && (
+        <div className={`mt-2 p-2 rounded text-white text-xs max-w-md ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-600/30 border border-yellow-700/50' : 'bg-blue-500/20 border border-blue-600/40'}`}>
+          {vadStatusMessage}
+        </div>
+      )}
       {/* Global Shortcut Audio Recording Status Display */}
       {globalRecordings.length > 0 && (
          <div className="mt-4 p-3 bg-black/70 backdrop-blur-md rounded-lg text-white text-xs max-w-md space-y-3 shadow-lg border border-white/10">
           <h4 className="font-semibold text-[11px] text-white/80 border-b border-white/20 pb-1 mb-2">Recorded Audio Clips (⌘;)</h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
             {globalRecordings.map((rec) => (
-              <div key={rec.id} className="p-2 bg-white/5 hover:bg-white/10 transition-colors rounded">
-                <p className="truncate text-[10px] text-white/70 mb-1">
-                  {rec.timestamp.toLocaleTimeString()} - {rec.path.split(/[\\/]/).pop()}
+              <div 
+                key={rec.id} 
+                className="flex flex-col p-3 bg-neutral-800/80 rounded-lg shadow hover:bg-neutral-700/80 transition-colors duration-150 ease-in-out border border-neutral-700/50"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center text-[10px] text-neutral-400">
+                    <span className="mr-1">⏰</span>
+                    <span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] font-medium text-neutral-200 truncate mb-2 flex items-center">
+                  <span className="mr-1.5">📄</span>
+                  <span className="truncate">{rec.path.split(/[\\/]/).pop()}</span>
                 </p>
-                <audio controls src={`clp://${rec.path}`} className="w-full h-7">
+                <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-md"> 
                   Your browser does not support the audio element.
                 </audio>
               </div>
