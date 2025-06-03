@@ -1,5 +1,8 @@
 import { globalShortcut, app } from "electron"
 import { AppState } from "./main" // Adjust the import path if necessary
+import fs from "fs"
+import path from "path"
+const NodeRecordLpcm16 = require("node-record-lpcm16") // Use require for CommonJS
 
 export class ShortcutsHelper {
   private appState: AppState
@@ -93,6 +96,56 @@ export class ShortcutsHelper {
     // Unregister shortcuts when quitting
     app.on("will-quit", () => {
       globalShortcut.unregisterAll()
+    })
+  }
+
+  public registerAudioShortcut(): void {
+    globalShortcut.register("Command+;", () => {
+      console.log("Command+; pressed. Starting audio recording...")
+
+      // const { record } = await import("node-record-lpcm16-ts") // Removed dynamic import
+
+      // Changed audio directory to be local to the project root
+      const audioDir = path.join(app.getAppPath(), "local_recordings")
+
+      if (!fs.existsSync(audioDir)) {
+        fs.mkdirSync(audioDir, { recursive: true })
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+      const audioPath = path.join(audioDir, `recording-${timestamp}.wav`)
+      const file = fs.createWriteStream(audioPath, { encoding: "binary" })
+
+      const recording = NodeRecordLpcm16.record({
+        sampleRate: 16000,
+        channels: 1,
+        recorder: "sox",
+        device: "BlackHole 2ch"
+      })
+
+      recording.stream().pipe(file)
+
+      console.log(`Recording started. Saving to: ${audioPath}`)
+
+      setTimeout(() => {
+        recording.stop()
+        console.log("Recording stopped.")
+        file.end(() => {
+          console.log(`Audio saved: ${audioPath}`)
+          const mainWindow = this.appState.getMainWindow()
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("audio-recording-complete", { path: audioPath })
+          }
+        })
+      }, 10000) // Record for 10 seconds
+
+      recording.stream().on("error", (err: Error) => {
+        console.error("Recorder error:", err)
+        const mainWindow = this.appState.getMainWindow()
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send("audio-recording-error", { message: err.message })
+        }
+      })
     })
   }
 }

@@ -23,6 +23,9 @@ interface ElectronAPI {
   onProblemExtracted: (callback: (data: any) => void) => () => void
   onSolutionSuccess: (callback: (data: any) => void) => () => void
 
+  onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void
+  onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void
+
   onUnauthorized: (callback: () => void) => () => void
   onDebugError: (callback: (error: string) => void) => () => void
   takeScreenshot: () => Promise<void>
@@ -151,6 +154,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
         PROCESSING_EVENTS.SOLUTION_SUCCESS,
         subscription
       )
+    }
+  },
+  onAudioRecordingComplete: (
+    callback: (data: { path: string }) => void
+  ) => {
+    const subscription = (_: any, data: { path: string }) => callback(data)
+    ipcRenderer.on("audio-recording-complete", subscription)
+    return () => {
+      ipcRenderer.removeListener("audio-recording-complete", subscription)
+    }
+  },
+  onAudioRecordingError: (
+    callback: (data: { message: string }) => void
+  ) => {
+    const subscription = (_: any, data: { message: string }) => callback(data)
+    ipcRenderer.on("audio-recording-error", subscription)
+    return () => {
+      ipcRenderer.removeListener("audio-recording-error", subscription)
     }
   },
   onUnauthorized: (callback: () => void) => {

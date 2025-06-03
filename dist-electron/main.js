@@ -145,6 +145,7 @@ async function initializeApp() {
         appState.createWindow();
         // Register global shortcuts using ShortcutsHelper
         appState.shortcutsHelper.registerGlobalShortcuts();
+        appState.shortcutsHelper.registerAudioShortcut();
     });
     electron_1.app.on("activate", () => {
         console.log("App activated");

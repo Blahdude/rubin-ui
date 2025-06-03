@@ -17,6 +17,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   const [audioResult, setAudioResult] = useState<string | null>(null)
   const chunks = useRef<Blob[]>([])
 
+  // State for the new global audio recording shortcut
+  const [lastGlobalRecordingPath, setLastGlobalRecordingPath] = useState<string | null>(null)
+  const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
+
   useEffect(() => {
     let tooltipHeight = 0
     if (tooltipRef.current && isTooltipVisible) {
@@ -24,6 +28,30 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     }
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
   }, [isTooltipVisible])
+
+  // Effect for global audio recording events
+  useEffect(() => {
+    const unsubscribeComplete = window.electronAPI.onAudioRecordingComplete(
+      (data: { path: string }) => {
+        console.log("Global audio recording complete:", data.path)
+        setLastGlobalRecordingPath(data.path)
+        setGlobalRecordingError(null)
+      }
+    )
+
+    const unsubscribeError = window.electronAPI.onAudioRecordingError(
+      (data: { message: string }) => {
+        console.error("Global audio recording error:", data.message)
+        setGlobalRecordingError(data.message)
+        setLastGlobalRecordingPath(null)
+      }
+    )
+
+    return () => {
+      unsubscribeComplete()
+      unsubscribeError()
+    }
+  }, [])
 
   const handleMouseEnter = () => {
     setIsTooltipVisible(true)
@@ -114,6 +142,21 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             </div>
           </div>
         )}
+
+        {/* Record Audio (10s) - Global Shortcut */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] leading-none truncate">
+            Record Audio (10s)
+          </span>
+          <div className="flex gap-1">
+            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              ⌘
+            </button>
+            <button className="bg-white/10 hover:bg-white/20 transition-colors rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">
+              ;
+            </button>
+          </div>
+        </div>
 
         {/* Voice Recording Button */}
         <div className="flex items-center gap-2">
@@ -223,10 +266,29 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           <IoLogOutOutline className="w-4 h-4" />
         </button>
       </div>
-      {/* Audio Result Display */}
+      {/* Audio Result Display for in-app recording */}
       {audioResult && (
         <div className="mt-2 p-2 bg-white/10 rounded text-white text-xs max-w-md">
-          <span className="font-semibold">Audio Result:</span> {audioResult}
+          <span className="font-semibold">Audio Analysis Result (In-app):</span> {audioResult}
+        </div>
+      )}
+      {/* Global Shortcut Audio Recording Status Display */}
+      {lastGlobalRecordingPath && (
+        <div className="mt-2 p-2 bg-green-500/20 rounded text-white text-xs max-w-md">
+          <span className="font-semibold">Audio clip saved:</span>{" "}
+          <a
+            href={`file://${lastGlobalRecordingPath}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-green-300"
+          >
+            {lastGlobalRecordingPath}
+          </a>
+        </div>
+      )}
+      {globalRecordingError && (
+        <div className="mt-2 p-2 bg-red-500/20 rounded text-white text-xs max-w-md">
+          <span className="font-semibold">Audio Recording Error:</span> {globalRecordingError}
         </div>
       )}
     </div>

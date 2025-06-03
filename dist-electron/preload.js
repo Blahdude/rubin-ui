@@ -99,6 +99,20 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
             electron_1.ipcRenderer.removeListener(exports.PROCESSING_EVENTS.SOLUTION_SUCCESS, subscription);
         };
     },
+    onAudioRecordingComplete: (callback) => {
+        const subscription = (_, data) => callback(data);
+        electron_1.ipcRenderer.on("audio-recording-complete", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("audio-recording-complete", subscription);
+        };
+    },
+    onAudioRecordingError: (callback) => {
+        const subscription = (_, data) => callback(data);
+        electron_1.ipcRenderer.on("audio-recording-error", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("audio-recording-error", subscription);
+        };
+    },
     onUnauthorized: (callback) => {
         const subscription = () => callback();
         electron_1.ipcRenderer.on(exports.PROCESSING_EVENTS.UNAUTHORIZED, subscription);
