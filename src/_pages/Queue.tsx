@@ -9,9 +9,12 @@ import {
   ToastMessage
 } from "../components/ui/toast"
 import QueueCommands from "../components/Queue/QueueCommands"
+import Solutions from "./Solutions"
+import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 
 interface QueueProps {
   setView: React.Dispatch<React.SetStateAction<"queue" | "solutions" | "debug">>
+  view: "queue" | "solutions" | "debug"
 }
 
 // Remove AudioQueueItem interface for now, will re-evaluate when integrating properly
@@ -23,7 +26,7 @@ interface QueueProps {
 //   originalPath?: string; 
 // }
 
-const Queue: React.FC<QueueProps> = ({ setView }) => {
+const Queue: React.FC<QueueProps> = ({ setView, view }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
@@ -33,10 +36,13 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
-  const contentRef = useRef<HTMLDivElement>(null)
 
-  // Remove audioQueue state for now
-  // const [audioQueue, setAudioQueue] = useState<AudioQueueItem[]>([])
+  // State for audio clips (MOVED FROM QueueCommands.tsx)
+  const [globalRecordings, setGlobalRecordings] = useState<GlobalRecording[]>([])
+  const [generatedAudioClips, setGeneratedAudioClips] = useState<GeneratedAudioClip[]>([])
+  const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
+  const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null);
+  const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: screenshots = [], refetch } = useQuery<
     Array<{ path: string; preview: string }>
@@ -89,52 +95,55 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
   }
 
   useEffect(() => {
-    // This useEffect is for Queue.tsx internal logic and listeners.
-    // The updateContentDimensions call is handled by App.tsx's useEffect based on containerRef there.
-
-    const cleanupAudioListener = window.electronAPI.onAudioRecordingComplete(async (data: { path: string }) => {
-      console.log("Audio recording complete (UI):", data.path);
-      showToast("Recording Saved (UI)", `Audio saved to ${data.path}`, "success");
-      
+    const clearVadStatusTimeout = () => {
+      if (vadStatusTimeoutRef.current) {
+        clearTimeout(vadStatusTimeoutRef.current);
+        vadStatusTimeoutRef.current = null;
+      }
+    };
+    const handleVadWaiting = () => { clearVadStatusTimeout(); setVadStatusMessage("Waiting for audio..."); setGlobalRecordingError(null); };
+    const handleVadRecordingStarted = () => { clearVadStatusTimeout(); setVadStatusMessage("Recording audio..."); };
+    const handleVadTimeout = () => { setVadStatusMessage("No sound detected. Recording timed out."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
+    
+    const handleAudioRecordingComplete = async (data: { path: string }) => {
+      console.log("Global audio recording complete (Queue.tsx):", data.path);
+      const newRecording: GlobalRecording = { id: `global-rec-${Date.now()}`, path: data.path, timestamp: new Date() };
+      setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]);
+      setGlobalRecordingError(null);
+      clearVadStatusTimeout();
+      setVadStatusMessage(null);
+      showToast("Recording Saved", `Audio saved to ${data.path}`, "success");
       try {
         showToast("Processing", "Generating music continuation...", "neutral");
         const { generatedPath, features } = await window.electronAPI.generateMusicContinuation(data.path);
-        showToast("Success", `Generated audio saved to ${generatedPath}. BPM: ${features.bpm}, Key: ${features.key}`, "success");
+        showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
         window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
       } catch (error: any) {
-        console.error("Error generating music continuation (UI):", error);
-        showToast("Generation Failed (UI)", error.message || "Could not generate audio continuation.", "error");
+        console.error("Error generating music continuation (Queue.tsx):", error);
+        showToast("Generation Failed", error.message || "Could not generate audio continuation.", "error");
       }
-    });
+    };
+    const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
+      console.log("Generated audio ready (Queue.tsx):", data.generatedPath);
+      const newGeneratedClip: GeneratedAudioClip = { id: `gen-clip-${Date.now()}`, path: data.generatedPath, originalPath: data.originalPath, timestamp: new Date(), bpm: data.features.bpm, key: data.features.key };
+      setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+    };
 
-    const cleanupFunctions = [
+    const unsubscribes = [
+      window.electronAPI.onVadWaiting(handleVadWaiting),
+      window.electronAPI.onVadRecordingStarted(handleVadRecordingStarted),
+      window.electronAPI.onVadTimeout(handleVadTimeout),
+      window.electronAPI.onAudioRecordingComplete(handleAudioRecordingComplete),
+      window.electronAPI.onAudioRecordingError(handleAudioRecordingError),
+      window.electronAPI.onGeneratedAudioReady(handleGeneratedAudioReady),
       window.electronAPI.onScreenshotTaken(() => refetch()),
-      window.electronAPI.onResetView(() => refetch()),
-      window.electronAPI.onSolutionError((error: string) => {
-        showToast(
-          "Processing Failed",
-          "There was an error processing your screenshots.",
-          "error"
-        )
-        setView("queue")
-        console.error("Processing error:", error)
-      }),
-      window.electronAPI.onProcessingNoScreenshots(() => {
-        showToast(
-          "No Screenshots",
-          "There are no screenshots to process.",
-          "neutral"
-        )
-      }),
-      cleanupAudioListener 
-    ]
-
-    return () => {
-      cleanupFunctions.forEach((cleanup) => cleanup())
-    }
-  // Removed isTooltipVisible and tooltipHeight from dependencies as they don't directly relate to these listeners
-  // The App.tsx useEffect handles resizes based on its own containerRef which Queue.tsx content affects.
-  }, [refetch, setView]) 
+      window.electronAPI.onResetView(() => { refetch(); setGlobalRecordings([]); setGeneratedAudioClips([]); }), // Also clear local audio lists on reset
+      window.electronAPI.onSolutionError((error: string) => { showToast("Solution Error", error, "error"); }),
+      window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "neutral"); })
+    ];
+    return () => { unsubscribes.forEach(unsub => unsub()); clearVadStatusTimeout(); };
+  }, [refetch]); // Removed setView from dependencies for this specific effect
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
@@ -143,32 +152,78 @@ const Queue: React.FC<QueueProps> = ({ setView }) => {
   }
 
   return (
-    // MODIFIED: Removed w-1/2. Class is now just bg-transparent.
-    // The inner div with w-fit will determine content width.
-    // App.tsx's containerRef will observe this and resize the window.
-    <div ref={contentRef} className={`bg-transparent`}> 
-      <div className="px-4 py-3">
-        <Toast
-          open={toastOpen}
-          onOpenChange={setToastOpen}
-          variant={toastMessage.variant}
-          duration={3000}
-        >
-          <ToastTitle>{toastMessage.title}</ToastTitle>
-          <ToastDescription>{toastMessage.description}</ToastDescription>
-        </Toast>
+    <div className="flex flex-col h-full bg-transparent pt-0 pb-2 px-2 space-y-2">
+      <Toast
+        open={toastOpen}
+        onOpenChange={setToastOpen}
+        variant={toastMessage.variant}
+        duration={3000}
+      >
+        <ToastTitle>{toastMessage.title}</ToastTitle>
+        <ToastDescription>{toastMessage.description}</ToastDescription>
+      </Toast>
+      
+      {/* Top Section: QueueCommands */}
+      <div className="flex-shrink-0 pt-0 pb-1 px-1">
+        <QueueCommands
+          screenshots={screenshots}
+          onTooltipVisibilityChange={handleTooltipVisibilityChange} 
+        />
+      </div>
 
-        <div className="space-y-3 w-fit"> 
-          <ScreenshotQueue
-            isLoading={false}
-            screenshots={screenshots}
-            onDeleteScreenshot={handleDeleteScreenshot}
-          />
-          {/* The offensive audio queue UI has been removed from here */}
-          <QueueCommands
-            screenshots={screenshots}
-            onTooltipVisibilityChange={handleTooltipVisibilityChange}
-          />
+      {/* Bottom Section: Flex row for Audio Lists and Solutions Panel */}
+      <div className="flex flex-row flex-grow min-h-0 space-x-2 p-1">
+        {/* Left Column: Audio Lists */}
+        <div className="w-1/2 h-full overflow-y-auto space-y-3 p-1 bg-white/60 backdrop-blur-md rounded-lg">
+          {vadStatusMessage && (
+            <div className={`mx-1 mt-1 p-2 rounded text-xs font-semibold ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/30 border border-yellow-500/50 text-yellow-800' : 'bg-blue-400/30 border border-blue-500/50 text-blue-800'}`}>
+              {vadStatusMessage}
+            </div>
+          )}
+          {globalRecordings.length > 0 && (
+            <div className="p-2 space-y-2">
+              <h4 className="font-semibold text-xs text-black/80 border-b border-black/20 pb-1">Recorded Audio</h4>
+              <div className="space-y-2 pr-1">
+                {globalRecordings.map((rec) => (
+                  <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-100/90 rounded-md shadow-sm hover:bg-neutral-200/90 transition-colors duration-150 ease-in-out border border-neutral-300/60 cursor-grab font-semibold text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center text-[10px] text-neutral-600"><span className="mr-1">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                    </div>
+                    <p className="text-[11px] font-medium text-neutral-800 truncate mb-1.5 flex items-center"><span className="mr-1.5">📄</span><span className="truncate">{rec.path.split(/[\\/]/).pop()}</span></p>
+                    <audio controls src={`clp://${rec.path}`} className="w-full h-7 rounded-sm">Audio not supported.</audio>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {globalRecordingError && (
+            <div className="mx-1 p-2 bg-red-500/30 rounded text-white text-xs border border-red-500/50 font-semibold">
+              <span className="font-semibold">Audio Error:</span> {globalRecordingError}
+            </div>
+          )}
+          {generatedAudioClips.length > 0 && (
+            <div className="p-2 space-y-2">
+              <h4 className="font-semibold text-xs text-black/80 border-b border-black/20 pb-1">Generated Audio</h4>
+              <div className="space-y-2 pr-1">
+                {generatedAudioClips.map((clip) => (
+                  <div key={clip.id} className="flex flex-col p-2.5 bg-teal-50/90 rounded-md shadow-sm hover:bg-teal-100/90 transition-colors duration-150 ease-in-out border border-teal-300/60 cursor-grab font-semibold text-xs">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center text-[10px] text-teal-700"><span className="mr-1">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                    </div>
+                    <p className="text-[11px] font-medium text-teal-800 truncate mb-1 flex items-center"><span className="mr-1.5">🎵</span><span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span></p>
+                    <p className="text-[10px] text-teal-700/90 truncate mb-1.5"><span className="mr-1.5">🔙</span>Orig: {clip.originalPath.split(/[\\/]/).pop()}</p>
+                    <div className="text-[10px] text-teal-800/90 mb-1.5 flex justify-between"><span>BPM: {clip.bpm}</span><span>Key: {clip.key}</span></div>
+                    <audio controls src={`clp://${clip.path}`} className="w-full h-7 rounded-sm">Audio not supported.</audio>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Solutions Panel */}
+        <div className="w-1/2 h-full overflow-y-auto p-0.5">
+          <Solutions view={view} setView={setView} showCommands={false} />
         </div>
       </div>
     </div>

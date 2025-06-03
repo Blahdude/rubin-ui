@@ -48,7 +48,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       tooltipHeight = tooltipRef.current.offsetHeight + 10
     }
     onTooltipVisibilityChange(isTooltipVisible, tooltipHeight)
-  }, [isTooltipVisible])
+  }, [isTooltipVisible, onTooltipVisibilityChange])
 
   // Effect for global audio recording events & VAD events
   useEffect(() => {
@@ -173,7 +173,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   }
 
   return (
-    <div className="pt-2 w-fit font-semibold">
+    <div className="pt-2 w-full font-semibold">
       <div className="text-xs text-black/80 backdrop-blur-md bg-white/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
         {/* Show/Hide */}
         <div className="flex items-center gap-2">
@@ -341,99 +341,6 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           <IoLogOutOutline className="w-4 h-4" />
         </button>
       </div>
-      {/* Audio Result Display for in-app recording */}
-      {audioResult && (
-        <div className="mt-2 p-2 bg-stone-100/70 border border-stone-300/50 rounded text-stone-700 text-xs max-w-md font-semibold">
-          <span className="font-semibold">Audio Analysis Result (In-app):</span> {audioResult}
-        </div>
-      )}
-      {/* VAD Status Message */}
-      {vadStatusMessage && (
-        <div className={`mt-2 p-2 rounded text-xs max-w-md font-semibold ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/30 border border-yellow-500/50 text-yellow-800' : 'bg-blue-400/30 border border-blue-500/50 text-blue-800'}`}>
-          {vadStatusMessage}
-        </div>
-      )}
-      {/* Global Shortcut Audio Recording Status Display */}
-      {globalRecordings.length > 0 && (
-         <div className="mt-4 p-3 bg-white/70 backdrop-blur-md rounded-lg text-black text-xs max-w-md space-y-3 shadow-lg border border-black/10 font-semibold">
-          <h4 className="font-semibold text-[11px] text-black/80 border-b border-black/20 pb-1 mb-2">Recorded Audio Clips (⌘;)</h4>
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
-            {globalRecordings.map((rec) => (
-              <div 
-                key={rec.id} 
-                className="flex flex-col p-3 bg-neutral-100/80 rounded-lg shadow hover:bg-neutral-200/80 transition-colors duration-150 ease-in-out border border-neutral-300/50 cursor-grab font-semibold"
-                draggable="true"
-                onDragStart={(event) => {
-                  event.preventDefault(); // Important to allow Electron to take over
-                  console.log(`[Dragger] Dragging: ${rec.path}`);
-                  window.electronAPI.startFileDrag(rec.path);
-                }}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center text-[10px] text-neutral-600 font-semibold">
-                    <span className="mr-1">⏰</span>
-                    <span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                  </div>
-                </div>
-                <p className="text-[11px] font-medium text-neutral-700 truncate mb-2 flex items-center font-semibold">
-                  <span className="mr-1.5">📄</span>
-                  <span className="truncate">{rec.path.split(/[\\/]/).pop()}</span>
-                </p>
-                <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-md"> 
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {globalRecordingError && (
-        <div className="mt-2 p-2 bg-red-500/30 rounded text-white text-xs max-w-md border border-red-500/50 font-semibold">
-          <span className="font-semibold">Audio Recording Error:</span> {globalRecordingError}
-        </div>
-      )}
-      {/* Generated Audio Clips Display */}
-      {generatedAudioClips.length > 0 && (
-         <div className="mt-4 p-3 bg-white/70 backdrop-blur-md rounded-lg text-black text-xs max-w-md space-y-3 shadow-lg border border-black/10 font-semibold">
-          <h4 className="font-semibold text-[11px] text-black/80 border-b border-black/20 pb-1 mb-2">Generated Audio Clips</h4>
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-1.5">
-            {generatedAudioClips.map((clip) => (
-              <div 
-                key={clip.id} 
-                className="flex flex-col p-3 bg-teal-100/60 rounded-lg shadow hover:bg-teal-200/60 transition-colors duration-150 ease-in-out border border-teal-300/50 cursor-grab font-semibold"
-                draggable="true"
-                onDragStart={(event) => {
-                  event.preventDefault(); 
-                  console.log(`[Dragger] Dragging generated: ${clip.path}`);
-                  window.electronAPI.startFileDrag(clip.path);
-                }}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center text-[10px] text-teal-700 font-semibold">
-                    <span className="mr-1">⏰</span>
-                    <span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                  </div>
-                </div>
-                <p className="text-[11px] font-medium text-teal-800 truncate mb-1 flex items-center font-semibold">
-                  <span className="mr-1.5">🎵</span>
-                  <span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span>
-                </p>
-                 <p className="text-[9px] text-teal-700 truncate mb-2 flex items-center font-semibold">
-                  <span className="mr-1.5">🔙</span>
-                  <span className="truncate">Orig: {clip.originalPath.split(/[\\/]/).pop()}</span>
-                </p>
-                <div className="text-[9px] text-teal-800 mb-2 flex justify-between font-semibold">
-                  <span>BPM: {clip.bpm}</span>
-                  <span>Key: {clip.key}</span>
-                </div>
-                <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-md"> 
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

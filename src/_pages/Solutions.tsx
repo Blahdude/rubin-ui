@@ -126,8 +126,10 @@ export const ComplexitySection = ({
 
 interface SolutionsProps {
   setView: React.Dispatch<React.SetStateAction<"queue" | "solutions" | "debug">>
+  view: "queue" | "solutions" | "debug"
+  showCommands?: boolean
 }
-const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
+const Solutions: React.FC<SolutionsProps> = ({ setView, view, showCommands = true }) => {
   const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
 
@@ -195,7 +197,7 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
       )
 
       if (response.success) {
-        refetch() // Refetch screenshots instead of managing state directly
+        refetch()
       } else {
         console.error("Failed to delete extra screenshot:", response.error)
       }
@@ -205,207 +207,101 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
   }
 
   useEffect(() => {
-    // Set up event listeners
     const cleanupFunctions = [
       window.electronAPI.onScreenshotTaken(() => refetch()),
       window.electronAPI.onResetView(() => {
-        // Set resetting state first
         setIsResetting(true)
-
-        // Clear the queries
         queryClient.removeQueries(["solution"])
         queryClient.removeQueries(["new_solution"])
-
-        // Reset other states
-        refetch()
-
-        // After a small delay, clear the resetting state
-        setTimeout(() => {
-          setIsResetting(false)
-        }, 0)
-      }),
-      window.electronAPI.onSolutionStart(async () => {
-        // Reset UI state for a new solution
+        setProblemStatementData(null)
         setSolutionData(null)
         setThoughtsData(null)
         setTimeComplexityData(null)
         setSpaceComplexityData(null)
-        setCustomContent(null)
-        setAudioResult(null)
-
-        // Start audio recording from user's microphone
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          const mediaRecorder = new MediaRecorder(stream)
-          const chunks: Blob[] = []
-          mediaRecorder.ondataavailable = (e) => chunks.push(e.data)
-          mediaRecorder.start()
-          setAudioRecording(true)
-          // Record for 5 seconds (or adjust as needed)
-          setTimeout(() => mediaRecorder.stop(), 5000)
-          mediaRecorder.onstop = async () => {
-            setAudioRecording(false)
-            const blob = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' })
-            const reader = new FileReader()
-            reader.onloadend = async () => {
-              const base64Data = (reader.result as string).split(',')[1]
-              // Send audio to Gemini for analysis
-              try {
-                const result = await window.electronAPI.analyzeAudioFromBase64(
-                  base64Data,
-                  blob.type
-                )
-                // Store result in react-query cache
-                queryClient.setQueryData(["audio_result"], result)
-                setAudioResult(result)
-              } catch (err) {
-                console.error('Audio analysis failed:', err)
-              }
-            }
-            reader.readAsDataURL(blob)
-          }
-        } catch (err) {
-          console.error('Audio recording error:', err)
-        }
-
-        // Simulate receiving custom content shortly after start
+        refetch()
         setTimeout(() => {
-          setCustomContent(
-            "This is the dynamically generated content appearing after loading starts."
-          )
-        }, 1500) // Example delay
+          setIsResetting(false)
+        }, 0)
       }),
-      //if there was an error processing the initial solution
       window.electronAPI.onSolutionError((error: string) => {
-        showToast(
-          "Processing Failed",
-          "There was an error processing your extra screenshots.",
-          "error"
-        )
-        // Reset solutions in the cache (even though this shouldn't ever happen) and complexities to previous states
-        const solution = queryClient.getQueryData(["solution"]) as {
-          code: string
-          thoughts: string[]
-          time_complexity: string
-          space_complexity: string
-        } | null
-        if (!solution) {
-          setView("queue") //make sure that this is correct. or like make sure there's a toast or something
+        if (view === "solutions") {
+          showToast(
+            "Processing Failed",
+            "There was an error processing your extra screenshots.",
+            "error"
+          )
+          const solution = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null;
+          if (!solution) {
+            // setView("queue") // App.tsx handles view changes primarily
+          }
+          setSolutionData(solution?.code || null);
+          setThoughtsData(solution?.thoughts || null);
+          setTimeComplexityData(solution?.time_complexity || null);
+          setSpaceComplexityData(solution?.space_complexity || null);
+          console.error("Processing error:", error);
         }
-        setSolutionData(solution?.code || null)
-        setThoughtsData(solution?.thoughts || null)
-        setTimeComplexityData(solution?.time_complexity || null)
-        setSpaceComplexityData(solution?.space_complexity || null)
-        console.error("Processing error:", error)
       }),
-      //when the initial solution is generated, we'll set the solution data to that
       window.electronAPI.onSolutionSuccess((data) => {
-        if (!data?.solution) {
-          console.warn("Received empty or invalid solution data")
-          return
+        if (view === "solutions") {
+          if (!data?.solution) {
+            console.warn("Received empty or invalid solution data")
+            return
+          }
+          console.log({ solution: data.solution })
+          const solutionDataVal = {
+            code: data.solution.code,
+            thoughts: data.solution.thoughts,
+            time_complexity: data.solution.time_complexity,
+            space_complexity: data.solution.space_complexity
+          }
+          queryClient.setQueryData(["solution"], solutionDataVal)
+          setSolutionData(solutionDataVal.code || null)
+          setThoughtsData(solutionDataVal.thoughts || null)
+          setTimeComplexityData(solutionDataVal.time_complexity || null)
+          setSpaceComplexityData(solutionDataVal.space_complexity || null)
         }
-
-        console.log({ solution: data.solution })
-
-        const solutionData = {
-          code: data.solution.code,
-          thoughts: data.solution.thoughts,
-          time_complexity: data.solution.time_complexity,
-          space_complexity: data.solution.space_complexity
-        }
-
-        queryClient.setQueryData(["solution"], solutionData)
-        setSolutionData(solutionData.code || null)
-        setThoughtsData(solutionData.thoughts || null)
-        setTimeComplexityData(solutionData.time_complexity || null)
-        setSpaceComplexityData(solutionData.space_complexity || null)
       }),
-
-      //########################################################
-      //DEBUG EVENTS
-      //########################################################
       window.electronAPI.onDebugStart(() => {
-        //we'll set the debug processing state to true and use that to render a little loader
-        setDebugProcessing(true)
+        if (view === "solutions" || view === "debug") setDebugProcessing(true)
       }),
-      //the first time debugging works, we'll set the view to debug and populate the cache with the data
       window.electronAPI.onDebugSuccess((data) => {
-        console.log({ debug_data: data })
-
-        queryClient.setQueryData(["new_solution"], data.solution)
-        setDebugProcessing(false)
+        if (view === "solutions" || view === "debug") {
+          console.log({ debug_data: data })
+          queryClient.setQueryData(["new_solution"], data.solution)
+          setDebugProcessing(false)
+        }
       }),
-      //when there was an error in the initial debugging, we'll show a toast and stop the little generating pulsing thing.
       window.electronAPI.onDebugError(() => {
-        showToast(
-          "Processing Failed",
-          "There was an error debugging your code.",
-          "error"
-        )
-        setDebugProcessing(false)
+        if (view === "solutions" || view === "debug") {
+          showToast("Processing Failed", "There was an error debugging your code.", "error")
+          setDebugProcessing(false)
+        }
       }),
       window.electronAPI.onProcessingNoScreenshots(() => {
-        showToast(
-          "No Screenshots",
-          "There are no extra screenshots to process.",
-          "neutral"
-        )
+        if (view === "solutions") {
+           showToast("No Screenshots", "There are no extra screenshots to process.", "neutral")
+        }
       })
     ]
-
-    return () => {
-      cleanupFunctions.forEach((cleanup) => cleanup())
-    }
-  }, [queryClient, setView])
+    return () => cleanupFunctions.forEach((cleanup) => cleanup())
+  }, [queryClient, refetch, setView, view])
 
   useEffect(() => {
-    setProblemStatementData(
-      queryClient.getQueryData(["problem_statement"]) || null
-    )
-    setSolutionData(queryClient.getQueryData(["solution"]) || null)
+    const problemStatementFromCache = queryClient.getQueryData(["problem_statement"]) as ProblemStatementData | null;
+    setProblemStatementData(problemStatementFromCache || null);
+
+    const solutionFromCache = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null;
+    setSolutionData(solutionFromCache?.code ?? null);
+    setThoughtsData(solutionFromCache?.thoughts ?? null);
+    setTimeComplexityData(solutionFromCache?.time_complexity ?? null);
+    setSpaceComplexityData(solutionFromCache?.space_complexity ?? null);
 
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event?.query.queryKey[0] === "problem_statement") {
-        setProblemStatementData(
-          queryClient.getQueryData(["problem_statement"]) || null
-        )
-        // If this is from audio processing, show it in the custom content section
-        const audioResult = queryClient.getQueryData(["audio_result"]) as AudioResult | undefined;
-        if (audioResult) {
-          // Update all relevant sections when audio result is received
-          setProblemStatementData({
-            problem_statement: audioResult.text,
-            input_format: {
-              description: "Generated from audio input",
-              parameters: []
-            },
-            output_format: {
-              description: "Generated from audio input",
-              type: "string",
-              subtype: "text"
-            },
-            complexity: {
-              time: "N/A",
-              space: "N/A"
-            },
-            test_cases: [],
-            validation_type: "manual",
-            difficulty: "custom"
-          });
-          setSolutionData(null); // Reset solution to trigger loading state
-          setThoughtsData(null);
-          setTimeComplexityData(null);
-          setSpaceComplexityData(null);
-        }
+        setProblemStatementData(queryClient.getQueryData(["problem_statement"]) || null)
       }
       if (event?.query.queryKey[0] === "solution") {
-        const solution = queryClient.getQueryData(["solution"]) as {
-          code: string
-          thoughts: string[]
-          time_complexity: string
-          space_complexity: string
-        } | null
-
+        const solution = queryClient.getQueryData(["solution"]) as { code: string; thoughts: string[]; time_complexity: string; space_complexity: string; } | null
         setSolutionData(solution?.code ?? null)
         setThoughtsData(solution?.thoughts ?? null)
         setTimeComplexityData(solution?.time_complexity ?? null)
@@ -420,17 +316,23 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
     setTooltipHeight(height)
   }
 
+  if (view !== "solutions" && view !== "debug") {
+    return (
+      <div className="h-full p-4 flex items-center justify-center text-neutral-500">
+        <p>Solutions will appear here when a problem is being solved.</p>
+      </div>
+    );
+  }
+
   return (
     <>
-      {!isResetting && queryClient.getQueryData(["new_solution"]) ? (
-        <>
-          <Debug
-            isProcessing={debugProcessing}
-            setIsProcessing={setDebugProcessing}
-          />
-        </>
+      {view === "debug" && !isResetting && queryClient.getQueryData(["new_solution"]) ? (
+        <Debug
+          isProcessing={debugProcessing}
+          setIsProcessing={setDebugProcessing}
+        />
       ) : (
-        <div ref={contentRef} className="relative space-y-3 px-4 py-3 bg-transparent">
+        <div ref={contentRef} className="h-full overflow-y-auto p-4 space-y-3 bg-transparent text-sm">
           <Toast
             open={toastOpen}
             onOpenChange={setToastOpen}
@@ -441,10 +343,9 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
             <ToastDescription>{toastMessage.description}</ToastDescription>
           </Toast>
 
-          {/* Conditionally render the screenshot queue if solutionData is available */}
-          {solutionData && (
-            <div className="bg-transparent w-fit">
-              <div className="pb-3">
+          {showCommands && problemStatementData && (
+            <div className="bg-transparent w-fit sticky top-0 z-10 py-1">
+              <div className="pb-1">
                 <div className="space-y-3 w-fit">
                   <ScreenshotQueue
                     isLoading={debugProcessing}
@@ -456,17 +357,18 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
             </div>
           )}
 
-          {/* Navbar of commands with the SolutionsHelper */}
-          <SolutionCommands
-            extraScreenshots={extraScreenshots}
-            onTooltipVisibilityChange={handleTooltipVisibilityChange}
-          />
+          {showCommands && problemStatementData && (
+            <div className="sticky top-12 z-10 py-1 bg-transparent">
+              <SolutionCommands
+                extraScreenshots={extraScreenshots}
+                onTooltipVisibilityChange={handleTooltipVisibilityChange}
+              />
+            </div>
+          )}
 
-          {/* Main Content - Modified width constraints */}
-          <div className="w-full text-sm bg-white/60 backdrop-blur-md rounded-md text-black/90 font-semibold">
+          <div className={`w-full bg-white/60 backdrop-blur-md rounded-md text-black/90 font-semibold ${showCommands && problemStatementData ? 'pt-24' : 'pt-2'}`}>
             <div className="rounded-lg overflow-hidden">
               <div className="px-4 py-3 space-y-4 max-w-full">
-                {/* Show Screenshot or Audio Result as main output if validation_type is manual */}
                 {problemStatementData?.validation_type === "manual" ? (
                   <ContentSection
                     title={problemStatementData?.output_format?.subtype === "voice" ? "Audio Result" : "Screenshot Result"}
@@ -475,13 +377,11 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
                   />
                 ) : (
                   <>
-                    {/* Problem Statement Section - Only for non-manual */}
                     <ContentSection
                       title={problemStatementData?.output_format?.subtype === "voice" ? "Voice Input" : "Problem Statement"}
                       content={problemStatementData?.problem_statement}
                       isLoading={!problemStatementData}
                     />
-                    {/* Show loading state when waiting for solution */}
                     {problemStatementData && !solutionData && (
                       <div className="mt-4 flex">
                         <p className="text-xs bg-gradient-to-r from-neutral-600 via-neutral-400 to-neutral-600 bg-clip-text text-transparent animate-pulse font-semibold">
@@ -491,7 +391,6 @@ const Solutions: React.FC<SolutionsProps> = ({ setView }) => {
                         </p>
                       </div>
                     )}
-                    {/* Solution Sections (legacy, only for non-manual) */}
                     {solutionData && (
                       <>
                         <ContentSection
