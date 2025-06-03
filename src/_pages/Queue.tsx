@@ -171,10 +171,11 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
         />
       </div>
 
-      {/* Bottom Section: Flex row for Audio Lists and Solutions Panel */}
-      <div className="flex flex-row flex-grow min-h-0 space-x-2 p-1">
-        {/* Left Column: Audio Lists */}
-        <div className="w-1/2 h-full overflow-y-auto space-y-3 p-1 bg-white/60 backdrop-blur-md rounded-lg">
+      {/* MODIFIED: Main content area - now flex-col for vertical stacking */}
+      {/* This container will grow and allow its content (Audio + Solutions) to scroll if too tall */}
+      <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto">
+        {/* Section 1: Audio Lists (full width) */}
+        <div className="w-full space-y-3 p-1 bg-white/60 backdrop-blur-md rounded-lg">
           {vadStatusMessage && (
             <div className={`mx-1 mt-1 p-2 rounded text-xs font-semibold ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/30 border border-yellow-500/50 text-yellow-800' : 'bg-blue-400/30 border border-blue-500/50 text-blue-800'}`}>
               {vadStatusMessage}
@@ -221,8 +222,9 @@ const Queue: React.FC<QueueProps> = ({ setView, view }) => {
           )}
         </div>
 
-        {/* Right Column: Solutions Panel */}
-        <div className="w-1/2 h-full overflow-y-auto p-0.5">
+        {/* Section 2: Solutions Panel (Text Generation - full width, below audio) */}
+        {/* The Solutions component itself has overflow-y-auto when showCommands is false */}
+        <div className="w-full p-0.5">
           <Solutions view={view} setView={setView} showCommands={false} />
         </div>
       </div>

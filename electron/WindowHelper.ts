@@ -36,27 +36,21 @@ export class WindowHelper {
     const primaryDisplay = screen.getPrimaryDisplay()
     const workArea = primaryDisplay.workAreaSize
 
-    // MODIFIED: Increase max width percentage
+    // MODIFIED: Decrease max width percentage for a narrower window
     const maxAllowedWidth = Math.floor(
-      workArea.width * (this.appState.getHasDebugged() ? 0.9 : 0.85) // Increased to 85% / 90%
+      workArea.width * (this.appState.getHasDebugged() ? 0.40 : 0.35) // Narrower: 35% normal, 40% debug
     )
     
-    // MODIFIED: Adjust vertical margin for positioning
-    const verticalMargin = 20   // Further down from the top (reduced from 30)
-    const horizontalMargin = 5 // Closer to the right edge (remains same)
+    const verticalMargin = 20   // Keep some margin from the top
+    const horizontalMargin = 5 // Keep some margin from the right edge
 
-    // Calculate new X position
     const newX = workArea.width - maxAllowedWidth - horizontalMargin
-    // Use current Y or new verticalMargin if window was moved manually
-    // For now, let's always try to position it based on the margin from top
-    const newY = verticalMargin
+    const newY = verticalMargin // Position near the top
 
-    // Calculate new height, capped by screen height
+    // Calculate new height, capped by screen height, allowing it to be tall
     const maxAllowedHeight = workArea.height - verticalMargin - 10 // 10px for bottom clearance
     const finalHeight = Math.min(Math.ceil(height), maxAllowedHeight)
     
-    // Update window bounds
-    // MODIFIED: Use maxAllowedWidth directly for window width
     this.mainWindow.setBounds({
       x: newX,
       y: newY,
@@ -64,7 +58,6 @@ export class WindowHelper {
       height: finalHeight
     })
 
-    // Update internal state
     this.windowPosition = { x: newX, y: newY }
     this.windowSize = { width: maxAllowedWidth, height: finalHeight }
     this.currentX = newX
@@ -81,16 +74,15 @@ export class WindowHelper {
 
     this.step = Math.floor(this.screenWidth / 10) // 10 steps
 
-    // MODIFIED: Increase initial window size to a percentage of screen
-    const initialWidth = Math.floor(workArea.width * 0.60) // Start at 60% width
-    const initialHeight = Math.floor(workArea.height * 0.70) // Start at 70% height
+    // MODIFIED: Adjust initial window size for narrower width and taller height
+    const initialWidth = Math.floor(workArea.width * 0.35)  // Narrower: 35% width
+    const initialHeight = Math.floor(workArea.height * 0.90) // Taller: 90% height
 
-    // Consistent with setWindowDimensions for top-right positioning
     const horizontalMargin = 5 
-    const verticalMargin = 20 // MODIFIED: Reduced from 30 to match setWindowDimensions change
+    const verticalMargin = 20 
 
-    this.currentX = this.screenWidth - initialWidth - horizontalMargin // Position X
-    this.currentY = verticalMargin // Position Y
+    this.currentX = this.screenWidth - initialWidth - horizontalMargin // Position X (right aligned)
+    this.currentY = verticalMargin // Position Y (near top)
 
     const windowSettings: Electron.BrowserWindowConstructorOptions = {
       height: initialHeight,

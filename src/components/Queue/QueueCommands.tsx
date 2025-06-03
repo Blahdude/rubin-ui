@@ -216,17 +216,19 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
-        {/* Voice Recording Button */}
-        <div className="flex items-center gap-2">
+        {/* MODIFIED Voice Recording Button - Icon only */}
+        <div className="flex items-center">
           <button
-            className={`bg-black/10 hover:bg-black/20 transition-colors rounded-md px-2 py-1 text-[11px] leading-none text-black/70 flex items-center gap-1 font-semibold ${isRecording ? 'bg-red-500/70 hover:bg-red-500/90 text-white' : ''}`}
+            title={isRecording ? "Stop Recording" : "Record Voice"} // Tooltip for accessibility
+            className={`bg-black/10 hover:bg-black/20 transition-colors rounded-md p-1.5 text-[13px] leading-none text-black/70 flex items-center justify-center font-semibold ${isRecording ? 'bg-red-500/70 hover:bg-red-500/90 text-white' : ''}`}
             onClick={handleRecordClick}
             type="button"
+            style={{ width: '28px', height: '28px' }} // Explicit size for a more compact button
           >
             {isRecording ? (
-              <span className="animate-pulse font-semibold">● Stop Recording</span>
+              <span className="animate-pulse text-lg">●</span>
             ) : (
-              <span className="font-semibold">🎤 Record Voice</span>
+              <span className="text-lg">🎤</span>
             )}
           </button>
         </div>

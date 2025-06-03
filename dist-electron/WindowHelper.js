@@ -33,29 +33,22 @@ class WindowHelper {
         // Get screen dimensions
         const primaryDisplay = electron_1.screen.getPrimaryDisplay();
         const workArea = primaryDisplay.workAreaSize;
-        // MODIFIED: Increase max width percentage
-        const maxAllowedWidth = Math.floor(workArea.width * (this.appState.getHasDebugged() ? 0.9 : 0.85) // Increased to 85% / 90%
+        // MODIFIED: Decrease max width percentage for a narrower window
+        const maxAllowedWidth = Math.floor(workArea.width * (this.appState.getHasDebugged() ? 0.40 : 0.35) // Narrower: 35% normal, 40% debug
         );
-        // MODIFIED: Adjust vertical margin for positioning
-        const verticalMargin = 20; // Further down from the top (reduced from 30)
-        const horizontalMargin = 5; // Closer to the right edge (remains same)
-        // Calculate new X position
+        const verticalMargin = 20; // Keep some margin from the top
+        const horizontalMargin = 5; // Keep some margin from the right edge
         const newX = workArea.width - maxAllowedWidth - horizontalMargin;
-        // Use current Y or new verticalMargin if window was moved manually
-        // For now, let's always try to position it based on the margin from top
-        const newY = verticalMargin;
-        // Calculate new height, capped by screen height
+        const newY = verticalMargin; // Position near the top
+        // Calculate new height, capped by screen height, allowing it to be tall
         const maxAllowedHeight = workArea.height - verticalMargin - 10; // 10px for bottom clearance
         const finalHeight = Math.min(Math.ceil(height), maxAllowedHeight);
-        // Update window bounds
-        // MODIFIED: Use maxAllowedWidth directly for window width
         this.mainWindow.setBounds({
             x: newX,
             y: newY,
             width: maxAllowedWidth,
             height: finalHeight
         });
-        // Update internal state
         this.windowPosition = { x: newX, y: newY };
         this.windowSize = { width: maxAllowedWidth, height: finalHeight };
         this.currentX = newX;
@@ -69,14 +62,13 @@ class WindowHelper {
         this.screenWidth = workArea.width;
         this.screenHeight = workArea.height;
         this.step = Math.floor(this.screenWidth / 10); // 10 steps
-        // MODIFIED: Increase initial window size to a percentage of screen
-        const initialWidth = Math.floor(workArea.width * 0.60); // Start at 60% width
-        const initialHeight = Math.floor(workArea.height * 0.70); // Start at 70% height
-        // Consistent with setWindowDimensions for top-right positioning
+        // MODIFIED: Adjust initial window size for narrower width and taller height
+        const initialWidth = Math.floor(workArea.width * 0.35); // Narrower: 35% width
+        const initialHeight = Math.floor(workArea.height * 0.90); // Taller: 90% height
         const horizontalMargin = 5;
-        const verticalMargin = 20; // MODIFIED: Reduced from 30 to match setWindowDimensions change
-        this.currentX = this.screenWidth - initialWidth - horizontalMargin; // Position X
-        this.currentY = verticalMargin; // Position Y
+        const verticalMargin = 20;
+        this.currentX = this.screenWidth - initialWidth - horizontalMargin; // Position X (right aligned)
+        this.currentY = verticalMargin; // Position Y (near top)
         const windowSettings = {
             height: initialHeight,
             width: initialWidth,
