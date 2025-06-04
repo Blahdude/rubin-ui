@@ -1,8 +1,6 @@
 // Solutions.tsx
 import React, { useState, useEffect, useRef } from "react"
 import { useQuery } from "react-query"
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
-import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 import {
@@ -19,113 +17,6 @@ import Debug from "./Debug"
 import { ConversationItem } from "../App"
 
 // (Using global ElectronAPI type from src/types/electron.d.ts)
-
-export const ContentSection = ({
-  title,
-  content,
-  isLoading
-}: {
-  title: string
-  content: React.ReactNode
-  isLoading: boolean
-}) => (
-  <div className="space-y-1.5">
-    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
-      {title}
-    </h2>
-    {isLoading ? (
-      <div className="mt-2 flex">
-        <p className="text-xs text-neutral-500 animate-pulse font-medium">
-          Loading...
-        </p>
-      </div>
-    ) : (
-      <div className="text-xs leading-[1.5] text-neutral-400 max-w-[600px] font-medium space-y-1">
-        {content}
-      </div>
-    )}
-  </div>
-)
-const SolutionSection = ({
-  title,
-  content,
-  isLoading
-}: {
-  title: string
-  content: React.ReactNode
-  isLoading: boolean
-}) => (
-  <div className="space-y-1.5">
-    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
-      {title}
-    </h2>
-    {isLoading ? (
-      <div className="space-y-1">
-        <div className="mt-2 flex">
-          <p className="text-xs text-neutral-500 animate-pulse font-medium">
-            Loading...
-          </p>
-        </div>
-      </div>
-    ) : (
-      <div className="w-full text-xs">
-        <SyntaxHighlighter
-          showLineNumbers
-          language="python"
-          style={dracula}
-          customStyle={{
-            maxWidth: "100%",
-            margin: 0,
-            padding: "0.75rem 1rem",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            fontSize: "0.75rem",
-            borderRadius: "0.375rem"
-          }}
-          wrapLongLines={true}
-        >
-          {content as string}
-        </SyntaxHighlighter>
-      </div>
-    )}
-  </div>
-)
-
-export const ComplexitySection = ({
-  timeComplexity,
-  spaceComplexity,
-  isLoading
-}: {
-  timeComplexity: string | null
-  spaceComplexity: string | null
-  isLoading: boolean
-}) => (
-  <div className="space-y-1.5">
-    <h2 className="text-[12px] font-medium text-neutral-300 tracking-wide">
-      Complexity
-    </h2>
-    {isLoading ? (
-      <p className="text-xs text-neutral-500 animate-pulse font-medium">
-        Calculating...
-      </p>
-    ) : (
-      <div className="space-y-0.5 text-xs">
-        <div className="flex items-start gap-1.5 text-neutral-400 font-medium">
-          <div className="w-1 h-1 rounded-full bg-neutral-500 mt-[5px] shrink-0" />
-          <div>
-            <strong className="font-semibold text-neutral-300">Time:</strong> {timeComplexity}
-          </div>
-        </div>
-        <div className="flex items-start gap-1.5 text-neutral-400 font-medium">
-          <div className="w-1 h-1 rounded-full bg-neutral-500 mt-[5px] shrink-0" />
-          <div>
-            <strong className="font-semibold text-neutral-300">Space:</strong> {spaceComplexity}
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-)
 
 // Define SolutionEntry interface
 interface SolutionEntry {
@@ -197,9 +88,13 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   }
 
   useEffect(() => {
-    console.log("Solutions.tsx: Conversation prop updated:", conversation);
-    if (contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+    // console.log("Solutions.tsx: Conversation prop updated:", conversation);
+    if (contentRef.current && contentRef.current.scrollHeight > contentRef.current.clientHeight) {
+      try {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      } catch (e) {
+        console.error("Error scrolling to bottom in Solutions.tsx:", e);
+      }
     }
     if (onProcessingStateChange && conversation && conversation.length > 0) {
       const lastMessage = conversation[conversation.length - 1];
@@ -224,7 +119,11 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
     );
   }
 
-  const formatTimestamp = (timestamp: number) => {
+  const formatTimestamp = (timestamp: number | undefined | null) => {
+    if (typeof timestamp !== 'number' || isNaN(timestamp)) {
+      // It might be useful to log an error here if this case is unexpected
+      return '??:??'; // Fallback for invalid or missing timestamp
+    }
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
@@ -236,8 +135,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
         variant={toastMessage.variant}
         duration={3000}
       >
-        <ToastTitle>{toastMessage.title}</ToastTitle>
-        <ToastDescription>{toastMessage.description}</ToastDescription>
       </Toast>
 
       <div
@@ -252,7 +149,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             </p>
           </div>
         )}
-        {conversation?.map((item: ConversationItem) => {
+        {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
             return (
               <div key={item.id} className="flex justify-center group">
@@ -265,37 +162,73 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
               </div>
             );
           } else if (item.type === 'ai_response') {
+            const isLoading = item.content?.isLoading;
             const solution = item.content?.solution;
+
+            if (isLoading) {
+              return (
+                <div key={item.id} className="flex justify-center group">
+                  <div className="bg-neutral-800 border border-neutral-700 text-neutral-400 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full italic">
+                    AI is thinking...
+                    <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {formatTimestamp(item.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+
+            let suggestionsOutput: React.ReactNode = null;
+            if (solution?.suggested_responses && solution.suggested_responses.length > 0) {
+              suggestionsOutput = (
+                <div className="mt-2.5 pt-2">
+                  <ul className="space-y-1">
+                      {solution.suggested_responses.map((s_item: any, i: number) => {
+                        let suggestionText: string | null = null;
+                        if (typeof s_item === 'string') {
+                          suggestionText = s_item;
+                        } else if (typeof s_item === 'object' && s_item !== null && typeof s_item.text === 'string') {
+                          suggestionText = s_item.text;
+                        } else if (typeof s_item === 'object' && s_item !== null && typeof s_item.suggestion === 'string') {
+                          suggestionText = s_item.suggestion; // Fallback for another common property name
+                        } else if (typeof s_item === 'object' && s_item !== null) {
+                            // If it's an object but doesn't have .text or .suggestion, try stringifying it (might result in [object Object] but won't crash)
+                            // Or log an error and display a placeholder
+                            console.warn("Unknown suggested response object structure:", s_item);
+                            suggestionText = "[Invalid Suggestion Format]";
+                        }
+
+                        if (suggestionText !== null) {
+                          return (
+                            <li key={i} className="text-xs text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/60 p-1.5 rounded-md transition-colors cursor-pointer">
+                              {suggestionText}
+                            </li>
+                          );
+                        }
+                        return null; // Skip rendering if no valid text could be extracted
+                      })}
+                  </ul>
+                </div>
+              );
+            }
+
+            let finalDisplay: React.ReactNode;
+            if (suggestionsOutput) {
+              finalDisplay = (
+                <>
+                  {suggestionsOutput}
+                </>
+              );
+            } else if (solution) { 
+              finalDisplay = <p className="text-xs text-neutral-500 italic">AI has no specific output for this context.</p>;
+            } else { 
+              finalDisplay = <p className="text-xs text-red-400">AI response format error or empty.</p>;
+            }
+
             return (
               <div key={item.id} className="flex justify-center group">
-                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative">
-                  {solution?.problem_statement && 
-                    <p className="text-xs italic text-neutral-400 mb-2 pb-1.5 border-b border-neutral-700">
-                      Re: {solution.problem_statement.length > 100 ? solution.problem_statement.substring(0,97) + '...' : solution.problem_statement}
-                    </p>
-                  }
-                  {solution?.code && (
-                    <div className="my-2 bg-neutral-900 rounded-md overflow-hidden">
-                      <SyntaxHighlighter language="python" style={dracula} customStyle={{margin:0, padding: "0.75rem 1rem", fontSize: "0.75rem", background: "transparent"}} wrapLongLines={true}>
-                        {solution.code}
-                      </SyntaxHighlighter>
-                    </div>
-                  )}
-                  {solution?.context && <p className="text-xs mt-2 text-neutral-400"><strong className="font-medium text-neutral-300">Context:</strong> {solution.context}</p>}
-                  {solution?.reasoning && <p className="text-xs mt-1.5 text-neutral-400"><strong className="font-medium text-neutral-300">Reasoning:</strong> {solution.reasoning}</p>}
-                  {solution?.suggested_responses && solution.suggested_responses.length > 0 && (
-                     <div className="mt-2.5 pt-2 border-t border-neutral-700">
-                        <p className="text-xs font-medium text-neutral-400 mb-1.5">Suggestions:</p>
-                        <ul className="space-y-1">
-                            {solution.suggested_responses.map((s: string, i: number) => 
-                              <li key={i} className="text-xs text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/60 p-1.5 rounded-md transition-colors cursor-pointer">
-                                {s}
-                              </li>
-                            )}
-                        </ul>
-                     </div>
-                  )}
-                  {!solution && <p className="text-xs text-red-400">AI response format error.</p>}
+                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
+                  {finalDisplay}
                   <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
@@ -303,18 +236,8 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
               </div>
             );
           } else if (item.type === 'user_file') {
-            return (
-              <div key={item.id} className="flex justify-center group">
-                <div className="text-left my-1">
-                  <span className="text-[10px] text-neutral-600 italic px-2 py-0.5 rounded-full">
-                    Initial context provided to AI.
-                    <span className="text-[9px] text-neutral-600/70 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-1">
-                      ({formatTimestamp(item.timestamp)})
-                    </span>
-                  </span>
-                </div>
-              </div>
-            );
+            // Completely remove rendering for user_file items
+            return null; 
           } else if (item.type === 'system_message') {
             return (
               <div key={item.id} className="flex justify-center group">
@@ -328,7 +251,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           } else {
             console.warn("Unsupported conversation item type:", item);
             return (
-              <div key={`unknown-item-${Math.random().toString(36).substring(7)}`} className="flex justify-center group">
+              <div key={`unknown-item-${index}`} className="flex justify-center group">
                 <div className="text-red-400 text-xs p-2 text-center bg-red-900/30 rounded-md max-w-md">
                   Warning: Unsupported message type encountered.
                 </div>
