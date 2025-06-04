@@ -258,7 +258,21 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
               {isRecordedAudioOpen && (
                 <div className="space-y-2 pl-1 pr-0.5 pt-1">
                   {globalRecordings.map((rec) => (
-                    <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                    <div 
+                      key={rec.id} 
+                      className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                      draggable={true}
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault(); // Prevent default HTML drag behavior
+                        e.stopPropagation(); // Stop event propagation
+                        if (rec.path) {
+                          // Set dataTransfer properties for robustness
+                          e.dataTransfer.setData('text/plain', rec.path); // Using path as dummy data
+                          e.dataTransfer.effectAllowed = 'copy';
+                          window.electronAPI.startFileDrag(rec.path);
+                        }
+                      }}
+                    >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                       </div>
@@ -289,7 +303,21 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
               {isGeneratedAudioOpen && (
                 <div className="space-y-2 pl-1 pr-0.5 pt-1">
                   {generatedAudioClips.map((clip) => (
-                    <div key={clip.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                    <div 
+                      key={clip.id} 
+                      className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                      draggable={true}
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault(); // Prevent default HTML drag behavior
+                        e.stopPropagation(); // Stop event propagation
+                        if (clip.path) {
+                          // Set dataTransfer properties for robustness
+                          e.dataTransfer.setData('text/plain', clip.path); // Using path as dummy data
+                          e.dataTransfer.effectAllowed = 'copy';
+                          window.electronAPI.startFileDrag(clip.path);
+                        }
+                      }}
+                    >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                       </div>
