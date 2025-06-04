@@ -171,7 +171,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   return (
     <div className="w-full"> {/* Removed font-semibold from outer container */}
-      <div className="bg-neutral-800 border-t border-neutral-700 py-2 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
+      <div className="bg-neutral-800 border-t border-neutral-700 rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
         {/* Show/Hide */}
         <div className="flex items-center gap-1">
           <span className="text-[10px] leading-none font-normal text-neutral-400">Show/Hide</span>
@@ -221,76 +221,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
-        {/* Voice Recording Button - Icon only */}
-        <div className="flex items-center">
-          <button
-            title={isRecording ? "Stop Recording" : "Start Voice Recording"} // Updated title
-            className={`transition-colors rounded-md p-1.5 flex items-center justify-center w-[28px] h-[28px] ${isRecording ? 'bg-red-700/80 hover:bg-red-600/80 text-red-200 animate-pulse' : 'bg-neutral-700 hover:bg-neutral-600 text-neutral-300'}`}
-            onClick={handleRecordClick} // This now just toggles UI state
-            type="button"
-          >
-            {isRecording ? (
-              <span className="text-sm">●</span> // Simpler pulse or just filled circle
-            ) : (
-              <span className="text-sm">🎤</span>
-            )}
-          </button>
-        </div>
-
-        {/* Right-aligned icons: Question mark & Sign Out */}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <div
-            className="relative inline-block"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-          >
-            <div className="w-7 h-7 rounded-md bg-neutral-700 hover:bg-neutral-600 transition-colors flex items-center justify-center cursor-help z-10">
-              <span className="text-xs text-neutral-300 font-medium">?</span>
-            </div>
-            {isTooltipVisible && (
-              <div
-                ref={tooltipRef}
-                className="absolute bottom-full right-0 mb-2 w-72 z-20" // Ensure tooltip is above other elements
-              >
-                <div className="p-2.5 text-[11px] bg-neutral-800/95 backdrop-blur-sm rounded-md border border-neutral-700 text-neutral-300 shadow-lg font-normal">
-                  <h3 className="font-medium whitespace-nowrap text-xs text-neutral-200 border-b border-neutral-700 pb-1.5 mb-1.5">
-                    Keyboard Shortcuts
-                  </h3>
-                   <div className="space-y-2">
-                    {[ 
-                      { label: "Toggle Window", keys: ["⌘", "B"], desc: "Show or hide this window." },
-                      { label: "Solve Problem", keys: ["⌘", "↵"], desc: "Generate solution (auto-takes screenshot)." },
-                      { label: "Record Audio (2s)", keys: ["⌘", ";"], desc: "Record 2s audio for music generation." },
-                      // Add other relevant shortcuts for QueueCommands if any
-                    ].map(item => (
-                      <div key={item.label} className="space-y-0.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-neutral-300 font-normal">{item.label}</span>
-                          <div className="flex gap-0.5">
-                            {item.keys.map(key => (
-                              <span key={key} className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                                {key}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                        <p className="text-[10px] leading-snug text-neutral-400 font-normal">{item.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            className="text-neutral-400 hover:text-red-500 transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-neutral-700 flex items-center justify-center w-[28px] h-[28px]"
-            title="Sign Out"
-            onClick={() => window.electronAPI.quitApp()}
-          >
-            <IoLogOutOutline className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {/* Sign Out button - REMOVED */}
       </div>
     </div>
   )
