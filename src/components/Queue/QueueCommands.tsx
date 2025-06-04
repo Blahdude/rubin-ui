@@ -159,52 +159,27 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   }
 
   const handleRecordClick = async () => {
-    if (!isRecording) {
-      // Start recording
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        const recorder = new MediaRecorder(stream)
-        recorder.ondataavailable = (e) => chunks.current.push(e.data)
-        recorder.onstop = async () => {
-          const blob = new Blob(chunks.current, { type: chunks.current[0]?.type || 'audio/webm' })
-          chunks.current = []
-          const reader = new FileReader()
-          reader.onloadend = async () => {
-            const base64Data = (reader.result as string).split(',')[1]
-            try {
-              const result = await window.electronAPI.analyzeAudioFromBase64(base64Data, blob.type)
-              setAudioResult(result.text)
-            } catch (err) {
-              setAudioResult('Audio analysis failed.')
-            }
-          }
-          reader.readAsDataURL(blob)
-        }
-        setMediaRecorder(recorder)
-        recorder.start()
-        setIsRecording(true)
-      } catch (err) {
-        setAudioResult('Could not start recording.')
-      }
-    } else {
-      // Stop recording
-      mediaRecorder?.stop()
-      setIsRecording(false)
-      setMediaRecorder(null)
-    }
+    // This function now primarily toggles the visual state in this component.
+    // The actual recording logic is initiated via Electron events handled in Queue.tsx or main process.
+    // For instance, a global shortcut might trigger recording, or this button could send an IPC message.
+    // For UI purposes, we just toggle `isRecording` state for the button's appearance.
+    // window.electronAPI.toggleGlobalRecording(); // Example IPC call
+    setIsRecording(prev => !prev); // Simulate toggling for UI, actual state might be driven by Electron events.
+
+    // The old MediaRecorder logic is removed from here as it's handled globally / in main process now.
   }
 
   return (
-    <div className="w-full font-semibold">
-      <div className="text-xs text-black/80 backdrop-blur-md bg-white/50 rounded-lg py-1.5 px-2.5 flex items-center flex-wrap justify-start gap-x-2.5 gap-y-1.5">
+    <div className="w-full"> {/* Removed font-semibold from outer container */}
+      <div className="bg-neutral-800 border-t border-neutral-700 py-2 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
         {/* Show/Hide */}
         <div className="flex items-center gap-1">
-          <span className="text-[10.5px] leading-none font-medium text-black/70">Show/Hide</span>
+          <span className="text-[10px] leading-none font-normal text-neutral-400">Show/Hide</span>
           <div className="flex gap-0.5">
-            <button className="hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none text-black/60 font-semibold">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
               ⌘
             </button>
-            <button className="hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none text-black/60 font-semibold">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
               B
             </button>
           </div>
@@ -212,18 +187,18 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
         {/* Solve Command */}
         <div className="flex items-center gap-1">
-          <span className={`text-[10.5px] leading-none font-medium ${isProcessingSolution ? 'text-black/40 animate-pulse' : 'text-black/70'}`}>
+          <span className={`text-[10px] leading-none font-normal ${isProcessingSolution ? 'text-neutral-500 animate-pulse' : 'text-neutral-400'}`}>
             {isProcessingSolution ? 'Solving...' : 'Solve'}
           </span>
           <div className={`flex gap-0.5 ${isProcessingSolution ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <button 
-              className={`hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none font-semibold ${isProcessingSolution ? 'text-black/40' : 'text-black/60'}`}
+              className={`bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-neutral-500' : 'text-neutral-300'}`}
               disabled={isProcessingSolution}
             >
               ⌘
             </button>
             <button 
-              className={`hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none font-semibold ${isProcessingSolution ? 'text-black/40' : 'text-black/60'}`}
+              className={`bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-neutral-500' : 'text-neutral-300'}`}
               disabled={isProcessingSolution}
             >
               ↵
@@ -231,16 +206,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
         </div>
 
-        {/* Record Audio (2s) */}
+        {/* Record Audio (2s) - Assuming this triggers a specific type of recording via Electron */}
         <div className="flex items-center gap-1">
-          <span className="text-[10.5px] leading-none font-medium text-black/70">
+          <span className="text-[10px] leading-none font-normal text-neutral-400">
             Record Audio (2s)
           </span>
           <div className="flex gap-0.5">
-            <button className="hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none text-black/60 font-semibold">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
               ⌘
             </button>
-            <button className="hover:bg-black/10 transition-colors rounded-md px-1.5 py-0.5 text-[10.5px] leading-none text-black/60 font-semibold">
+            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
               ;
             </button>
           </div>
@@ -249,16 +224,15 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         {/* Voice Recording Button - Icon only */}
         <div className="flex items-center">
           <button
-            title={isRecording ? "Stop Recording" : "Record Voice"}
-            className={`hover:bg-black/10 transition-colors rounded-md p-1.5 text-black/70 flex items-center justify-center ${isRecording ? 'bg-red-500/20 hover:bg-red-500/30 text-red-600' : 'text-black/60'}`}
-            onClick={handleRecordClick}
+            title={isRecording ? "Stop Recording" : "Start Voice Recording"} // Updated title
+            className={`transition-colors rounded-md p-1.5 flex items-center justify-center w-[28px] h-[28px] ${isRecording ? 'bg-red-700/80 hover:bg-red-600/80 text-red-200 animate-pulse' : 'bg-neutral-700 hover:bg-neutral-600 text-neutral-300'}`}
+            onClick={handleRecordClick} // This now just toggles UI state
             type="button"
-            style={{ width: '26px', height: '26px' }} 
           >
             {isRecording ? (
-              <span className="animate-pulse text-md">●</span>
+              <span className="text-sm">●</span> // Simpler pulse or just filled circle
             ) : (
-              <span className="text-md">🎤</span>
+              <span className="text-sm">🎤</span>
             )}
           </button>
         </div>
@@ -270,36 +244,37 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            <div className="w-6 h-6 rounded-full hover:bg-black/10 backdrop-blur-sm transition-colors flex items-center justify-center cursor-help z-10">
-              <span className="text-xs text-black/60 font-semibold">?</span>
+            <div className="w-7 h-7 rounded-md bg-neutral-700 hover:bg-neutral-600 transition-colors flex items-center justify-center cursor-help z-10">
+              <span className="text-xs text-neutral-300 font-medium">?</span>
             </div>
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute top-full right-0 mt-2 w-80 z-20" // Ensure tooltip is above other elements
+                className="absolute bottom-full right-0 mb-2 w-72 z-20" // Ensure tooltip is above other elements
               >
-                <div className="p-3 text-xs bg-white/80 backdrop-blur-md rounded-lg border border-black/10 text-black/90 shadow-xl font-medium">
-                  {/* Tooltip content styling can also be refined if needed */}
-                  <h3 className="font-semibold text-black/80 mb-2 pb-1 border-b border-black/10">Keyboard Shortcuts</h3>
-                  {/* ... simplified tooltip items ... */}
-                   <div className="space-y-2.5">
+                <div className="p-2.5 text-[11px] bg-neutral-800/95 backdrop-blur-sm rounded-md border border-neutral-700 text-neutral-300 shadow-lg font-normal">
+                  <h3 className="font-medium whitespace-nowrap text-xs text-neutral-200 border-b border-neutral-700 pb-1.5 mb-1.5">
+                    Keyboard Shortcuts
+                  </h3>
+                   <div className="space-y-2">
                     {[ 
                       { label: "Toggle Window", keys: ["⌘", "B"], desc: "Show or hide this window." },
                       { label: "Solve Problem", keys: ["⌘", "↵"], desc: "Generate solution (auto-takes screenshot)." },
                       { label: "Record Audio (2s)", keys: ["⌘", ";"], desc: "Record 2s audio for music generation." },
+                      // Add other relevant shortcuts for QueueCommands if any
                     ].map(item => (
                       <div key={item.label} className="space-y-0.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-black/80 font-medium">{item.label}</span>
+                          <span className="text-neutral-300 font-normal">{item.label}</span>
                           <div className="flex gap-0.5">
                             {item.keys.map(key => (
-                              <span key={key} className="bg-black/5 text-black/60 px-1.5 py-0.5 rounded text-[10px] leading-none font-semibold">
+                              <span key={key} className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                                 {key}
                               </span>
                             ))}
                           </div>
                         </div>
-                        <p className="text-[10px] leading-snug text-black/60">{item.desc}</p>
+                        <p className="text-[10px] leading-snug text-neutral-400 font-normal">{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -309,10 +284,9 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </div>
 
           <button
-            className="text-red-500/70 hover:text-red-500/90 hover:bg-red-500/10 transition-colors rounded-md p-1 flex items-center justify-center"
+            className="text-neutral-400 hover:text-red-500 transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-neutral-700 flex items-center justify-center w-[28px] h-[28px]"
             title="Sign Out"
             onClick={() => window.electronAPI.quitApp()}
-            style={{ width: '26px', height: '26px' }} 
           >
             <IoLogOutOutline className="w-3.5 h-3.5" />
           </button>

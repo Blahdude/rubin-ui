@@ -34,7 +34,7 @@ class WindowHelper {
         const primaryDisplay = electron_1.screen.getPrimaryDisplay();
         const workArea = primaryDisplay.workAreaSize;
         // MODIFIED: Decrease max width percentage for a narrower window
-        const maxAllowedWidth = Math.floor(workArea.width * (this.appState.getHasDebugged() ? 0.40 : 0.35) // Narrower: 35% normal, 40% debug
+        const maxAllowedWidth = Math.floor(workArea.width * (this.appState.getHasDebugged() ? 0.30 : 0.25) // Narrower: 25% normal, 30% debug
         );
         const verticalMargin = 20; // Keep some margin from the top
         const horizontalMargin = 5; // Keep some margin from the right edge
@@ -63,7 +63,7 @@ class WindowHelper {
         this.screenHeight = workArea.height;
         this.step = Math.floor(this.screenWidth / 10); // 10 steps
         // MODIFIED: Adjust initial window size for narrower width and taller height
-        const initialWidth = Math.floor(workArea.width * 0.35); // Narrower: 35% width
+        const initialWidth = Math.floor(workArea.width * 0.25); // Narrower: 25% width
         const initialHeight = Math.floor(workArea.height * 0.90); // Taller: 90% height
         const horizontalMargin = 5;
         const verticalMargin = 20;

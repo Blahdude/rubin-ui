@@ -94,6 +94,13 @@ const App: React.FC = () => {
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
 
   useEffect(() => {
+    // Attempt to move the window to the right on startup
+    if (window.electronAPI && typeof window.electronAPI.moveWindowRight === 'function') {
+      window.electronAPI.moveWindowRight()
+        .then(() => console.log("Attempted to move window right."))
+        .catch(err => console.error("Error moving window right:", err));
+    }
+
     const cleanupFunctions = [
       window.electronAPI.onChatUpdated((newItem: ConversationItem) => {
         console.log("CHAT_UPDATED received in App.tsx:", newItem);

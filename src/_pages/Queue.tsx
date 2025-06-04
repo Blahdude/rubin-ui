@@ -175,7 +175,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   }, [conversation, globalRecordings, generatedAudioClips]);
 
   return (
-    <div className="flex flex-col h-full bg-transparent pt-0 pb-2 px-2 space-y-1.5">
+    <div className="flex flex-col h-full bg-neutral-850 pt-0 pb-2 px-2 space-y-1.5">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -194,47 +194,47 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         />
       </div>
 
-      <div className="flex flex-col flex-grow min-h-0 space-y-1.5 p-1 overflow-y-auto">
-        <div className="w-full space-y-3 p-2 bg-white/50 backdrop-blur-md rounded-lg">
+      <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full">
+        <div className="w-full space-y-3 p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
           {vadStatusMessage && (
-            <div className={`mx-0.5 mb-1.5 p-2 rounded text-xs font-medium ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-400/25 border border-yellow-500/40 text-yellow-700' : 'bg-blue-400/20 border border-blue-500/30 text-blue-700'}`}>
+            <div className={`mx-0.5 mb-2 p-2 rounded text-xs font-medium border ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-700/30 border-yellow-600/50 text-yellow-300' : 'bg-neutral-700 border-neutral-600 text-neutral-300'}`}>
               {vadStatusMessage}
             </div>
           )}
           {globalRecordings.length > 0 && (
-            <div className="space-y-1.5">
-              <h4 className="font-semibold text-xs text-black/50 tracking-wider uppercase mx-0.5 mb-1">Recorded Audio</h4>
+            <div className="space-y-2">
+              <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase mx-0.5 mb-1.5">Recorded Audio</h4>
               <div className="space-y-2">
                 {globalRecordings.map((rec) => (
-                  <div key={rec.id} className="flex flex-col p-2 bg-white/70 rounded-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] hover:bg-neutral-50/80 transition-colors duration-100 ease-in-out border border-black/5">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center text-[10px] text-black/60"><span className="mr-1 opacity-80">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                  <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                     </div>
-                    <p className="text-[11px] font-medium text-black/80 truncate mb-1.5 flex items-center"><span className="mr-1.5 opacity-80">📄</span><span className="truncate">{rec.path.split(/[\\/]/).pop()}</span></p>
-                    <audio controls src={`clp://${rec.path}`} className="w-full h-7 rounded-sm filter saturate-[0.9] opacity-90 hover:opacity-100 transition-opacity"></audio>
+                    <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
+                    <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
                   </div>
                 ))}
               </div>
             </div>
           )}
           {globalRecordingError && (
-            <div className="mx-0.5 mt-1.5 p-2 bg-red-500/20 rounded text-red-700 text-xs border border-red-500/30 font-medium">
+            <div className="mx-0.5 mt-2 p-2 bg-red-800/40 rounded text-red-300 text-xs border border-red-700/50 font-medium">
               <span className="font-semibold">Audio Error:</span> {globalRecordingError}
             </div>
           )}
           {generatedAudioClips.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <h4 className="font-semibold text-xs text-black/50 tracking-wider uppercase mx-0.5 mb-1">Generated Audio</h4>
+            <div className="space-y-2 pt-1.5">
+              <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase mx-0.5 mb-1.5">Generated Audio</h4>
               <div className="space-y-2">
                 {generatedAudioClips.map((clip) => (
-                  <div key={clip.id} className="flex flex-col p-2 bg-teal-50/60 rounded-md shadow-[0_1px_2px_0_rgba(0,0,0,0.03)] hover:bg-teal-50/80 transition-colors duration-100 ease-in-out border border-teal-500/10">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center text-[10px] text-teal-800/80"><span className="mr-1 opacity-80">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                  <div key={clip.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                     </div>
-                    <p className="text-[11px] font-medium text-teal-900/90 truncate mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate" title={clip.path}>{clip.path.split(/[\\/]/).pop()}</span></p>
-                    <p className="text-[10px] text-teal-800/70 truncate mb-1.5"><span className="mr-1.5 opacity-80">🔙</span>Orig: {clip.originalPath.split(/[\\/]/).pop()}</p>
-                    <div className="text-[10px] text-teal-900/80 mb-1.5 flex justify-between"><span>BPM: {clip.bpm}</span><span>Key: {clip.key}</span></div>
-                    <audio controls src={`clp://${clip.path}`} className="w-full h-7 rounded-sm filter saturate-[0.9] opacity-90 hover:opacity-100 transition-opacity"></audio>
+                    <p className="text-[11px] font-medium text-neutral-300 mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate">Generated Track</span></p>
+                    <p className="text-[10px] text-neutral-400 truncate mb-1.5"><span className="mr-1.5 opacity-70">🔙</span>Based on User Recording</p>
+                    <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
+                    <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
                   </div>
                 ))}
               </div>
@@ -242,12 +242,12 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
           )}
           {(globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
              <div className="text-center py-8">
-                <p className="text-sm text-black/40 font-medium">Record or generate audio to see it here.</p>
+                <p className="text-sm text-neutral-500 font-medium">Record or generate audio to see it here.</p>
              </div>
           )}
         </div>
 
-        <div className="w-full p-0.5">
+        <div className="w-full p-0.5 flex-grow flex flex-col min-h-0">
           <Solutions 
             showCommands={true}
             onProcessingStateChange={setIsProcessingSolution}
