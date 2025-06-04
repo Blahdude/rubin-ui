@@ -26,7 +26,7 @@ const ToastViewport = React.forwardRef<
 ))
 ToastViewport.displayName = ToastPrimitive.Viewport.displayName
 
-type ToastVariant = "neutral" | "success" | "error"
+type ToastVariant = "success" | "error" | "info"
 
 interface ToastProps
   extends React.ComponentPropsWithoutRef<typeof ToastPrimitive.Root> {
@@ -34,15 +34,15 @@ interface ToastProps
 }
 
 const toastVariants: Record<ToastVariant, string> = {
-  neutral: "bg-yellow-500 text-white",
   success: "bg-green-500 text-white",
-  error: "bg-red-500 text-white"
+  error: "bg-red-500 text-white",
+  info: "bg-sky-500 text-white"
 }
 
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitive.Root>,
   ToastProps
->(({ className, variant = "neutral", ...props }, ref) => (
+>(({ className, variant = "success", ...props }, ref) => (
   <ToastPrimitive.Root
     ref={ref}
     className={cn(

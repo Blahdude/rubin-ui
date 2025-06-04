@@ -150,7 +150,7 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     startFileDrag: (filePath) => {
         electron_1.ipcRenderer.send("ondragstart-file", filePath);
     },
-    generateMusicContinuation: (inputFilePath) => electron_1.ipcRenderer.invoke("generate-music-continuation", inputFilePath),
+    generateMusic: (promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
     notifyGeneratedAudioReady: (generatedPath, originalPath, features) => {
         electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
     },
@@ -165,12 +165,12 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     // ADDED for user follow-up
     userResponseToAi: (userText) => electron_1.ipcRenderer.invoke('user-response-to-ai', userText),
     onFollowUpSuccess: (callback) => {
-        const channel = "follow-up-success"; // Make sure this matches event in AppState
+        const channel = "follow-up-success";
         electron_1.ipcRenderer.on(channel, (_event, data) => callback(data));
         return () => electron_1.ipcRenderer.removeAllListeners(channel);
     },
     onFollowUpError: (callback) => {
-        const channel = "follow-up-error"; // Make sure this matches event in AppState
+        const channel = "follow-up-error";
         electron_1.ipcRenderer.on(channel, (_event, error) => callback(error));
         return () => electron_1.ipcRenderer.removeAllListeners(channel);
     },

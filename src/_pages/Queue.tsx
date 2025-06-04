@@ -31,7 +31,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
     description: "",
-    variant: "neutral"
+    variant: "info"
   })
 
   // State for collapsibility - set to false for collapsed by default
@@ -119,11 +119,50 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       setVadStatusMessage(null);
       showToast("Recording Saved", `Audio saved to ${data.path}`, "success");
       try {
-        showToast("Processing", "Generating music...", "neutral");
-        const { generatedPath, features } = await window.electronAPI.generateMusic("Continue this recording", data.path);
+        showToast("Processing", "Attempting to generate music from recording...", "info");
+        
+        let generationFunction: any = undefined;
+        if (window.electronAPI && typeof window.electronAPI.generateMusic === 'function') {
+          generationFunction = window.electronAPI.generateMusic;
+          console.log("[Queue.tsx] Found window.electronAPI.generateMusic");
+        } else if (window.electronAPI && typeof (window.electronAPI as any).generateMusicContinuation === 'function') {
+          generationFunction = (window.electronAPI as any).generateMusicContinuation;
+          console.warn("[Queue.tsx] Found legacy window.electronAPI.generateMusicContinuation");
+        } else {
+          console.error("[Queue.tsx] No valid music generation function found on window.electronAPI (tried generateMusic, generateMusicContinuation).");
+          showToast("Generation Error", "Music generation API function not found.", "error");
+          return;
+        }
+
+        // For continuation, the first argument (prompt) can be generic.
+        // The second argument is the inputFilePath (the recording).
+        // If generateMusicContinuation only took one arg (path), this would need adjustment
+        const { generatedPath, features } = await generationFunction("Continue this recording", data.path);
+        
         showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
         console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features });
-        window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
+        
+        // Check if notifyGeneratedAudioReady exists before calling
+        if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
+            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
+        } else {
+            console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
+            // Fallback: directly update state here if notify doesn't exist, though event-driven is preferred.
+            // This might cause issues if other components rely on the event.
+            // For robustness, this component already listens to onGeneratedAudioReady, so this direct call
+            // might be redundant if the main process correctly emits the event after generation.
+            // However, notifyGeneratedAudioReady is intended to be called by the process that INITIATED the generation.
+            const newGeneratedClip: GeneratedAudioClip = { 
+                id: `gen-clip-direct-${Date.now()}`,
+                path: generatedPath,
+                originalPath: data.path || "",
+                timestamp: new Date(),
+                bpm: features.bpm,
+                key: features.key
+            };
+            setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+        }
+
       } catch (error: any) {
         console.error("Error generating music (Queue.tsx):", error);
         showToast("Generation Failed", error.message || "Could not generate audio.", "error");
@@ -160,7 +199,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         refetch(); 
       }),
       window.electronAPI.onSolutionError((error: string) => { showToast("Solution Error", error, "error"); }),
-      window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "neutral"); })
+      window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "info"); })
     ];
     return () => { unsubscribes.forEach(unsub => unsub()); clearVadStatusTimeout(); };
   }, [refetch]);
@@ -201,7 +240,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full">
         <div className="w-full space-y-3 p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
           {vadStatusMessage && (
-            <div className={`mx-0.5 mb-2 p-2 rounded text-xs font-medium border ${vadStatusMessage.includes("Error") || vadStatusMessage.includes("error") || vadStatusMessage.includes("timed out") ? 'bg-yellow-700/30 border-yellow-600/50 text-yellow-300' : 'bg-neutral-700 border-neutral-600 text-neutral-300'}`}>
+            <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-neutral-400`}>
               {vadStatusMessage}
             </div>
           )}

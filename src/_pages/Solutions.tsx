@@ -43,7 +43,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
     description: "",
-    variant: "neutral"
+    variant: "info"
   })
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
@@ -227,8 +227,11 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
             if (item.content?.isLoadingAudio === true) {
               audioLoadingIndicator = (
-                <div className="mt-2.5 text-xs text-neutral-400 italic animate-pulse">
-                  Rick is in the studio, cooking up a beat...
+                <div className="mt-3 mb-2 flex flex-col items-center justify-center space-y-2">
+                  <img src="/icon/image.png" alt="Loading audio..." className="w-10 h-10 animate-pulse opacity-75" />
+                  <p className="text-xs text-neutral-400 italic">
+                    Crafting your sound...
+                  </p>
                 </div>
               );
             } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {

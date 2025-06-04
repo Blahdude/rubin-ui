@@ -39,7 +39,7 @@ interface ElectronAPI {
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
-  generateMusicContinuation: (inputFilePath: string) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>
+  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void
 
@@ -227,7 +227,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   startFileDrag: (filePath: string) => {
     ipcRenderer.send("ondragstart-file", filePath)
   },
-  generateMusicContinuation: (inputFilePath: string) => ipcRenderer.invoke("generate-music-continuation", inputFilePath),
+  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => 
+    ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => {
     ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
   },
@@ -243,12 +244,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // ADDED for user follow-up
   userResponseToAi: (userText: string) => ipcRenderer.invoke('user-response-to-ai', userText),
   onFollowUpSuccess: (callback) => {
-    const channel = "follow-up-success"; // Make sure this matches event in AppState
+    const channel = "follow-up-success"; 
     ipcRenderer.on(channel, (_event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners(channel);
   },
   onFollowUpError: (callback) => {
-    const channel = "follow-up-error"; // Make sure this matches event in AppState
+    const channel = "follow-up-error"; 
     ipcRenderer.on(channel, (_event, error) => callback(error));
     return () => ipcRenderer.removeAllListeners(channel);
   },
