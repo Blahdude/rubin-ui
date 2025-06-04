@@ -93,25 +93,28 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
       clearVadStatusTimeout();
       setVadStatusMessage(null); // Clear VAD status on completion
 
-      // ---- ADDED: Call to generate music continuation ----
+      // ---- UPDATED: Call to generate music continuation (now generateMusic) ----
       if (data.path) {
-        console.log(`[QueueCommands] Calling generateMusicContinuation with path: ${data.path}`);
+        console.log(`[QueueCommands] Calling generateMusic (for continuation) with path: ${data.path}`);
         try {
-          await window.electronAPI.generateMusicContinuation(data.path);
-          console.log("[QueueCommands] generateMusicContinuation IPC call successful (renderer side)");
+          // For continuation, the first argument (prompt) can be generic or derived.
+          // The second argument is the inputFilePath (the recording).
+          // Third argument (duration) can be omitted or specified.
+          await window.electronAPI.generateMusic("Continue this audio", data.path);
+          console.log("[QueueCommands] generateMusic IPC call successful (renderer side for continuation)");
         } catch (error) {
-          console.error("[QueueCommands] Error calling generateMusicContinuation IPC:", error);
-          setGlobalRecordingError("Failed to start music generation. See console.");
+          console.error("[QueueCommands] Error calling generateMusic IPC (for continuation):", error);
+          setGlobalRecordingError("Failed to start music generation for continuation. See console.");
           // Optionally, update VAD status message for this error too
-          setVadStatusMessage("Music generation error.");
+          setVadStatusMessage("Music continuation generation error.");
           if (vadStatusTimeoutRef.current) clearTimeout(vadStatusTimeoutRef.current);
           vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000);
         }
       } else {
-        console.error("[QueueCommands] No path received in handleAudioRecordingComplete, cannot generate music.");
-        setGlobalRecordingError("Audio recording path missing.");
+        console.error("[QueueCommands] No path received in handleAudioRecordingComplete, cannot generate music continuation.");
+        setGlobalRecordingError("Audio recording path missing for continuation.");
       }
-      // ---- END ADDED ----
+      // ---- END UPDATED ----
     };
     const unsubscribeComplete = window.electronAPI.onAudioRecordingComplete(handleAudioRecordingComplete);
 
@@ -125,12 +128,12 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
     const unsubscribeError = window.electronAPI.onAudioRecordingError(handleAudioRecordingError);
 
     // Listener for newly generated audio clips
-    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => {
       console.log("Generated audio ready (QueueCommands):", data.generatedPath, "from original:", data.originalPath, "Features:", data.features);
       const newGeneratedClip: GeneratedAudioClip = {
         id: `gen-clip-${Date.now()}`,
         path: data.generatedPath,
-        originalPath: data.originalPath,
+        originalPath: data.originalPath || "", // Ensure originalPath is always a string
         timestamp: new Date(),
         bpm: data.features.bpm,
         key: data.features.key

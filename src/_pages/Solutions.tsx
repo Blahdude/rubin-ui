@@ -222,19 +222,34 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             }
 
             let audioPlayer: React.ReactNode = null;
-            if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
+            let audioLoadingIndicator: React.ReactNode = null;
+            let audioErrorIndicator: React.ReactNode = null;
+
+            if (item.content?.isLoadingAudio === true) {
+              audioLoadingIndicator = (
+                <div className="mt-2.5 text-xs text-neutral-400 italic animate-pulse">
+                  Rick is in the studio, cooking up a beat...
+                </div>
+              );
+            } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
               const audioSrc = `clp://${item.content.playableAudioPath}`;
               audioPlayer = (
-                <div style={{ marginTop: aiTextMessage ? '10px' : '0px', marginBottom: suggestionsOutput ? '10px' : '0px' }}>
+                <div style={{ marginTop: aiTextMessage || suggestionsOutput ? '10px' : '0px', marginBottom: suggestionsOutput && !aiTextMessage ? '10px' : '0px' }}>
                   <audio controls src={audioSrc} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity">
                     Your browser does not support the audio element.
                   </audio>
                 </div>
               );
+            } else if (item.content?.musicGenerationError && typeof item.content.musicGenerationError === 'string') {
+              audioErrorIndicator = (
+                <div className="mt-2.5 text-xs text-red-400 bg-red-900/30 p-2 rounded-md">
+                  <span className="font-semibold">Music Generation Error:</span> {item.content.musicGenerationError}
+                </div>
+              );
             }
             
             // Determine if there's any content to display at all
-            const hasContent = aiTextMessage || audioPlayer || suggestionsOutput;
+            const hasContent = aiTextMessage || audioPlayer || audioLoadingIndicator || audioErrorIndicator || suggestionsOutput;
 
             return (
               <div key={item.id} className="flex justify-center group">
@@ -242,7 +257,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   {hasContent ? (
                     <>
                       {aiTextMessage}
+                      {audioLoadingIndicator}
                       {audioPlayer}
+                      {audioErrorIndicator}
                       {suggestionsOutput}
                     </>
                   ) : (

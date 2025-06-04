@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.callReplicateToContinueMusic = callReplicateToContinueMusic;
+exports.callReplicateMusicGeneration = callReplicateMusicGeneration;
 exports.initializeIpcHandlers = initializeIpcHandlers;
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path")); // Import path for icon handling if needed later
@@ -34,73 +34,62 @@ else {
         console.warn(`[IPC Main] .env file not found at ${envPath} or ${devEnvPath}. Ensure REPLICATE_API_KEY is set globally or .env is correctly placed.`);
     }
 }
-async function callReplicateToContinueMusic(inputFilePath, promptText) {
-    console.log(`[Replicate] callReplicateToContinueMusic for input file: ${inputFilePath} with prompt: "${promptText || ''}"`);
-    if (!inputFilePath || typeof inputFilePath !== 'string') {
-        console.error("[Replicate] ERROR: Invalid or missing inputFilePath for music continuation.");
-        throw new Error("Invalid input file path for music continuation.");
-    }
+// Renamed function, inputFilePath is now optional
+async function callReplicateMusicGeneration(promptText, inputFilePath, durationSeconds = 8) {
+    console.log(`[Replicate] callReplicateMusicGeneration. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}. Duration: ${durationSeconds}s`);
     const replicateApiKey = process.env.REPLICATE_API_KEY;
-    if (!replicateApiKey) {
-        console.error("[Replicate] ERROR: REPLICATE_API_KEY not found in environment variables.");
+    if (!replicateApiKey)
         throw new Error("Replicate API key is not configured.");
-    }
-    // console.log("[Replicate] API key found."); // Reduced verbosity
-    const replicate = new replicate_1.default({
-        auth: replicateApiKey,
-    });
-    // console.log("[Replicate] client initialized."); // Reduced verbosity
-    let inputAudioDurationSeconds;
-    try {
-        const durationOutput = await new Promise((resolve, reject) => {
-            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`;
-            (0, child_process_1.exec)(command, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`[Replicate] ffprobe stderr: ${stderr}`);
-                    return reject(error);
-                }
-                return resolve(stdout.trim());
-            });
-        });
-        inputAudioDurationSeconds = parseFloat(durationOutput);
-        if (isNaN(inputAudioDurationSeconds)) {
-            console.warn(`[Replicate] WARNING: ffprobe output was not a number: '${durationOutput}'. Using full audio for continuation.`);
-            inputAudioDurationSeconds = undefined;
-        }
-    }
-    catch (ffmpegError) {
-        console.error("[Replicate] ERROR executing ffprobe to get audio duration:", ffmpegError.message);
-        inputAudioDurationSeconds = undefined;
-    }
-    const continuationEndTime = inputAudioDurationSeconds ? Math.min(inputAudioDurationSeconds, 2.0) : 2.0;
-    const continuationEndInteger = Math.round(continuationEndTime);
-    let audioBuffer;
-    try {
-        audioBuffer = fs_1.default.readFileSync(inputFilePath);
-    }
-    catch (readError) {
-        console.error(`[Replicate] ERROR reading input audio file (${inputFilePath}) into buffer:`, readError);
-        throw new Error(`Failed to read input audio file: ${readError.message}`);
-    }
+    const replicate = new replicate_1.default({ auth: replicateApiKey });
     const modelInputs = {
-        model_version: "stereo-melody-large",
-        input_audio: audioBuffer,
-        prompt: promptText || "",
-        duration: 4,
-        continuation: true,
-        continuation_start: 0,
-        continuation_end: continuationEndInteger,
+        model_version: "stereo-melody-large", // This is for melody generation, might need "stereo-music-large" for broader music.
+        // For true text-to-music, MusicGen models like "stereo-music-large" are usually better.
+        // The version hash b05b1... is for melody.
+        // Let's try with "stereo-melody-large" first as user suggested it's the same model.
+        // If it fails for text-only, we'll need to confirm the right model_version for MusicGen text-to-music.
+        prompt: promptText,
+        duration: durationSeconds, // Use the duration parameter
         output_format: "wav"
     };
-    console.log("[Replicate] Calling Replicate API with inputs:", { ...modelInputs, input_audio: `<Buffer for ${inputFilePath}>` });
+    if (inputFilePath && typeof inputFilePath === 'string' && fs_1.default.existsSync(inputFilePath)) {
+        console.log("[Replicate] Operating in CONTINUATION mode.");
+        modelInputs.continuation = true;
+        modelInputs.continuation_start = 0;
+        let inputAudioDurationSeconds;
+        try {
+            const durationOutput = await new Promise((resolve, reject) => {
+                (0, child_process_1.exec)(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`, (err, stdout, stderr) => {
+                    if (err) {
+                        console.error(`[Replicate] ffprobe stderr: ${stderr}`);
+                        return reject(err);
+                    }
+                    resolve(stdout.trim());
+                });
+            });
+            inputAudioDurationSeconds = parseFloat(durationOutput);
+            if (isNaN(inputAudioDurationSeconds))
+                inputAudioDurationSeconds = undefined;
+        }
+        catch (e) {
+            console.error("[Replicate] ffprobe error:", e);
+            inputAudioDurationSeconds = undefined;
+        }
+        modelInputs.continuation_end = Math.round(inputAudioDurationSeconds ? Math.min(inputAudioDurationSeconds, 2.0) : 2.0);
+        modelInputs.input_audio = fs_1.default.readFileSync(inputFilePath);
+        console.log("[Replicate] Added continuation parameters and input_audio.");
+    }
+    else {
+        console.log("[Replicate] Operating in TEXT-TO-MUSIC (from scratch) mode.");
+        // For text-to-music, ensure no continuation flags are sent if the model doesn't expect them or if they default incorrectly.
+        // modelInputs.continuation = false; // Explicitly set if needed, or remove if model handles absence correctly.
+    }
+    console.log("[Replicate] Calling Replicate API with inputs:", { ...modelInputs, input_audio: modelInputs.input_audio ? `<Buffer for ${inputFilePath}>` : 'N/A' });
     const prediction = await replicate.predictions.create({
-        version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38",
+        version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38", // This is facebookresearch/musicgen:stereo-melody-large
         input: modelInputs,
     });
-    if (prediction.error) {
-        console.error("[Replicate] ERROR from Replicate during prediction creation:", prediction.error);
+    if (prediction.error)
         throw new Error(`Replicate prediction error: ${prediction.error}`);
-    }
     console.log(`[Replicate] Prediction started. ID: ${prediction.id}, Status: ${prediction.status}`);
     let finalPrediction = prediction;
     while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
@@ -111,65 +100,57 @@ async function callReplicateToContinueMusic(inputFilePath, promptText) {
     if (finalPrediction.status === "succeeded") {
         const outputUrl = finalPrediction.output;
         console.log(`[Replicate] Prediction succeeded. Output URL: ${outputUrl}`);
-        const inputFileName = path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath));
+        const baseName = inputFilePath ? path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath)) : 'musicgen';
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const outputFileName = `${inputFileName}_continuation_${timestamp}.wav`;
+        const outputFileName = `${baseName}_${inputFilePath ? 'cont' : 'gen'}_${timestamp}.wav`;
         const projectRootRecordingsDir = path_1.default.resolve(process.cwd(), "local_recordings");
         const generatedDirInProjectRoot = path_1.default.join(projectRootRecordingsDir, "generated");
-        if (!fs_1.default.existsSync(generatedDirInProjectRoot)) {
+        if (!fs_1.default.existsSync(generatedDirInProjectRoot))
             fs_1.default.mkdirSync(generatedDirInProjectRoot, { recursive: true });
-        }
         const localOutputPath = path_1.default.join(generatedDirInProjectRoot, outputFileName);
         await new Promise((resolve, reject) => {
             const file = fs_1.default.createWriteStream(localOutputPath);
             https_1.default.get(outputUrl, (response) => {
                 if (response.statusCode !== 200) {
-                    reject(new Error(`Failed to download file: HTTP ${response.statusCode} ${response.statusMessage}`));
+                    reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
                     return;
                 }
                 response.pipe(file);
-                file.on("finish", () => {
-                    file.close();
-                    resolve();
-                });
-            }).on("error", (err) => {
-                fs_1.default.unlink(localOutputPath, () => { });
-                reject(err);
-            });
+                file.on("finish", () => { file.close(); resolve(); });
+            }).on("error", (err) => { fs_1.default.unlink(localOutputPath, () => { }); reject(err); });
         });
         let audioFeatures = { bpm: "N/A", key: "N/A" };
         try {
             const pythonProcess = (0, child_process_2.spawn)("python", [path_1.default.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
             let scriptOutput = "";
             let scriptError = "";
-            pythonProcess.stdout.on("data", (data) => { scriptOutput += data.toString(); });
-            pythonProcess.stderr.on("data", (data) => { scriptError += data.toString(); });
-            await new Promise((resolveProcess, rejectProcess) => {
+            pythonProcess.stdout.on("data", (data) => scriptOutput += data.toString());
+            pythonProcess.stderr.on("data", (data) => scriptError += data.toString());
+            await new Promise((res, rej) => {
                 pythonProcess.on("close", (code) => {
                     if (code === 0) {
                         try {
                             audioFeatures = JSON.parse(scriptOutput);
                         }
                         catch (e) {
-                            console.error("[Replicate] Error parsing Python script output:", e, "Raw:", scriptOutput);
+                            console.error("[Replicate] Py parse err:", e, "Out:", scriptOutput);
                         }
                     }
                     else {
-                        console.error(`[Replicate] Python script exited with code ${code}. ERR: ${scriptError}`);
+                        console.error(`[Replicate] Py script err code ${code}. STDERR: ${scriptError}`);
                     }
-                    resolveProcess();
+                    res();
                 });
-                pythonProcess.on("error", (err) => { console.error("[Replicate] Failed to start Python script:", err); resolveProcess(); });
+                pythonProcess.on("error", (err) => { console.error("[Replicate] Py spawn err:", err); res(); });
             });
         }
-        catch (pyError) {
-            console.error("[Replicate] Error executing Python script for features:", pyError);
+        catch (pyErr) {
+            console.error("[Replicate] Py exec err:", pyErr);
         }
-        console.log("[Replicate] callReplicateToContinueMusic returning successfully with:", { generatedPath: localOutputPath, features: audioFeatures });
+        console.log("[Replicate] callReplicateMusicGeneration returning:", { generatedPath: localOutputPath, features: audioFeatures });
         return { generatedPath: localOutputPath, features: audioFeatures };
     }
     else {
-        console.error(`[Replicate] Prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
         throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);
     }
 }
@@ -289,9 +270,10 @@ function initializeIpcHandlers(appState) {
             // event.sender.startDrag({ file: filePath, icon: '' });
         }
     });
-    electron_1.ipcMain.handle("generate-music-continuation", async (event, inputFilePath, promptText) => {
-        // Now this handler simply calls the extracted function
-        return callReplicateToContinueMusic(inputFilePath, promptText);
+    // Renamed IPC Handler, inputFilePath is now optional
+    electron_1.ipcMain.handle("generate-music", // Renamed from generate-music-continuation
+    async (event, promptText, inputFilePath, durationSeconds) => {
+        return callReplicateMusicGeneration(promptText, inputFilePath, durationSeconds);
     });
     electron_1.ipcMain.on("notify-generated-audio-ready", (event, data) => {
         console.log(`[IPC Main] Received notify-generated-audio-ready. Data:`, data);

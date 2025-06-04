@@ -64,7 +64,6 @@ class ProcessingHelper {
         const mainWindow = this.appState.getMainWindow();
         if (!mainWindow || !userText.trim())
             return;
-        console.log(`[ProcessingHelper] Processing user text: ${userText}`);
         const userMessageItem = {
             id: (0, uuid_1.v4)(),
             type: "user_text",
@@ -74,84 +73,152 @@ class ProcessingHelper {
         this.appState.addToConversationHistory(userMessageItem);
         mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, userMessageItem);
         try {
-            const aiResponse = await this.llmHelper.sendMessage([{ text: userText }]);
-            let aiMessageItem;
-            const solution = aiResponse.solution;
-            if (solution?.action === 'generate_music_request') {
-                console.log('[ProcessingHelper] Detected "generate_music_request" action.');
+            const aiLLMResponse = await this.llmHelper.sendMessage([{ text: userText }]);
+            const solution = aiLLMResponse.solution;
+            const aiMessageId = (0, uuid_1.v4)(); // Unique ID for this whole AI interaction turn
+            if (solution?.action === 'generate_music_from_text') {
+                console.log('[ProcessingHelper] Detected "generate_music_from_text" action.');
                 const musicPrompt = solution.musicGenerationPrompt || "";
-                // For now, we'll use audio/audio.wav as the base for continuation.
-                // Later, this could be a path to a user-recorded clip or another selection.
-                const baseAudioForContinuation = 'audio/audio.wav';
+                const duration = solution.durationSeconds ? parseInt(String(solution.durationSeconds), 10) : 8;
+                // --- Send Initial AI Textual Response with Loading Indicator --- 
+                const initialAiMessageItem = {
+                    id: aiMessageId, // Use the master ID for this interaction
+                    type: "ai_response",
+                    content: {
+                        solution: {
+                            code: solution.code || "Got it, working on that music for you...",
+                            problem_statement: solution.problem_statement || "Music Generation Request",
+                            context: solution.context || `Preparing to generate music with prompt: "${musicPrompt}"`,
+                            suggested_responses: solution.suggested_responses || [],
+                            reasoning: solution.reasoning || "Acknowledged request, starting generation."
+                        },
+                        isLoadingAudio: true,
+                    },
+                    timestamp: Date.now(),
+                };
+                this.appState.addToConversationHistory(initialAiMessageItem);
+                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, initialAiMessageItem);
+                // --- End Initial AI Response ---
+                let finalAudioMessageContentUpdate;
                 if (FORCE_DEBUG_AUDIO_GENERATION) {
                     console.log('[ProcessingHelper] FORCE_DEBUG_AUDIO_GENERATION is true. Serving debug audio.');
-                    aiMessageItem = {
-                        id: (0, uuid_1.v4)(),
-                        type: "ai_response",
-                        content: {
-                            solution: {
-                                code: solution.code || "Here\'s a test track (debug mode)!",
-                                problem_statement: solution.problem_statement || "Music Generation Request (Debug)",
-                                context: solution.context || `Debug: Playing test file: ${baseAudioForContinuation}`,
-                                suggested_responses: solution.suggested_responses || [],
-                                reasoning: solution.reasoning || "Serving a predefined test audio file due to debug mode."
-                            },
-                            playableAudioPath: baseAudioForContinuation
-                        },
-                        timestamp: Date.now(),
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    finalAudioMessageContentUpdate = {
+                        isLoadingAudio: false,
+                        playableAudioPath: "audio/audio.wav"
                     };
                 }
                 else {
-                    console.log(`[ProcessingHelper] Attempting Replicate music continuation with base: ${baseAudioForContinuation} and prompt: "${musicPrompt}"`);
+                    console.log(`[ProcessingHelper] Attempting Replicate text-to-music with prompt: "${musicPrompt}", duration: ${duration}s`);
                     try {
-                        // ProcessingHelper is in the main process, so it can call callReplicateToContinueMusic directly.
-                        const { generatedPath, features } = await (0, ipcHandlers_1.callReplicateToContinueMusic)(baseAudioForContinuation, musicPrompt);
-                        console.log(`[ProcessingHelper] Replicate generated audio: ${generatedPath}, Features:`, features);
-                        aiMessageItem = {
-                            id: (0, uuid_1.v4)(),
-                            type: "ai_response",
+                        const { generatedPath, features } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, undefined, duration);
+                        console.log(`[ProcessingHelper] Replicate generated audio (text-to-music): ${generatedPath}, Features:`, features);
+                        finalAudioMessageContentUpdate = {
+                            isLoadingAudio: false,
+                            playableAudioPath: generatedPath
+                        };
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: undefined, features });
+                        }
+                    }
+                    catch (replicateError) {
+                        console.error("[ProcessingHelper] Error calling Replicate for text-to-music:", replicateError);
+                        finalAudioMessageContentUpdate = {
+                            isLoadingAudio: false,
+                            musicGenerationError: replicateError.message || "Unknown error during generation."
+                        };
+                    }
+                }
+                // Create the updated message item maintaining the original text response part
+                const updatedAiMessageItem = {
+                    id: aiMessageId, // CRITICAL: Use the same ID
+                    type: "ai_response",
+                    content: {
+                        ...initialAiMessageItem.content, // Carry over initial content (like solution text)
+                        ...finalAudioMessageContentUpdate // Apply updates (isLoadingAudio, path/error)
+                    },
+                    timestamp: Date.now(), // Update timestamp to reflect when audio processing finished
+                };
+                this.appState.addToConversationHistory(updatedAiMessageItem);
+                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, updatedAiMessageItem);
+            }
+            else if (solution?.action === 'generate_music_request') {
+                // This is legacy continuation logic. It sends a single message after generation.
+                // If this needs the two-step display, it would need similar refactoring.
+                console.log('[ProcessingHelper] Detected legacy "generate_music_request" (continuation) action.');
+                const musicPrompt = solution.musicGenerationPrompt || "";
+                const baseAudioForContinuation = 'audio/audio.wav';
+                const duration = solution.durationSeconds ? parseInt(String(solution.durationSeconds), 10) : 8;
+                let continuationMessageItem;
+                // For simplicity, this legacy path still sends one message post-generation.
+                // If two-step (text then audio update) is desired here, it needs the same ID logic.
+                const tempContinuationAiMessageId = (0, uuid_1.v4)();
+                // Send a preliminary text message if we were to refactor this fully
+                // For now, it sends one message after the fact.
+                if (FORCE_DEBUG_AUDIO_GENERATION) {
+                    continuationMessageItem = {
+                        id: tempContinuationAiMessageId, type: "ai_response",
+                        content: {
+                            solution: {
+                                code: solution.code || "Debug continuation created!",
+                                problem_statement: solution.problem_statement || "Music Continuation (Debug)",
+                                context: solution.context || `Debug continuation based on ${baseAudioForContinuation} for prompt: "${musicPrompt}"`,
+                                suggested_responses: solution.suggested_responses || [],
+                                reasoning: solution.reasoning || "Serving debug audio for continuation."
+                            },
+                            playableAudioPath: baseAudioForContinuation
+                        },
+                        timestamp: Date.now()
+                    };
+                }
+                else {
+                    try {
+                        const { generatedPath, features } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, baseAudioForContinuation, duration);
+                        continuationMessageItem = {
+                            id: tempContinuationAiMessageId, type: "ai_response",
                             content: {
                                 solution: {
-                                    code: solution.code || `Generated some music for you (BPM: ${features.bpm}, Key: ${features.key})! Check it out:`,
-                                    problem_statement: solution.problem_statement || "Music Generation Request",
+                                    code: solution.code || `Continuation generated (BPM: ${features.bpm}, Key: ${features.key})!`,
+                                    problem_statement: solution.problem_statement || "Music Continuation",
                                     context: solution.context || `Generated from: ${baseAudioForContinuation} with prompt: "${musicPrompt}"`,
                                     suggested_responses: solution.suggested_responses || [],
-                                    reasoning: solution.reasoning || "Called Replicate for music generation."
+                                    reasoning: solution.reasoning || "Called Replicate for music continuation."
                                 },
                                 playableAudioPath: generatedPath
                             },
-                            timestamp: Date.now(),
+                            timestamp: Date.now()
                         };
-                        // Notify renderer about the new generated audio so Queue.tsx can update its list
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: baseAudioForContinuation, features });
                         }
                     }
                     catch (replicateError) {
-                        console.error("[ProcessingHelper] Error calling Replicate for music continuation:", replicateError);
-                        aiMessageItem = {
-                            id: (0, uuid_1.v4)(),
+                        continuationMessageItem = {
+                            id: tempContinuationAiMessageId,
                             type: "ai_response",
                             content: {
                                 solution: {
-                                    code: solution.code || "Sorry, I ran into an issue trying to make that music.",
-                                    problem_statement: solution.problem_statement || "Music Generation Request (Error)",
-                                    context: solution.context || `Error during music generation: ${replicateError.message}`,
+                                    code: solution.code || "Sorry, couldn't continue that music.",
+                                    problem_statement: solution.problem_statement || "Music Continuation (Error)",
+                                    context: solution.context || `Error during continuation: ${replicateError.message}`,
                                     suggested_responses: solution.suggested_responses || [],
-                                    reasoning: replicateError.message || "Failed to generate music via Replicate."
-                                }
+                                    reasoning: replicateError.message || "Failed to continue music."
+                                },
+                                musicGenerationError: replicateError.message || "Error during continuation."
                             },
-                            timestamp: Date.now(),
+                            timestamp: Date.now()
                         };
                     }
                 }
+                this.appState.addToConversationHistory(continuationMessageItem);
+                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, continuationMessageItem);
             }
-            else if (solution?.context?.startsWith('TEST_AUDIO_REQUEST:')) { // Fallback for old test mechanism, if needed
-                console.log('[ProcessingHelper] Detected legacy TEST_AUDIO_REQUEST.');
+            else if (solution?.context?.startsWith('TEST_AUDIO_REQUEST:')) {
+                // Legacy test audio - single message
                 const contextParts = solution.context.split(':');
                 const audioFilePath = contextParts.slice(1).join(':');
-                aiMessageItem = {
-                    id: (0, uuid_1.v4)(),
+                const testAudioMessageItem = {
+                    id: aiMessageId, // Use the main ID for this interaction
                     type: "ai_response",
                     content: {
                         solution: {
@@ -164,26 +231,28 @@ class ProcessingHelper {
                         },
                         playableAudioPath: audioFilePath
                     },
-                    timestamp: Date.now(),
+                    timestamp: Date.now()
                 };
+                this.appState.addToConversationHistory(testAudioMessageItem);
+                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, testAudioMessageItem);
             }
-            else { // Standard AI response (no special action or old test request)
-                aiMessageItem = {
-                    id: (0, uuid_1.v4)(),
+            else { // Standard AI response (no special action)
+                const standardAiMessageItem = {
+                    id: aiMessageId,
                     type: "ai_response",
-                    content: aiResponse, // aiResponse contains the full { solution: { ... } } structure
+                    content: aiLLMResponse,
                     timestamp: Date.now(),
                 };
+                this.appState.addToConversationHistory(standardAiMessageItem);
+                mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, standardAiMessageItem);
             }
-            this.appState.addToConversationHistory(aiMessageItem);
-            mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, aiMessageItem);
         }
         catch (error) {
-            console.error("[ProcessingHelper] Error sending text to LLM or processing response:", error);
+            console.error("[ProcessingHelper] Error in processUserText:", error);
             const errorItem = {
-                id: (0, uuid_1.v4)(),
+                id: (0, uuid_1.v4)(), // New ID for a distinct error message
                 type: "ai_response",
-                content: { solution: { code: "Error processing message.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "Could not get AI response." } },
+                content: { solution: { code: "Error processing message.", problem_statement: "Error", context: error.message, suggested_responses: [], reasoning: "Could not get AI response or process action." } },
                 timestamp: Date.now(),
             };
             this.appState.addToConversationHistory(errorItem);

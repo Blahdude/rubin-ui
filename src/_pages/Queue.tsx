@@ -34,6 +34,10 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     variant: "neutral"
   })
 
+  // State for collapsibility - set to false for collapsed by default
+  const [isRecordedAudioOpen, setIsRecordedAudioOpen] = useState(false);
+  const [isGeneratedAudioOpen, setIsGeneratedAudioOpen] = useState(false);
+
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
 
@@ -115,23 +119,23 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       setVadStatusMessage(null);
       showToast("Recording Saved", `Audio saved to ${data.path}`, "success");
       try {
-        showToast("Processing", "Generating music continuation...", "neutral");
-        const { generatedPath, features } = await window.electronAPI.generateMusicContinuation(data.path);
+        showToast("Processing", "Generating music...", "neutral");
+        const { generatedPath, features } = await window.electronAPI.generateMusic("Continue this recording", data.path);
         showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
         console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features });
         window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
       } catch (error: any) {
-        console.error("Error generating music continuation (Queue.tsx):", error);
-        showToast("Generation Failed", error.message || "Could not generate audio continuation.", "error");
+        console.error("Error generating music (Queue.tsx):", error);
+        showToast("Generation Failed", error.message || "Could not generate audio.", "error");
       }
     };
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
-    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => {
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => {
       console.log("[Queue.tsx] handleGeneratedAudioReady triggered. Data:", data);
       const newGeneratedClip: GeneratedAudioClip = { 
         id: `gen-clip-${Date.now()}`,
         path: data.generatedPath,
-        originalPath: data.originalPath,
+        originalPath: data.originalPath || "",
         timestamp: new Date(),
         bpm: data.features.bpm,
         key: data.features.key
@@ -203,18 +207,28 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
           )}
           {globalRecordings.length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase mx-0.5 mb-1.5">Recorded Audio</h4>
-              <div className="space-y-2">
-                {globalRecordings.map((rec) => (
-                  <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                    </div>
-                    <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
-                    <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
-                  </div>
-                ))}
+              <div 
+                className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
+              >
+                <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Recorded Audio</h4>
+                <span className="text-neutral-400 text-xs">
+                  {isRecordedAudioOpen ? '▼' : '▶'}
+                </span>
               </div>
+              {isRecordedAudioOpen && (
+                <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                  {globalRecordings.map((rec) => (
+                    <div key={rec.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                      </div>
+                      <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
+                      <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {globalRecordingError && (
@@ -224,20 +238,30 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
           )}
           {generatedAudioClips.length > 0 && (
             <div className="space-y-2 pt-1.5">
-              <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase mx-0.5 mb-1.5">Generated Audio</h4>
-              <div className="space-y-2">
-                {generatedAudioClips.map((clip) => (
-                  <div key={clip.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                    </div>
-                    <p className="text-[11px] font-medium text-neutral-300 mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate">Generated Track</span></p>
-                    <p className="text-[10px] text-neutral-400 truncate mb-1.5"><span className="mr-1.5 opacity-70">🔙</span>Based on User Recording</p>
-                    <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
-                    <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
-                  </div>
-                ))}
+              <div 
+                className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
+              >
+                <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Generated Audio</h4>
+                <span className="text-neutral-400 text-xs">
+                  {isGeneratedAudioOpen ? '▼' : '▶'}
+                </span>
               </div>
+              {isGeneratedAudioOpen && (
+                <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                  {generatedAudioClips.map((clip) => (
+                    <div key={clip.id} className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                      </div>
+                      <p className="text-[11px] font-medium text-neutral-300 mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate">Generated Track</span></p>
+                      <p className="text-[10px] text-neutral-400 truncate mb-1.5"><span className="mr-1.5 opacity-70">🔙</span>Based on {clip.originalPath ? 'User Recording' : 'Text Prompt'}</p>
+                      <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
+                      <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {(globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (

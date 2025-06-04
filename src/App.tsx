@@ -50,7 +50,7 @@ declare global {
       // Audio Recording and Generation
       onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void;
       onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void;
-      generateMusicContinuation: (inputFilePath: string) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>;
+      generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>;
 
       // VAD Events
       onVadWaiting: (callback: () => void) => () => void;
@@ -66,8 +66,8 @@ declare global {
       startFileDrag: (filePath: string) => void;
 
       // For notifying about newly generated audio
-      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void;
-      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void;
+      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }) => void;
+      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => void) => () => void;
 
       // ADDED for user follow-up
       userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
@@ -105,10 +105,16 @@ const App: React.FC = () => {
       window.electronAPI.onChatUpdated((newItem: ConversationItem) => {
         console.log("CHAT_UPDATED received in App.tsx:", newItem);
         setConversation((prevConversation) => {
-          if (prevConversation.find(item => item.id === newItem.id)) {
-            return prevConversation;
+          const existingItemIndex = prevConversation.findIndex(item => item.id === newItem.id);
+          if (existingItemIndex !== -1) {
+            // Replace existing item
+            const updatedConversation = [...prevConversation];
+            updatedConversation[existingItemIndex] = newItem;
+            return updatedConversation;
+          } else {
+            // Add new item
+            return [...prevConversation, newItem];
           }
-          return [...prevConversation, newItem];
         });
       }),
 
