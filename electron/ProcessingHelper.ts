@@ -4,8 +4,15 @@ import { AppState, ConversationItem } from "./main"
 import { LLMHelper } from "./LLMHelper"
 import dotenv from "dotenv"
 import { v4 as uuidv4 } from "uuid"
+import { callReplicateToContinueMusic } from "./ipcHandlers"
 
 dotenv.config()
+
+// --- MODE SWITCH ---
+// Set to true to always use 'audio/audio.wav' for music generation requests (debug mode)
+// Set to false to attempt calling the Replicate API for music continuation
+const FORCE_DEBUG_AUDIO_GENERATION = false;
+// --- END MODE SWITCH ---
 
 const isDev = process.env.NODE_ENV === "development"
 const isDevTest = process.env.IS_DEV_TEST === "true"
@@ -73,16 +80,109 @@ export class ProcessingHelper {
 
     try {
       const aiResponse = await this.llmHelper.sendMessage([{ text: userText }])
-      const aiMessageItem: ConversationItem = {
-        id: uuidv4(),
-        type: "ai_response",
-        content: aiResponse,
-        timestamp: Date.now(),
+      let aiMessageItem: ConversationItem;
+      const solution = aiResponse.solution;
+
+      if (solution?.action === 'generate_music_request') {
+        console.log('[ProcessingHelper] Detected "generate_music_request" action.');
+        const musicPrompt = solution.musicGenerationPrompt || "";
+        // For now, we'll use audio/audio.wav as the base for continuation.
+        // Later, this could be a path to a user-recorded clip or another selection.
+        const baseAudioForContinuation = 'audio/audio.wav'; 
+
+        if (FORCE_DEBUG_AUDIO_GENERATION) {
+          console.log('[ProcessingHelper] FORCE_DEBUG_AUDIO_GENERATION is true. Serving debug audio.');
+          aiMessageItem = {
+            id: uuidv4(),
+            type: "ai_response",
+            content: {
+              solution: { 
+                code: solution.code || "Here\'s a test track (debug mode)!",
+                problem_statement: solution.problem_statement || "Music Generation Request (Debug)",
+                context: solution.context || `Debug: Playing test file: ${baseAudioForContinuation}`,
+                suggested_responses: solution.suggested_responses || [],
+                reasoning: solution.reasoning || "Serving a predefined test audio file due to debug mode."
+              },
+              playableAudioPath: baseAudioForContinuation
+            },
+            timestamp: Date.now(),
+          };
+        } else {
+          console.log(`[ProcessingHelper] Attempting Replicate music continuation with base: ${baseAudioForContinuation} and prompt: "${musicPrompt}"`);
+          try {
+            // ProcessingHelper is in the main process, so it can call callReplicateToContinueMusic directly.
+            const { generatedPath, features } = await callReplicateToContinueMusic(baseAudioForContinuation, musicPrompt);
+            console.log(`[ProcessingHelper] Replicate generated audio: ${generatedPath}, Features:`, features);
+
+            aiMessageItem = {
+              id: uuidv4(),
+              type: "ai_response",
+              content: {
+                solution: { 
+                  code: solution.code || `Generated some music for you (BPM: ${features.bpm}, Key: ${features.key})! Check it out:`,
+                  problem_statement: solution.problem_statement || "Music Generation Request",
+                  context: solution.context || `Generated from: ${baseAudioForContinuation} with prompt: "${musicPrompt}"`,
+                  suggested_responses: solution.suggested_responses || [],
+                  reasoning: solution.reasoning || "Called Replicate for music generation."
+                },
+                playableAudioPath: generatedPath 
+              },
+              timestamp: Date.now(),
+            };
+            // Notify renderer about the new generated audio so Queue.tsx can update its list
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                 mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: baseAudioForContinuation, features });
+            }
+          } catch (replicateError: any) {
+            console.error("[ProcessingHelper] Error calling Replicate for music continuation:", replicateError);
+            aiMessageItem = {
+              id: uuidv4(),
+              type: "ai_response",
+              content: {
+                solution: { 
+                  code: solution.code || "Sorry, I ran into an issue trying to make that music.",
+                  problem_statement: solution.problem_statement || "Music Generation Request (Error)",
+                  context: solution.context || `Error during music generation: ${replicateError.message}`,
+                  suggested_responses: solution.suggested_responses || [],
+                  reasoning: replicateError.message || "Failed to generate music via Replicate."
+                }
+              },
+              timestamp: Date.now(),
+            };
+          }
+        }
+      } else if (solution?.context?.startsWith('TEST_AUDIO_REQUEST:')) { // Fallback for old test mechanism, if needed
+        console.log('[ProcessingHelper] Detected legacy TEST_AUDIO_REQUEST.');
+        const contextParts = solution.context.split(':');
+        const audioFilePath = contextParts.slice(1).join(':'); 
+        aiMessageItem = {
+          id: uuidv4(),
+          type: "ai_response",
+          content: { 
+            solution: {
+                ...(solution || {}),
+                code: solution.code || "Here is the test audio:",
+                problem_statement: solution.problem_statement || "Test audio request",
+                context: `Playing test file: ${audioFilePath}`,
+                suggested_responses: solution.suggested_responses || [],
+                reasoning: solution.reasoning || "Playing a pre-defined test audio file as requested."
+            },
+            playableAudioPath: audioFilePath
+          },
+          timestamp: Date.now(),
+        };
+      } else { // Standard AI response (no special action or old test request)
+        aiMessageItem = {
+          id: uuidv4(),
+          type: "ai_response",
+          content: aiResponse, // aiResponse contains the full { solution: { ... } } structure
+          timestamp: Date.now(),
+        };
       }
       this.appState.addToConversationHistory(aiMessageItem)
       mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, aiMessageItem)
     } catch (error: any) {
-      console.error("[ProcessingHelper] Error sending text to LLM:", error)
+      console.error("[ProcessingHelper] Error sending text to LLM or processing response:", error)
       const errorItem: ConversationItem = {
         id: uuidv4(),
         type: "ai_response",

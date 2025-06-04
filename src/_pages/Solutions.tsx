@@ -192,8 +192,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                         } else if (typeof s_item === 'object' && s_item !== null && typeof s_item.suggestion === 'string') {
                           suggestionText = s_item.suggestion; // Fallback for another common property name
                         } else if (typeof s_item === 'object' && s_item !== null) {
-                            // If it's an object but doesn't have .text or .suggestion, try stringifying it (might result in [object Object] but won't crash)
-                            // Or log an error and display a placeholder
                             console.warn("Unknown suggested response object structure:", s_item);
                             suggestionText = "[Invalid Suggestion Format]";
                         }
@@ -205,30 +203,51 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                             </li>
                           );
                         }
-                        return null; // Skip rendering if no valid text could be extracted
+                        return null;
                       })}
                   </ul>
                 </div>
               );
             }
 
-            let finalDisplay: React.ReactNode;
-            if (suggestionsOutput) {
-              finalDisplay = (
-                <>
-                  {suggestionsOutput}
-                </>
-              );
-            } else if (solution) { 
-              finalDisplay = <p className="text-xs text-neutral-500 italic">AI has no specific output for this context.</p>;
-            } else { 
-              finalDisplay = <p className="text-xs text-red-400">AI response format error or empty.</p>;
+            let aiTextMessage: React.ReactNode = null;
+            if (solution?.code) {
+              // If solution.code is an array (e.g. from a multi-line code block), join it. Otherwise, display as is.
+              // This assumes 'code' might sometimes be a string and sometimes an array of strings.
+              // Adjust if 'code' has a more specific structure.
+              const codeContent = Array.isArray(solution.code) ? solution.code.join('\n') : solution.code;
+              aiTextMessage = <p className="whitespace-pre-wrap">{codeContent}</p>;
+            } else if (solution?.reasoning) { // Fallback if no 'code'
+              aiTextMessage = <p className="whitespace-pre-wrap">{solution.reasoning}</p>;
             }
+
+            let audioPlayer: React.ReactNode = null;
+            if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
+              const audioSrc = `clp://${item.content.playableAudioPath}`;
+              audioPlayer = (
+                <div style={{ marginTop: aiTextMessage ? '10px' : '0px', marginBottom: suggestionsOutput ? '10px' : '0px' }}>
+                  <audio controls src={audioSrc} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity">
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              );
+            }
+            
+            // Determine if there's any content to display at all
+            const hasContent = aiTextMessage || audioPlayer || suggestionsOutput;
 
             return (
               <div key={item.id} className="flex justify-center group">
                 <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
-                  {finalDisplay}
+                  {hasContent ? (
+                    <>
+                      {aiTextMessage}
+                      {audioPlayer}
+                      {suggestionsOutput}
+                    </>
+                  ) : (
+                    <p className="text-xs text-neutral-500 italic">AI response received, but no displayable content found.</p>
+                  )}
                   <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>

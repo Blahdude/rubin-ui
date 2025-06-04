@@ -10,6 +10,7 @@ const WindowHelper_1 = require("./WindowHelper");
 const ScreenshotHelper_1 = require("./ScreenshotHelper");
 const shortcuts_1 = require("./shortcuts");
 const ProcessingHelper_1 = require("./ProcessingHelper");
+const node_path_1 = __importDefault(require("node:path"));
 const node_fs_1 = __importDefault(require("node:fs"));
 class AppState {
     static instance = null;
@@ -182,44 +183,43 @@ async function initializeApp() {
         // Register custom protocol for local audio files
         electron_1.protocol.registerFileProtocol("clp", (request, callback) => {
             console.log(`[CLP Protocol] Received request for URL: ${request.url}`);
-            // The URL will be like clp:///absolute/path/to/your/audio.wav
-            // We need to strip `clp://` and handle potential leading slashes if on Windows
-            let requestedPath = request.url.slice("clp://".length);
-            console.log(`[CLP Protocol] Path after stripping protocol: ${requestedPath}`);
-            // Decode URI components (e.g., %20 for spaces)
+            let rawPath = request.url.slice("clp://".length);
+            let decodedPath;
             try {
-                requestedPath = decodeURIComponent(requestedPath);
-                console.log(`[CLP Protocol] Path after decodeURIComponent: ${requestedPath}`);
+                decodedPath = decodeURIComponent(rawPath);
             }
             catch (e) {
-                console.error(`[CLP Protocol] Error decoding URI component for path: ${requestedPath}`, e);
-                return callback({ error: -2 }); // net::ERR_FAILED or a more specific error
+                console.error(`[CLP Protocol] Error decoding URI component for path: ${rawPath}`, e);
+                return callback({ error: -2 }); // Consider a more specific error code if available
+            }
+            console.log(`[CLP Protocol] Decoded path: ${decodedPath}`);
+            let finalResolvedPath;
+            if (node_path_1.default.isAbsolute(decodedPath)) {
+                finalResolvedPath = decodedPath;
+                console.log(`[CLP Protocol] Path is absolute: ${finalResolvedPath}`);
+            }
+            else {
+                // If path is relative, resolve it from the app's root directory.
+                // app.getAppPath() points to the app root in dev, and resources/app(.asar) in prod.
+                finalResolvedPath = node_path_1.default.join(electron_1.app.getAppPath(), decodedPath);
+                console.log(`[CLP Protocol] Path is relative. Resolved from app root to: ${finalResolvedPath}`);
             }
             // IMPORTANT: Add security checks here if necessary!
             // For example, ensure the path is within an allowed directory.
-            // For now, we assume the path sent from the renderer is already vetted or safe.
-            // A basic check could be to ensure it's an absolute path and within the app's data or recordings dir.
-            // Example (very basic, adjust as needed):
-            // const allowedDir = path.join(app.getAppPath(), "local_recordings");
-            // if (!path.isAbsolute(requestedPath) || !requestedPath.startsWith(allowedDir)) {
-            //   console.error("Attempt to access unauthorized path with clp protocol:", requestedPath);
-            //   return callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
-            // }
             try {
-                // Check if file exists before attempting to serve
-                const fileExists = node_fs_1.default.existsSync(requestedPath);
-                console.log(`[CLP Protocol] Checking existence of: ${requestedPath}. Exists: ${fileExists}`);
+                const fileExists = node_fs_1.default.existsSync(finalResolvedPath);
+                console.log(`[CLP Protocol] Checking existence of (final path): ${finalResolvedPath}. Exists: ${fileExists}`);
                 if (fileExists) {
-                    callback({ path: requestedPath });
+                    callback({ path: finalResolvedPath });
                 }
                 else {
-                    console.error(`[CLP Protocol] File not found: ${requestedPath}`);
+                    console.error(`[CLP Protocol] File not found (final path): ${finalResolvedPath}`);
                     callback({ error: -6 }); // net::ERR_FILE_NOT_FOUND
                 }
             }
             catch (error) {
-                console.error(`[CLP Protocol] Error accessing file ${requestedPath}:`, error);
-                callback({ error: -2 }); // net::ERR_FAILED
+                console.error(`[CLP Protocol] Error accessing file ${finalResolvedPath}:`, error);
+                callback({ error: -2 }); // net::ERR_FAILED or a more specific error
             }
         });
         appState.createWindow();

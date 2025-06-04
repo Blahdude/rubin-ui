@@ -30,6 +30,151 @@ if (fs.existsSync(envPath)) {
   }
 }
 
+export async function callReplicateToContinueMusic(inputFilePath: string, promptText?: string): Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }> {
+  console.log(`[Replicate] callReplicateToContinueMusic for input file: ${inputFilePath} with prompt: "${promptText || ''}"`);
+
+  if (!inputFilePath || typeof inputFilePath !== 'string') {
+    console.error("[Replicate] ERROR: Invalid or missing inputFilePath for music continuation.");
+    throw new Error("Invalid input file path for music continuation.");
+  }
+
+  const replicateApiKey = process.env.REPLICATE_API_KEY;
+
+  if (!replicateApiKey) {
+    console.error("[Replicate] ERROR: REPLICATE_API_KEY not found in environment variables.");
+    throw new Error("Replicate API key is not configured.");
+  }
+  // console.log("[Replicate] API key found."); // Reduced verbosity
+
+  const replicate = new Replicate({
+    auth: replicateApiKey,
+  });
+  // console.log("[Replicate] client initialized."); // Reduced verbosity
+
+  let inputAudioDurationSeconds: number | undefined;
+  try {
+    const durationOutput = await new Promise<string>((resolve, reject) => {
+      const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`;
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`[Replicate] ffprobe stderr: ${stderr}`);
+          return reject(error);
+        }
+        return resolve(stdout.trim());
+      });
+    });
+    inputAudioDurationSeconds = parseFloat(durationOutput);
+    if (isNaN(inputAudioDurationSeconds)) {
+      console.warn(`[Replicate] WARNING: ffprobe output was not a number: '${durationOutput}'. Using full audio for continuation.`);
+      inputAudioDurationSeconds = undefined; 
+    }
+  } catch (ffmpegError: any) {
+    console.error("[Replicate] ERROR executing ffprobe to get audio duration:", ffmpegError.message);
+    inputAudioDurationSeconds = undefined; 
+  }
+
+  const continuationEndTime = inputAudioDurationSeconds ? Math.min(inputAudioDurationSeconds, 2.0) : 2.0;
+  const continuationEndInteger = Math.round(continuationEndTime);
+
+  let audioBuffer: Buffer;
+  try {
+    audioBuffer = fs.readFileSync(inputFilePath);
+  } catch (readError: any) {
+    console.error(`[Replicate] ERROR reading input audio file (${inputFilePath}) into buffer:`, readError);
+    throw new Error(`Failed to read input audio file: ${readError.message}`);
+  }
+
+  const modelInputs = {
+    model_version: "stereo-melody-large",
+    input_audio: audioBuffer,
+    prompt: promptText || "",
+    duration: 4,
+    continuation: true,
+    continuation_start: 0,
+    continuation_end: continuationEndInteger,
+    output_format: "wav"
+  };
+
+  console.log("[Replicate] Calling Replicate API with inputs:", { ...modelInputs, input_audio: `<Buffer for ${inputFilePath}>` });
+
+  const prediction = await replicate.predictions.create({
+    version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38",
+    input: modelInputs,
+  });
+
+  if (prediction.error) {
+    console.error("[Replicate] ERROR from Replicate during prediction creation:", prediction.error);
+    throw new Error(`Replicate prediction error: ${prediction.error}`);
+  }
+
+  console.log(`[Replicate] Prediction started. ID: ${prediction.id}, Status: ${prediction.status}`);
+
+  let finalPrediction = prediction;
+  while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
+    await new Promise(resolve => setTimeout(resolve, 2500));
+    finalPrediction = await replicate.predictions.get(prediction.id);
+    console.log(`[Replicate] Polling prediction: ${finalPrediction.id}, Status: ${finalPrediction.status}`);
+  }
+
+  if (finalPrediction.status === "succeeded") {
+    const outputUrl = finalPrediction.output as string;
+    console.log(`[Replicate] Prediction succeeded. Output URL: ${outputUrl}`);
+    
+    const inputFileName = path.basename(inputFilePath, path.extname(inputFilePath));
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const outputFileName = `${inputFileName}_continuation_${timestamp}.wav`;
+
+    const projectRootRecordingsDir = path.resolve(process.cwd(), "local_recordings");
+    const generatedDirInProjectRoot = path.join(projectRootRecordingsDir, "generated");
+
+    if (!fs.existsSync(generatedDirInProjectRoot)) {
+      fs.mkdirSync(generatedDirInProjectRoot, { recursive: true });
+    }
+    const localOutputPath = path.join(generatedDirInProjectRoot, outputFileName);
+
+    await new Promise<void>((resolve, reject) => {
+      const file = fs.createWriteStream(localOutputPath);
+      https.get(outputUrl, (response) => {
+        if (response.statusCode !== 200) {
+          reject(new Error(`Failed to download file: HTTP ${response.statusCode} ${response.statusMessage}`));
+          return;
+        }
+        response.pipe(file);
+        file.on("finish", () => {
+          file.close(); resolve();
+        });
+      }).on("error", (err) => {
+        fs.unlink(localOutputPath, () => {});
+        reject(err);
+      });
+    });
+
+    let audioFeatures = { bpm: "N/A", key: "N/A" };
+    try {
+      const pythonProcess = spawn("python", [path.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
+      let scriptOutput = "";
+      let scriptError = "";
+      pythonProcess.stdout.on("data", (data) => { scriptOutput += data.toString(); });
+      pythonProcess.stderr.on("data", (data) => { scriptError += data.toString(); });
+      await new Promise<void>((resolveProcess, rejectProcess) => {
+        pythonProcess.on("close", (code) => {
+          if (code === 0) {
+            try { audioFeatures = JSON.parse(scriptOutput); } catch (e) { console.error("[Replicate] Error parsing Python script output:", e, "Raw:", scriptOutput); }
+          } else { console.error(`[Replicate] Python script exited with code ${code}. ERR: ${scriptError}`); }
+          resolveProcess();
+        });
+        pythonProcess.on("error", (err) => { console.error("[Replicate] Failed to start Python script:", err); resolveProcess(); });
+      });
+    } catch (pyError) { console.error("[Replicate] Error executing Python script for features:", pyError); }
+
+    console.log("[Replicate] callReplicateToContinueMusic returning successfully with:", { generatedPath: localOutputPath, features: audioFeatures });
+    return { generatedPath: localOutputPath, features: audioFeatures };
+  } else {
+    console.error(`[Replicate] Prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
+    throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);
+  }
+}
+
 export function initializeIpcHandlers(appState: AppState): void {
   ipcMain.handle(
     "update-content-dimensions",
@@ -158,202 +303,9 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   ipcMain.handle(
     "generate-music-continuation",
-    async (event, inputFilePath: string) => {
-      console.log(`[IPC Main] ENTERED handleGenerateMusicContinuation for input file: ${inputFilePath}`);
-
-      if (!inputFilePath || typeof inputFilePath !== 'string') {
-        console.error("[IPC Main] ERROR: Invalid or missing inputFilePath for music continuation.");
-        throw new Error("Invalid input file path for music continuation.");
-      }
-
-      const replicateApiKey = process.env.REPLICATE_API_KEY;
-
-      if (!replicateApiKey) {
-        console.error("[IPC Main] ERROR: REPLICATE_API_KEY not found in environment variables.");
-        throw new Error("Replicate API key is not configured.");
-      }
-      console.log("[IPC Main] Replicate API key found.");
-
-      try {
-        const replicate = new Replicate({
-          auth: replicateApiKey,
-        });
-        console.log("[IPC Main] Replicate client initialized.");
-
-        // Get audio duration using ffmpeg from the original local file
-        let inputAudioDurationSeconds: number | undefined;
-        console.log(`[IPC Main] Attempting to get duration for: ${inputFilePath} using ffprobe.`);
-        try {
-          const durationOutput = await new Promise<string>((resolve, reject) => {
-            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`;
-            console.log(`[IPC Main] Executing ffprobe command: ${command}`);
-            exec(command, (error, stdout, stderr) => {
-              if (error) {
-                console.error(`[IPC Main] ffprobe stderr: ${stderr}`);
-                return reject(error);
-              }
-              return resolve(stdout.trim());
-            });
-          });
-          inputAudioDurationSeconds = parseFloat(durationOutput);
-          if (isNaN(inputAudioDurationSeconds)) {
-            console.warn(`[IPC Main] WARNING: ffprobe output was not a number: '${durationOutput}'. Using full audio for continuation.`);
-            inputAudioDurationSeconds = undefined; 
-          } else {
-            console.log(`[IPC Main] ffprobe successfully got duration: ${inputAudioDurationSeconds} seconds.`);
-          }
-        } catch (ffmpegError: any) {
-          console.error("[IPC Main] ERROR executing ffprobe to get audio duration:", ffmpegError.message);
-          console.warn("[IPC Main] WARNING: Could not determine input audio duration. Proceeding without it, which might affect continuation accuracy.");
-          inputAudioDurationSeconds = undefined; 
-        }
-
-        const continuationEndTime = inputAudioDurationSeconds ? Math.min(inputAudioDurationSeconds, 2.0) : 2.0;
-        console.log(`[IPC Main] Determined continuation_end time (float): ${continuationEndTime} seconds.`);
-        const continuationEndInteger = Math.round(continuationEndTime);
-        console.log(`[IPC Main] Rounded continuation_end time to integer: ${continuationEndInteger} seconds.`);
-
-        // Read the audio file into a buffer for Replicate client to upload
-        let audioBuffer: Buffer;
-        try {
-          audioBuffer = fs.readFileSync(inputFilePath);
-          console.log(`[IPC Main] Read input audio file into buffer for upload: ${inputFilePath}`);
-        } catch (readError: any) {
-          console.error(`[IPC Main] ERROR reading input audio file (${inputFilePath}) into buffer:`, readError);
-          throw new Error(`Failed to read input audio file: ${readError.message}`);
-        }
-
-        const modelInputs = {
-          model_version: "stereo-melody-large", // Corrected based on API error
-          input_audio: audioBuffer, // Provide buffer; Replicate client should upload and use URL
-          prompt: "",
-          duration: 4, // Generate 4 additional seconds (user request)
-          continuation: true,
-          continuation_start: 0,
-          continuation_end: continuationEndInteger, // Ensure this is an integer
-          output_format: "wav" // Request WAV output
-        };
-
-        console.log("[IPC Main] Calling Replicate with inputs:", { ...modelInputs, input_audio: `ReadStream for ${inputFilePath}` });
-
-        // Start prediction
-        const prediction = await replicate.predictions.create({
-          version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38", // Reverted to specific melody version hash
-          input: modelInputs,
-        });
-
-        if (prediction.error) {
-          console.error("[IPC Main] ERROR from Replicate during prediction creation:", prediction.error);
-          throw new Error(`Replicate prediction error: ${prediction.error}`);
-        }
-
-        console.log(`[IPC Main] Replicate prediction started. ID: ${prediction.id}, Status: ${prediction.status}`);
-
-        let finalPrediction = prediction;
-        while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
-          await new Promise(resolve => setTimeout(resolve, 2500)); // Poll every 2.5 seconds
-          finalPrediction = await replicate.predictions.get(prediction.id);
-          console.log(`[IPC Main] Polling Replicate prediction: ${finalPrediction.id}, Status: ${finalPrediction.status}`);
-        }
-
-        if (finalPrediction.status === "succeeded") {
-          const outputUrl = finalPrediction.output as string; // Assuming output is a string URL
-          console.log(`[IPC Main] Prediction succeeded. Output URL: ${outputUrl}`);
-          
-          const inputFileName = path.basename(inputFilePath, path.extname(inputFilePath));
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-          const outputFileName = `${inputFileName}_continuation_${timestamp}.wav`;
-
-          // New base path for generated recordings in project root
-          const projectRootRecordingsDir = path.resolve(process.cwd(), "local_recordings");
-          const generatedDirInProjectRoot = path.join(projectRootRecordingsDir, "generated");
-
-          if (!fs.existsSync(generatedDirInProjectRoot)) {
-            fs.mkdirSync(generatedDirInProjectRoot, { recursive: true });
-            console.log(`[IPC Main] Created directory for generated files: ${generatedDirInProjectRoot}`);
-          }
-
-          const localOutputPath = path.join(generatedDirInProjectRoot, outputFileName);
-
-          console.log(`[IPC Main] Downloading generated audio to: ${localOutputPath}`);
-
-          await new Promise<void>((resolve, reject) => {
-            const file = fs.createWriteStream(localOutputPath);
-            https.get(outputUrl, (response) => {
-              if (response.statusCode !== 200) {
-                reject(new Error(`Failed to download file: HTTP ${response.statusCode} ${response.statusMessage}`));
-                return;
-              }
-              response.pipe(file);
-              file.on("finish", () => {
-                file.close();
-                console.log("[IPC Main] Download complete.");
-                resolve();
-              });
-            }).on("error", (err) => {
-              fs.unlink(localOutputPath, () => {}); // Attempt to delete partial file
-              console.error("[IPC Main] Error downloading file:", err);
-              reject(err);
-            });
-          });
-
-          // After downloading, extract BPM and Key using the Python script
-          let audioFeatures = { bpm: "N/A", key: "N/A" };
-          try {
-            console.log(`[IPC Main] Calling Python script to extract features for: ${localOutputPath}`);
-            const pythonProcess = spawn("python", [path.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
-            
-            let scriptOutput = "";
-            let scriptError = "";
-
-            pythonProcess.stdout.on("data", (data) => {
-              scriptOutput += data.toString();
-            });
-
-            pythonProcess.stderr.on("data", (data) => {
-              scriptError += data.toString();
-            });
-
-            await new Promise<void>((resolveProcess, rejectProcess) => {
-              pythonProcess.on("close", (code) => {
-                if (code === 0) {
-                  try {
-                    audioFeatures = JSON.parse(scriptOutput);
-                    console.log(`[IPC Main] Python script success. Features:`, audioFeatures);
-                  } catch (parseError: any) {
-                    console.error("[IPC Main] Error parsing Python script output:", parseError, "Raw output:", scriptOutput, "Stderr:", scriptError);
-                    // Keep default N/A features
-                  }
-                  resolveProcess();
-                } else {
-                  console.error(`[IPC Main] Python script exited with code ${code}. STDOUT: ${scriptOutput} STDERR: ${scriptError}`);
-                  // Keep default N/A features
-                  // rejectProcess(new Error(`Python script error: ${scriptError || `exit code ${code}`}`));
-                  resolveProcess(); // Resolve anyway to not break the flow, features will be N/A
-                }
-              });
-              pythonProcess.on("error", (err) => {
-                console.error("[IPC Main] Failed to start Python script (spawn error):", err, "STDERR:", scriptError);
-                // rejectProcess(err);
-                resolveProcess(); // Resolve anyway
-              });
-            });
-          } catch (pyError: any) {
-            console.error("[IPC Main] Error executing or processing Python script for audio features:", pyError);
-            // audioFeatures remains N/A
-          }
-
-          console.log("[IPC Main] handleGenerateMusicContinuation returning successfully with:", { generatedPath: localOutputPath, features: audioFeatures });
-          return { generatedPath: localOutputPath, features: audioFeatures };
-        } else {
-          console.error(`[IPC Main] Replicate prediction failed or canceled: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
-          throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);
-        }
-
-      } catch (error: any) {
-        console.error("[IPC Main] Error in generate-music-continuation:", error);
-        throw new Error(`Failed to generate music continuation: ${error.message}`);
-      }
+    async (event, inputFilePath: string, promptText?: string) => {
+      // Now this handler simply calls the extracted function
+      return callReplicateToContinueMusic(inputFilePath, promptText);
     }
   );
 

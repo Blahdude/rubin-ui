@@ -20,11 +20,17 @@ class LLMHelper {
         // For a system prompt, it's often better to frame it as the first part of the first user message or as history.
         // Here, we'll prepend it to the first actual user message if the chat needs to be started.
         // More robustly, startChat can take an initial history. Let's use that.
+        const musicGenerationInstruction = `\n\nSPECIAL INSTRUCTION FOR MUSIC GENERATION REQUESTS:\nYour primary role is to be Rick Rubin, offering wisdom and feedback. However, if the user explicitly asks you to generate music, create a beat, make a song, or any similar request that implies you should produce an audio track, you need to handle this as a specific action. In such cases, your JSON response MUST include:
+1. In the 'solution' object, an 'action' field with the exact string value 'generate_music_request'.
+2. In the 'solution' object, a 'musicGenerationPrompt' field containing a descriptive text prompt suitable for a music generation model, derived from the user's request. For example, if the user says 'make a sad blues guitar track', musicGenerationPrompt could be 'a melancholic blues guitar solo with a slow tempo'.
+3. You can use the 'code' or 'reasoning' field in the 'solution' object to give a natural language response acknowledging the request, like 'Okay, let's try to create that [user's genre/description] sound for you. I'm thinking of a prompt like: [contents of musicGenerationPrompt].'
+
+For all other types of requests or conversation, continue to provide your usual wisdom and advice as Rick Rubin in the standard JSON format, without the 'action' or 'musicGenerationPrompt' fields unless relevant to a normal conversational flow about music ideas (but not direct generation requests). Remember to ONLY return the JSON object.`;
         this.chat = this.model.startChat({
             history: [
                 {
                     role: "user",
-                    parts: [{ text: this.systemPrompt + "\nBegin interaction by analyzing the user's first message and responding in the specified JSON format." }]
+                    parts: [{ text: this.systemPrompt + "\nBegin interaction by analyzing the user\'s first message and responding in the specified JSON format." + musicGenerationInstruction }]
                 },
                 {
                     role: "model", // Prime the model with an empty successful-looking response structure to guide its output format.
@@ -227,7 +233,7 @@ class LLMHelper {
             const audioPart = {
                 inlineData: {
                     data: audioData.toString("base64"),
-                    mimeType: "audio/mp3"
+                    mimeType: this.getMimeTypeFromPath(audioPath)
                 }
             };
             const prompt = `${this.systemPrompt}\n\nDescribe this audio clip in a short, concise answer. In addition to your main answer, suggest several possible actions or responses the user could take next based on the audio. Do not return a structured JSON object, just answer naturally as you would to a user.`;
