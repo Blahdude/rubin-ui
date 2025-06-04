@@ -150,7 +150,8 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     startFileDrag: (filePath) => {
         electron_1.ipcRenderer.send("ondragstart-file", filePath);
     },
-    generateMusic: (promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
+    generateMusic: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
+    cancelMusicGeneration: (operationId) => electron_1.ipcRenderer.invoke("cancel-music-generation", operationId),
     notifyGeneratedAudioReady: (generatedPath, originalPath, features, displayName, originalPromptText) => {
         electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
     },

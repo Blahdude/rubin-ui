@@ -152,8 +152,8 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
         {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
             return (
-              <div key={item.id} className="flex justify-center group">
-                <div className="text-neutral-300 px-3.5 py-2 text-sm max-w-[85%] md:max-w-[75%] relative">
+              <div key={item.id} className="flex justify-end group">
+                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
                   {item.content}
                   <span className="text-[10px] text-neutral-500 absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
@@ -232,6 +232,28 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   <p className="text-xs text-neutral-400 italic">
                     Crafting your sound...
                   </p>
+                  <button
+                    onClick={async () => {
+                      console.log(`[Solutions] Attempting to cancel music generation for item ID: ${item.id}`);
+                      try {
+                        const result = await window.electronAPI?.cancelMusicGeneration?.(item.id);
+                        console.log(`[Solutions] Cancellation result for item ID ${item.id}:`, result);
+                        if (result?.success) {
+                          showToast("Cancelled", "Music generation has been cancelled.", "info");
+                        } else {
+                          // Use 'error' for actual failures, 'info' for non-actionable outcomes like already cancelled.
+                          const toastVariant: ToastVariant = result?.message?.includes("already in terminal state") || result?.message?.includes("No active prediction") ? "info" : "error";
+                          showToast("Cancellation Info", result?.message || "Could not cancel the music generation.", toastVariant);
+                        }
+                      } catch (error: any) {
+                        console.error(`[Solutions] Error calling cancelMusicGeneration for item ID ${item.id}:`, error);
+                        showToast("Cancellation Error", error.message || "An error occurred while trying to cancel.", "error");
+                      }
+                    }}
+                    className="mt-2 px-2.5 py-1 bg-neutral-600 hover:bg-neutral-500 text-white text-xs rounded-md transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                  >
+                    Cancel
+                  </button>
                 </div>
               );
             } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
@@ -243,7 +265,15 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   </audio>
                 </div>
               );
+            } else if (item.content?.musicGenerationCancelled === true && item.content?.musicGenerationError) {
+              // Specific display for user-cancelled generations
+              audioErrorIndicator = (
+                <div className="mt-2.5 text-xs text-neutral-400 bg-neutral-700/50 p-2 rounded-md">
+                  <p>{item.content.musicGenerationError}</p> 
+                </div>
+              );
             } else if (item.content?.musicGenerationError && typeof item.content.musicGenerationError === 'string') {
+              // Standard error display for other music generation failures
               audioErrorIndicator = (
                 <div className="mt-2.5 text-xs text-red-400 bg-red-900/30 p-2 rounded-md">
                   <span className="font-semibold">Music Generation Error:</span> {item.content.musicGenerationError}

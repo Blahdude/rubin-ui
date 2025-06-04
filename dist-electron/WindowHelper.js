@@ -194,7 +194,7 @@ class WindowHelper {
         // Ensure currentX and currentY are numbers
         this.currentX = Number(this.currentX) || 0;
         this.currentY = Number(this.currentY) || 0;
-        this.currentX = Math.min(this.screenWidth - halfWidth, this.currentX + this.step);
+        this.currentX = Math.min(this.screenWidth - windowWidth, this.currentX + this.step);
         this.mainWindow.setPosition(Math.round(this.currentX), Math.round(this.currentY));
     }
     moveWindowLeft() {
@@ -205,7 +205,7 @@ class WindowHelper {
         // Ensure currentX and currentY are numbers
         this.currentX = Number(this.currentX) || 0;
         this.currentY = Number(this.currentY) || 0;
-        this.currentX = Math.max(-halfWidth, this.currentX - this.step);
+        this.currentX = Math.max(0, this.currentX - this.step);
         this.mainWindow.setPosition(Math.round(this.currentX), Math.round(this.currentY));
     }
     moveWindowDown() {

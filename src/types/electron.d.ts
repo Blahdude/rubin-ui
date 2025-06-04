@@ -23,6 +23,13 @@ export interface ElectronAPI {
   analyzeAudioFromBase64: (data: string, mimeType: string) => Promise<{ text: string; timestamp: number }>
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   quitApp: () => Promise<void>
+  onAudioAnalysisError: (callback: (error: string) => void) => () => void
+
+  // MUSIC GENERATION
+  generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
+  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
 }
 
 declare global {

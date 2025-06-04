@@ -39,7 +39,8 @@ interface ElectronAPI {
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
-  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
 
@@ -227,8 +228,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   startFileDrag: (filePath: string) => {
     ipcRenderer.send("ondragstart-file", filePath)
   },
-  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => 
-    ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
+  generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => 
+    ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
+  cancelMusicGeneration: (operationId: string) => 
+    ipcRenderer.invoke("cancel-music-generation", operationId),
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => {
     ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
   },
