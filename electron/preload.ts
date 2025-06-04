@@ -39,9 +39,9 @@ interface ElectronAPI {
   onVadRecordingStarted: (callback: () => void) => () => void
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
-  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>
-  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => void
-  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => void) => () => void
+  generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
+  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
 
   // ADDED for user follow-up
   userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
@@ -229,16 +229,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => 
     ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
-  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string, features: { bpm: string | number, key: string }) => {
-    ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => {
+    ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
   },
-  onGeneratedAudioReady: (callback) => {
-    const channel = "generated-audio-ready";
-    const handler = (event: IpcRendererEvent, data: { generatedPath: string, originalPath: string, features: { bpm: string | number, key: string } }) => callback(data);
-    ipcRenderer.on(channel, handler);
-    return () => {
-      ipcRenderer.removeListener(channel, handler);
-    };
+  onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => {
+    const handler = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("generated-audio-ready", handler);
+    return () => ipcRenderer.removeListener("generated-audio-ready", handler);
   },
 
   // ADDED for user follow-up

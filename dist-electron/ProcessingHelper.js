@@ -111,14 +111,14 @@ class ProcessingHelper {
                 else {
                     console.log(`[ProcessingHelper] Attempting Replicate text-to-music with prompt: "${musicPrompt}", duration: ${duration}s`);
                     try {
-                        const { generatedPath, features } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, undefined, duration);
-                        console.log(`[ProcessingHelper] Replicate generated audio (text-to-music): ${generatedPath}, Features:`, features);
+                        const { generatedPath, features, displayName, originalPromptText } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, undefined, duration);
+                        console.log(`[ProcessingHelper] Replicate generated audio (text-to-music): ${generatedPath}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`);
                         finalAudioMessageContentUpdate = {
                             isLoadingAudio: false,
                             playableAudioPath: generatedPath
                         };
                         if (mainWindow && !mainWindow.isDestroyed()) {
-                            mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: undefined, features });
+                            mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: undefined, features, displayName, originalPromptText });
                         }
                     }
                     catch (replicateError) {
@@ -173,7 +173,7 @@ class ProcessingHelper {
                 }
                 else {
                     try {
-                        const { generatedPath, features } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, baseAudioForContinuation, duration);
+                        const { generatedPath, features, displayName, originalPromptText } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(musicPrompt, baseAudioForContinuation, duration);
                         continuationMessageItem = {
                             id: tempContinuationAiMessageId, type: "ai_response",
                             content: {
@@ -189,7 +189,7 @@ class ProcessingHelper {
                             timestamp: Date.now()
                         };
                         if (mainWindow && !mainWindow.isDestroyed()) {
-                            mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: baseAudioForContinuation, features });
+                            mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: baseAudioForContinuation, features, displayName, originalPromptText });
                         }
                     }
                     catch (replicateError) {

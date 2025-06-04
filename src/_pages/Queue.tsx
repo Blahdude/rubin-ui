@@ -13,6 +13,32 @@ import Solutions from "./Solutions"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 import { ConversationItem } from "../App"
 
+interface PromptModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  promptText: string;
+}
+
+const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-neutral-900 bg-opacity-80 flex items-start justify-center p-4 pt-20 z-50 transition-opacity duration-300 ease-in-out">
+      <div className="bg-neutral-750 p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto border border-neutral-600 relative">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-semibold text-neutral-200">Full Prompt</h3>
+          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-300 transition-colors text-2xl leading-none">&times;</button>
+        </div>
+        <p 
+          className="text-xs text-neutral-300 whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 rounded"
+        >
+          {promptText}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 interface QueueProps {
   conversation: ConversationItem[]
 }
@@ -48,6 +74,10 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null);
   const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isProcessingSolution, setIsProcessingSolution] = useState(false);
+
+  // State for the prompt modal
+  const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [modalPromptText, setModalPromptText] = useState("");
 
   const { data: screenshots = [], refetch } = useQuery<
     Array<{ path: string; preview: string }>
@@ -99,6 +129,26 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     }
   }
 
+  // Helper function to format display names
+  const formatDisplayName = (name?: string, originalPrompt?: string, maxLength: number = 50): string => {
+    if (!name || name === "generated_audio") return 'Generated Track'; // Default if no name or it's the generic one
+    
+    let formattedName = name
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    if (originalPrompt && originalPrompt.length > maxLength) {
+      // Check if the formatted name already ends with ... (e.g. if sanitizePromptForFilename added it, though it currently doesn't)
+      // Or if the name itself is short enough that the original prompt being long is the main point.
+      // For simplicity, if original was long, and name isn't the default, append ellipsis.
+      if (!formattedName.endsWith('...')) {
+        formattedName += '...';
+      }
+    }
+    return formattedName;
+  };
+
   useEffect(() => {
     const clearVadStatusTimeout = () => {
       if (vadStatusTimeoutRef.current) {
@@ -136,29 +186,27 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
 
         // For continuation, the first argument (prompt) can be generic.
         // The second argument is the inputFilePath (the recording).
-        // If generateMusicContinuation only took one arg (path), this would need adjustment
-        const { generatedPath, features } = await generationFunction("Continue this recording", data.path);
+        // The generationFunction now returns displayName and originalPromptText as well.
+        const { generatedPath, features, displayName, originalPromptText } = await generationFunction("Continue this recording", data.path);
         
         showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
-        console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features });
+        console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features, displayName, originalPromptText });
         
         // Check if notifyGeneratedAudioReady exists before calling
         if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
-            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
+            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features, displayName, originalPromptText); // Pass originalPromptText (5th arg)
         } else {
             console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
-            // Fallback: directly update state here if notify doesn't exist, though event-driven is preferred.
-            // This might cause issues if other components rely on the event.
-            // For robustness, this component already listens to onGeneratedAudioReady, so this direct call
-            // might be redundant if the main process correctly emits the event after generation.
-            // However, notifyGeneratedAudioReady is intended to be called by the process that INITIATED the generation.
+            // Fallback: directly update state here if notify doesn't exist
             const newGeneratedClip: GeneratedAudioClip = { 
                 id: `gen-clip-direct-${Date.now()}`,
                 path: generatedPath,
                 originalPath: data.path || "",
                 timestamp: new Date(),
                 bpm: features.bpm,
-                key: features.key
+                key: features.key,
+                displayName: displayName,
+                originalPromptText: originalPromptText // Add originalPromptText in fallback too
             };
             setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
         }
@@ -169,7 +217,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       }
     };
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
-    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => {
+    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
       console.log("[Queue.tsx] handleGeneratedAudioReady triggered. Data:", data);
       const newGeneratedClip: GeneratedAudioClip = { 
         id: `gen-clip-${Date.now()}`,
@@ -177,7 +225,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         originalPath: data.originalPath || "",
         timestamp: new Date(),
         bpm: data.features.bpm,
-        key: data.features.key
+        key: data.features.key,
+        displayName: data.displayName, // Store displayName
+        originalPromptText: data.originalPromptText // Store originalPromptText
       };
       setGeneratedAudioClips(prevClips => {
         const updatedClips = [newGeneratedClip, ...prevClips];
@@ -228,6 +278,12 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         <ToastTitle>{toastMessage.title}</ToastTitle>
         <ToastDescription>{toastMessage.description}</ToastDescription>
       </Toast>
+      
+      <PromptModal 
+        isOpen={isPromptModalOpen} 
+        onClose={() => setIsPromptModalOpen(false)} 
+        promptText={modalPromptText} 
+      />
       
       <div className="flex-shrink-0 pt-0 pb-0.5 px-1">
         <QueueCommands
@@ -321,8 +377,32 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                       </div>
-                      <p className="text-[11px] font-medium text-neutral-300 mb-1 flex items-center"><span className="mr-1.5 opacity-80">🎵</span><span className="truncate">Generated Track</span></p>
-                      <p className="text-[10px] text-neutral-400 truncate mb-1.5"><span className="mr-1.5 opacity-70">🔙</span>Based on {clip.originalPath ? 'User Recording' : 'Text Prompt'}</p>
+                      
+                      {/* Container for Track Name and View Prompt Button - using justify-between */}
+                      <div className="flex items-center justify-between mb-0.5">
+                        {/* Group for Icon and Track Name - this group will shrink and truncate */}
+                        <div className="flex items-center min-w-0 mr-2">
+                          <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
+                          <span className="text-sm font-semibold text-neutral-100 truncate">
+                            {formatDisplayName(clip.displayName, clip.originalPromptText)}
+                          </span>
+                        </div>
+
+                        {/* View Prompt Button - should not shrink and stays to the right */}
+                        {clip.originalPromptText && clip.originalPromptText.length > 50 && (
+                          <button 
+                            onClick={() => { setModalPromptText(clip.originalPromptText || "No prompt available"); setIsPromptModalOpen(true); }}
+                            className="px-2.5 py-1 text-[9px] font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-650 border border-neutral-600 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                          >
+                            View Full Prompt
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Based on line */}
+                      <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
+                        <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
+                      </div>
                       <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
                       <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
                     </div>

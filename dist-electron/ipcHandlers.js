@@ -36,7 +36,30 @@ else {
 }
 // Renamed function, inputFilePath is now optional
 async function callReplicateMusicGeneration(promptText, inputFilePath, durationSeconds = 8) {
-    console.log(`[Replicate] callReplicateMusicGeneration. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}. Duration: ${durationSeconds}s`);
+    console.log(`[Replicate] callReplicateMusicGeneration. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}'. Duration: ${durationSeconds}s`);
+    // Helper function to sanitize prompt text for use as a filename
+    function sanitizePromptForFilename(prompt, maxLength = 50) {
+        if (!prompt) {
+            return "generated_audio";
+        }
+        // Remove characters that are problematic for filenames, replace spaces with underscores
+        const sanitized = prompt
+            .toLowerCase() // Optional: make it lowercase
+            .replace(/[\/?:*"<>|#%&{}\s+]/g, '_') // Replace special chars and spaces with underscore
+            .replace(/__+/g, '_') // Replace multiple underscores with single
+            .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
+        // Truncate to maxLength
+        let truncated = sanitized.substring(0, maxLength);
+        // Remove trailing underscore if truncation caused it
+        if (truncated.endsWith('_')) {
+            truncated = truncated.substring(0, truncated.length - 1);
+        }
+        // Ensure it's not empty after sanitization/truncation
+        if (!truncated) {
+            return "generated_audio";
+        }
+        return truncated;
+    }
     const replicateApiKey = process.env.REPLICATE_API_KEY;
     if (!replicateApiKey)
         throw new Error("Replicate API key is not configured.");
@@ -100,7 +123,9 @@ async function callReplicateMusicGeneration(promptText, inputFilePath, durationS
     if (finalPrediction.status === "succeeded") {
         const outputUrl = finalPrediction.output;
         console.log(`[Replicate] Prediction succeeded. Output URL: ${outputUrl}`);
-        const baseName = inputFilePath ? path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath)) : 'musicgen';
+        const baseName = inputFilePath
+            ? path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath))
+            : sanitizePromptForFilename(promptText);
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const outputFileName = `${baseName}_${inputFilePath ? 'cont' : 'gen'}_${timestamp}.wav`;
         const projectRootRecordingsDir = path_1.default.resolve(process.cwd(), "local_recordings");
@@ -147,8 +172,8 @@ async function callReplicateMusicGeneration(promptText, inputFilePath, durationS
         catch (pyErr) {
             console.error("[Replicate] Py exec err:", pyErr);
         }
-        console.log("[Replicate] callReplicateMusicGeneration returning:", { generatedPath: localOutputPath, features: audioFeatures });
-        return { generatedPath: localOutputPath, features: audioFeatures };
+        console.log("[Replicate] callReplicateMusicGeneration returning:", { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText });
+        return { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText };
     }
     else {
         throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);

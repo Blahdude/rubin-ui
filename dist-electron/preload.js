@@ -151,16 +151,13 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         electron_1.ipcRenderer.send("ondragstart-file", filePath);
     },
     generateMusic: (promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", promptText, inputFilePath, durationSeconds),
-    notifyGeneratedAudioReady: (generatedPath, originalPath, features) => {
-        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features });
+    notifyGeneratedAudioReady: (generatedPath, originalPath, features, displayName, originalPromptText) => {
+        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
     },
     onGeneratedAudioReady: (callback) => {
-        const channel = "generated-audio-ready";
-        const handler = (event, data) => callback(data);
-        electron_1.ipcRenderer.on(channel, handler);
-        return () => {
-            electron_1.ipcRenderer.removeListener(channel, handler);
-        };
+        const handler = (_event, data) => callback(data);
+        electron_1.ipcRenderer.on("generated-audio-ready", handler);
+        return () => electron_1.ipcRenderer.removeListener("generated-audio-ready", handler);
     },
     // ADDED for user follow-up
     userResponseToAi: (userText) => electron_1.ipcRenderer.invoke('user-response-to-ai', userText),

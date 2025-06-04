@@ -31,8 +31,35 @@ if (fs.existsSync(envPath)) {
 }
 
 // Renamed function, inputFilePath is now optional
-export async function callReplicateMusicGeneration(promptText: string, inputFilePath?: string, durationSeconds: number = 8): Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }> {
-  console.log(`[Replicate] callReplicateMusicGeneration. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}. Duration: ${durationSeconds}s`);
+export async function callReplicateMusicGeneration(promptText: string, inputFilePath?: string, durationSeconds: number = 8): Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
+  console.log(`[Replicate] callReplicateMusicGeneration. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}'. Duration: ${durationSeconds}s`);
+
+  // Helper function to sanitize prompt text for use as a filename
+  function sanitizePromptForFilename(prompt: string, maxLength: number = 50): string {
+    if (!prompt) {
+      return "generated_audio";
+    }
+    // Remove characters that are problematic for filenames, replace spaces with underscores
+    const sanitized = prompt
+      .toLowerCase() // Optional: make it lowercase
+      .replace(/[\/?:*"<>|#%&{}\s+]/g, '_') // Replace special chars and spaces with underscore
+      .replace(/__+/g, '_') // Replace multiple underscores with single
+      .replace(/^_|_$/g, ''); // Trim leading/trailing underscores
+
+    // Truncate to maxLength
+    let truncated = sanitized.substring(0, maxLength);
+
+    // Remove trailing underscore if truncation caused it
+    if (truncated.endsWith('_')) {
+        truncated = truncated.substring(0, truncated.length -1);
+    }
+
+    // Ensure it's not empty after sanitization/truncation
+    if (!truncated) {
+      return "generated_audio";
+    }
+    return truncated;
+  }
 
   const replicateApiKey = process.env.REPLICATE_API_KEY;
   if (!replicateApiKey) throw new Error("Replicate API key is not configured.");
@@ -97,7 +124,9 @@ export async function callReplicateMusicGeneration(promptText: string, inputFile
     const outputUrl = finalPrediction.output as string;
     console.log(`[Replicate] Prediction succeeded. Output URL: ${outputUrl}`);
     
-    const baseName = inputFilePath ? path.basename(inputFilePath, path.extname(inputFilePath)) : 'musicgen';
+    const baseName = inputFilePath 
+      ? path.basename(inputFilePath, path.extname(inputFilePath)) 
+      : sanitizePromptForFilename(promptText);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const outputFileName = `${baseName}_${inputFilePath ? 'cont' : 'gen'}_${timestamp}.wav`;
 
@@ -131,8 +160,8 @@ export async function callReplicateMusicGeneration(promptText: string, inputFile
       });
     } catch (pyErr) { console.error("[Replicate] Py exec err:", pyErr); }
 
-    console.log("[Replicate] callReplicateMusicGeneration returning:", { generatedPath: localOutputPath, features: audioFeatures });
-    return { generatedPath: localOutputPath, features: audioFeatures };
+    console.log("[Replicate] callReplicateMusicGeneration returning:", { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText });
+    return { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText };
   } else {
     throw new Error(`Music generation failed: ${finalPrediction.error || finalPrediction.status}`);
   }
@@ -272,7 +301,7 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   );
 
-  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => {
+  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
     console.log(`[IPC Main] Received notify-generated-audio-ready. Data:`, data);
     const mainWindow = appState.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
