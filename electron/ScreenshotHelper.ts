@@ -52,26 +52,12 @@ export class ScreenshotHelper {
   }
 
   public clearQueues(): void {
-    // Clear screenshotQueue - DO NOT DELETE FILES FROM DISK HERE
-    // this.screenshotQueue.forEach((screenshotPath) => {
-    //   fs.unlink(screenshotPath, (err) => {
-    //     if (err)
-    //       console.error(`Error deleting screenshot at ${screenshotPath}:`, err)
-    //   })
-    // })
+    // This method only clears the arrays, it does not delete files from disk.
+    // File deletion should be handled when a queue exceeds MAX_SCREENSHOTS
+    // or when a specific screenshot is deleted via deleteScreenshot().
     this.screenshotQueue = []
     console.log("[ScreenshotHelper] Main screenshot queue array cleared.");
 
-    // Clear extraScreenshotQueue - DO NOT DELETE FILES FROM DISK HERE
-    // this.extraScreenshotQueue.forEach((screenshotPath) => {
-    //   fs.unlink(screenshotPath, (err) => {
-    //     if (err)
-    //       console.error(
-    //         `Error deleting extra screenshot at ${screenshotPath}:`,
-    //         err
-    //       )
-    //   })
-    // })
     this.extraScreenshotQueue = []
     console.log("[ScreenshotHelper] Extra screenshot queue array cleared.");
   }
@@ -134,17 +120,16 @@ export class ScreenshotHelper {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       await fs.promises.unlink(path)
-      if (this.view === "queue") {
-        this.screenshotQueue = this.screenshotQueue.filter(
-          (filePath) => filePath !== path
-        )
-      } else {
-        this.extraScreenshotQueue = this.extraScreenshotQueue.filter(
-          (filePath) => filePath !== path
-        )
-      }
+      // Filter the path out of both queues
+      this.screenshotQueue = this.screenshotQueue.filter(
+        (filePath) => filePath !== path
+      )
+      this.extraScreenshotQueue = this.extraScreenshotQueue.filter(
+        (filePath) => filePath !== path
+      )
+      console.log(`[ScreenshotHelper] Deleted screenshot and removed from queues: ${path}`);
       return { success: true }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting file:", error)
       return { success: false, error: error.message }
     }

@@ -64,23 +64,50 @@ export class ProcessingHelper {
     }
   }
 
-  public async processUserText(userText: string): Promise<void> {
+  public async processUserText(userText: string, screenshots?: Array<{ path: string; preview?: string }>): Promise<void> {
     const mainWindow = this.appState.getMainWindow()
-    if (!mainWindow || !userText.trim()) return
-
-    const userMessageItem: ConversationItem = {
-      id: uuidv4(),
-      type: "user_text",
-      content: userText,
-      timestamp: Date.now(),
+    if (!mainWindow || (!userText.trim() && (!screenshots || screenshots.length === 0))) {
+      console.log("[ProcessingHelper] processUserText: Called with no text and no screenshots. Aborting.");
+      return;
     }
-    this.appState.addToConversationHistory(userMessageItem)
-    mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, userMessageItem)
+
+    // Add user text to conversation history if present
+    if (userText.trim()) {
+      const userMessageItem: ConversationItem = {
+        id: uuidv4(),
+        type: "user_text",
+        content: userText,
+        timestamp: Date.now(),
+      }
+      this.appState.addToConversationHistory(userMessageItem)
+      mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, userMessageItem)
+    }
 
     try {
-      const aiLLMResponse = await this.llmHelper.sendMessage([{ text: userText }])
-      const solution = aiLLMResponse.solution
-      const aiMessageId = uuidv4() // Unique ID for this whole AI interaction turn
+      // Use the strict union type expected by LlmHelper.sendMessage
+      const messageParts: Array<{ text: string } | { filePath: string }> = [];
+
+      if (userText.trim()) {
+        messageParts.push({ text: userText }); // This creates an object with only the 'text' property
+      }
+
+      if (screenshots && screenshots.length > 0) {
+        console.log(`[ProcessingHelper] Attaching ${screenshots.length} screenshots to LLM call.`);
+        for (const screenshot of screenshots) {
+          // This creates an object with only the 'filePath' property
+          messageParts.push({ filePath: screenshot.path }); 
+        }
+      }
+      
+      if (messageParts.length === 0) {
+        console.warn("[ProcessingHelper] processUserText: No message parts to send to LLM (empty text and no screenshots). Aborting AI call.");
+        return;
+      }
+
+      const aiLLMResponse = await this.llmHelper.sendMessage(messageParts);
+   
+      const aiMessageId = uuidv4(); // Unique ID for this whole AI interaction turn
+      const solution = aiLLMResponse.solution; // Assuming aiLLMResponse structure
 
       if (solution?.action === 'generate_music_from_text') {
         console.log(`[ProcessingHelper] Detected "generate_music_from_text" action for AI Message ID: ${aiMessageId}`)

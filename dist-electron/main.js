@@ -111,8 +111,8 @@ class AppState {
     setWindowDimensions(width, height) {
         this.windowHelper.setWindowDimensions(width, height);
     }
-    clearQueues() {
-        this.screenshotHelper.clearQueues();
+    async clearQueues() {
+        await this.screenshotHelper.clearQueues();
         // Clear problem info
         this.problemInfo = null;
         // Reset view to initial state
@@ -120,10 +120,7 @@ class AppState {
     }
     // Screenshot management methods
     async takeScreenshot() {
-        if (!this.getMainWindow())
-            throw new Error("No main window available");
-        const screenshotPath = await this.screenshotHelper.takeScreenshot(() => this.hideMainWindow(), () => this.showMainWindow());
-        return screenshotPath;
+        return this.screenshotHelper.takeScreenshot(() => this.hideMainWindow(), () => this.showMainWindow());
     }
     async getImagePreview(filepath) {
         return this.screenshotHelper.getImagePreview(filepath);

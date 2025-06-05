@@ -59,9 +59,10 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         };
     },
     onDebugSuccess: (callback) => {
-        electron_1.ipcRenderer.on("debug-success", (_event, data) => callback(data));
+        const subscription = (_event, data) => callback(data);
+        electron_1.ipcRenderer.on("debug-success", subscription);
         return () => {
-            electron_1.ipcRenderer.removeListener("debug-success", (_event, data) => callback(data));
+            electron_1.ipcRenderer.removeListener("debug-success", subscription);
         };
     },
     onDebugError: (callback) => {
@@ -162,24 +163,36 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         electron_1.ipcRenderer.on("generated-audio-ready", handler);
         return () => electron_1.ipcRenderer.removeListener("generated-audio-ready", handler);
     },
-    // ADDED for user follow-up
-    userResponseToAi: (userText) => electron_1.ipcRenderer.invoke('user-response-to-ai', userText),
+    userResponseToAi: (userText, screenshots) => electron_1.ipcRenderer.invoke("user-response-to-ai", userText, screenshots),
     onFollowUpSuccess: (callback) => {
-        const channel = "follow-up-success";
-        electron_1.ipcRenderer.on(channel, (_event, data) => callback(data));
-        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+        const handler = (_event, data) => callback(data);
+        electron_1.ipcRenderer.on("follow-up-success", handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener("follow-up-success", handler);
+        };
     },
     onFollowUpError: (callback) => {
-        const channel = "follow-up-error";
-        electron_1.ipcRenderer.on(channel, (_event, error) => callback(error));
-        return () => electron_1.ipcRenderer.removeAllListeners(channel);
+        const handler = (_event, error) => callback(error);
+        electron_1.ipcRenderer.on("follow-up-error", handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener("follow-up-error", handler);
+        };
     },
-    // CHAT RELATED - NEW AND REVISED
-    startNewChat: () => electron_1.ipcRenderer.invoke('start-new-chat'),
+    startNewChat: () => electron_1.ipcRenderer.invoke("start-new-chat"),
     onChatUpdated: (callback) => {
         const handler = (_event, data) => callback(data);
-        electron_1.ipcRenderer.on('chat-updated', handler);
-        return () => electron_1.ipcRenderer.removeListener('chat-updated', handler);
+        electron_1.ipcRenderer.on("chat-updated", handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener("chat-updated", handler);
+        };
+    },
+    // For screenshot queue UI updates
+    onScreenshotQueueCleared: (callback) => {
+        const handler = () => callback();
+        electron_1.ipcRenderer.on("screenshot-queue-cleared", handler);
+        return () => {
+            electron_1.ipcRenderer.removeListener("screenshot-queue-cleared", handler);
+        };
     },
 });
 //# sourceMappingURL=preload.js.map

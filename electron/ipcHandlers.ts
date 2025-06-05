@@ -454,15 +454,26 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
-  // ADDED IPC Handler for user follow-up responses
-  ipcMain.handle("user-response-to-ai", async (event, userText: string) => {
-    if (!appState) return { success: false, error: "AppState not initialized" };
+  // Handler for user-initiated follow-up responses
+  ipcMain.handle("user-response-to-ai", async (_, userText, screenshots) => {
     try {
-      await appState.processingHelper.processUserText(userText);
+      console.log(`[IPC] Received user response: "${userText}" with ${screenshots?.length || 0} screenshots.`);
+      // Use the processing helper to handle the text and screenshots
+      await appState.processingHelper.processUserText(userText, screenshots);
+      
+      // After processing, clear the main screenshot queue as they've been "used"
+      appState.clearQueues();
+      
+      // Also notify the frontend that the queue has been cleared
+      const mainWindow = appState.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("screenshot-queue-cleared");
+      }
+
       return { success: true };
-    } catch (error: any) {
-      console.error("Failed to process user text input via IPC:", error);
-      return { success: false, error: error.message };
+    } catch (error) {
+      console.error("[IPC] Error processing user response:", error);
+      return { success: false, error: (error as Error).message };
     }
   });
 

@@ -70,9 +70,8 @@ class ShortcutsHelper {
         electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
             console.log("'Solve' (CommandOrControl+Enter) triggered.");
             const mainWindow = this.appState.getMainWindow();
-            let screenshotTakenSuccessfully = false;
             if (mainWindow && !mainWindow.isDestroyed()) {
-                console.log("Automatically taking screenshot for 'Solve' command...");
+                console.log("Taking screenshot...");
                 try {
                     const screenshotPath = await this.appState.takeScreenshot();
                     if (screenshotPath) {
@@ -81,36 +80,18 @@ class ShortcutsHelper {
                             path: screenshotPath,
                             preview
                         });
-                        console.log(`Autoscreenshot for 'Solve' successful: ${screenshotPath}`);
-                        screenshotTakenSuccessfully = true;
+                        console.log(`Screenshot taken and event sent: ${screenshotPath}`);
                     }
                     else {
-                        console.error("Autoscreenshot for 'Solve' failed: takeScreenshot returned no path.");
+                        console.error("Screenshot capture failed: takeScreenshot returned no path.");
                     }
                 }
                 catch (error) {
-                    console.error("Error auto-capturing screenshot for 'Solve':", error);
-                    // Optionally, notify the user of screenshot failure if desired
-                    // mainWindow.webContents.send("solve-error", { message: "Failed to take screenshot for solving." });
-                    // return; // Potentially stop if screenshot is critical
+                    console.error("Error capturing screenshot:", error);
                 }
             }
             else {
-                console.warn("Main window not available for 'Solve' command's auto-screenshot.");
-                // Decide if to proceed without a screenshot or stop
-                // For now, let's assume proceeding might be possible if there are old screenshots
-            }
-            // Proceed to process screenshots, which should now include the one just taken (if successful)
-            // or rely on existing screenshots if the auto-screenshot failed but some are present.
-            if (this.appState.getScreenshots().length > 0 || screenshotTakenSuccessfully) {
-                console.log("Proceeding to processScreenshots for 'Solve' command.");
-                await this.appState.processingHelper.processScreenshots();
-            }
-            else {
-                console.warn("'Solve' command: No screenshots available (auto-capture failed and none existing). Nothing to process.");
-                if (mainWindow && !mainWindow.isDestroyed()) {
-                    mainWindow.webContents.send("processing-no-screenshots"); // Notify renderer
-                }
+                console.warn("Main window not available for screenshot.");
             }
         });
         electron_1.globalShortcut.register("CommandOrControl+R", () => {

@@ -39,15 +39,28 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
     if (userInput.trim() === "" || !isAiResponseActive) return;
     try {
       console.log(`Sending to AI: ${userInput}`);
-      const result = await window.electronAPI.userResponseToAi(userInput);
+
+      // Get pending screenshots
+      const pendingScreenshots = await window.electronAPI.getScreenshots();
+      // Log what is being fetched (optional, for debugging)
+      if (pendingScreenshots && pendingScreenshots.length > 0) {
+        console.log(`Attaching ${pendingScreenshots.length} screenshots to the user query.`);
+      }
+
+      // Send user input and screenshots to the AI
+      // We'll pass pendingScreenshots even if empty, main process can handle it.
+      const result = await window.electronAPI.userResponseToAi(userInput, pendingScreenshots);
+      
       if (result.success) {
         console.log("User response sent successfully.");
+        // We will handle clearing the screenshot queue in the main process (ipcHandlers.ts)
+        // after the AI call is successfully initiated.
       } else {
         console.error("Failed to send user response:", result.error);
       }
-      setUserInput("");
+      setUserInput(""); // Clear the input field
     } catch (error) {
-      console.error("Error calling userResponseToAi:", error);
+      console.error("Error calling userResponseToAi or getScreenshots:", error);
     }
   };
 

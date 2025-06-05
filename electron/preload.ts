@@ -47,13 +47,16 @@ interface ElectronAPI {
   setUiPreferredGenerationDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
 
   // ADDED for user follow-up
-  userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
+  userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) => Promise<{ success: boolean; error?: string }>;
   onFollowUpSuccess: (callback: (data: any) => void) => () => void;
   onFollowUpError: (callback: (error: string) => void) => () => void;
 
   // CHAT RELATED - NEW AND REVISED
   startNewChat: () => Promise<void>
   onChatUpdated: (callback: (data: any /* ConversationItem from main.ts */) => void) => () => void
+
+  // For screenshot queue UI updates
+  onScreenshotQueueCleared: (callback: () => void) => () => void;
 }
 
 export const PROCESSING_EVENTS = {
@@ -123,11 +126,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
 
   onDebugSuccess: (callback: (data: any) => void) => {
-    ipcRenderer.on("debug-success", (_event, data) => callback(data))
+    const subscription = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("debug-success", subscription)
     return () => {
-      ipcRenderer.removeListener("debug-success", (_event, data) =>
-        callback(data)
-      )
+      ipcRenderer.removeListener("debug-success", subscription)
     }
   },
   onDebugError: (callback: (error: string) => void) => {
@@ -246,25 +248,37 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("generated-audio-ready", handler);
     return () => ipcRenderer.removeListener("generated-audio-ready", handler);
   },
-
-  // ADDED for user follow-up
-  userResponseToAi: (userText: string) => ipcRenderer.invoke('user-response-to-ai', userText),
-  onFollowUpSuccess: (callback) => {
-    const channel = "follow-up-success"; 
-    ipcRenderer.on(channel, (_event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners(channel);
-  },
-  onFollowUpError: (callback) => {
-    const channel = "follow-up-error"; 
-    ipcRenderer.on(channel, (_event, error) => callback(error));
-    return () => ipcRenderer.removeAllListeners(channel);
-  },
-
-  // CHAT RELATED - NEW AND REVISED
-  startNewChat: () => ipcRenderer.invoke('start-new-chat'),
-  onChatUpdated: (callback: (data: any /* ConversationItem from main.ts */) => void) => {
+  userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) =>
+    ipcRenderer.invoke("user-response-to-ai", userText, screenshots),
+  onFollowUpSuccess: (callback: (data: any) => void) => {
     const handler = (_event: IpcRendererEvent, data: any) => callback(data);
-    ipcRenderer.on('chat-updated', handler);
-    return () => ipcRenderer.removeListener('chat-updated', handler);
+    ipcRenderer.on("follow-up-success", handler);
+    return () => {
+      ipcRenderer.removeListener("follow-up-success", handler);
+    };
   },
-} as ElectronAPI)
+  onFollowUpError: (callback: (error: string) => void) => {
+    const handler = (_event: IpcRendererEvent, error: string) => callback(error);
+    ipcRenderer.on("follow-up-error", handler);
+    return () => {
+      ipcRenderer.removeListener("follow-up-error", handler);
+    };
+  },
+  startNewChat: () => ipcRenderer.invoke("start-new-chat"),
+  onChatUpdated: (callback: (data: any) => void) => {
+    const handler = (_event: IpcRendererEvent, data: any) => callback(data);
+    ipcRenderer.on("chat-updated", handler);
+    return () => {
+      ipcRenderer.removeListener("chat-updated", handler);
+    };
+  },
+
+  // For screenshot queue UI updates
+  onScreenshotQueueCleared: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on("screenshot-queue-cleared", handler);
+    return () => {
+      ipcRenderer.removeListener("screenshot-queue-cleared", handler);
+    };
+  },
+});

@@ -147,8 +147,8 @@ export class AppState {
     this.windowHelper.setWindowDimensions(width, height)
   }
 
-  public clearQueues(): void {
-    this.screenshotHelper.clearQueues()
+  public async clearQueues(): Promise<void> {
+    await this.screenshotHelper.clearQueues()
 
     // Clear problem info
     this.problemInfo = null
@@ -159,23 +159,17 @@ export class AppState {
 
   // Screenshot management methods
   public async takeScreenshot(): Promise<string> {
-    if (!this.getMainWindow()) throw new Error("No main window available")
-
-    const screenshotPath = await this.screenshotHelper.takeScreenshot(
+    return this.screenshotHelper.takeScreenshot(
       () => this.hideMainWindow(),
       () => this.showMainWindow()
     )
-
-    return screenshotPath
   }
 
   public async getImagePreview(filepath: string): Promise<string> {
     return this.screenshotHelper.getImagePreview(filepath)
   }
 
-  public async deleteScreenshot(
-    path: string
-  ): Promise<{ success: boolean; error?: string }> {
+  public async deleteScreenshot(path: string): Promise<{ success: boolean; error?: string }> {
     return this.screenshotHelper.deleteScreenshot(path)
   }
 

@@ -52,6 +52,12 @@ interface QueueProps {
 //   originalPath?: string; 
 // }
 
+// Type for individual screenshot items, if not already globally defined
+interface ScreenshotItem {
+  path: string;
+  preview: string;
+}
+
 const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
@@ -128,13 +134,17 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   }, [generationDurationSeconds]);
 
   const { data: screenshots = [], refetch } = useQuery<
-    Array<{ path: string; preview: string }>
+    Array<ScreenshotItem> // Use the defined ScreenshotItem type
     , Error>(
     ["screenshots"],
     async () => {
       try {
-        const existing = await window.electronAPI.getScreenshots()
-        return existing
+        // Ensure electronAPI and getScreenshots are available
+        if (window.electronAPI && typeof window.electronAPI.getScreenshots === 'function') {
+          const existing = await window.electronAPI.getScreenshots()
+          return existing
+        }
+        return []; // Return empty if API not ready
       } catch (error) {
         console.error("Error loading screenshots:", error)
         showToast("Error", "Failed to load existing screenshots", "error")
@@ -144,10 +154,41 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     {
       staleTime: Infinity,
       cacheTime: Infinity,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // Adjusted from true to prevent too frequent refetches if not desired
       refetchOnMount: true
     }
   )
+
+  // useEffect to listen for new screenshots being taken
+  useEffect(() => {
+    if (window.electronAPI && typeof window.electronAPI.onScreenshotTaken === 'function') {
+      const unsubscribe = window.electronAPI.onScreenshotTaken(() => {
+        console.log("[Queue.tsx] Received onScreenshotTaken event, refetching screenshots.");
+        refetch();
+      });
+      return () => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      };
+    }
+  }, [refetch]);
+
+  // useEffect to listen for the screenshot queue being cleared
+  useEffect(() => {
+    // Assuming onScreenshotQueueCleared will be added to electronAPI
+    if (window.electronAPI && typeof (window.electronAPI as any).onScreenshotQueueCleared === 'function') {
+      const unsubscribe = (window.electronAPI as any).onScreenshotQueueCleared(() => {
+        console.log("[Queue.tsx] Received onScreenshotQueueCleared event, refetching screenshots.");
+        refetch();
+      });
+      return () => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      };
+    }
+  }, [refetch]);
 
   const showToast = (
     title: string,
@@ -322,6 +363,15 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     console.log("[Queue.tsx] Current generatedAudioClips state:", generatedAudioClips);
   }, [conversation, globalRecordings, generatedAudioClips]);
 
+  const handleOpenPromptModal = (prompt: string) => {
+    setModalPromptText(prompt);
+    setIsPromptModalOpen(true);
+  };
+
+  const handleClosePromptModal = () => {
+    setIsPromptModalOpen(false);
+  };
+
   return (
     <div className="flex flex-col h-full bg-neutral-850 pt-0 pb-2 px-2 space-y-1.5">
       <Toast
@@ -336,7 +386,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       
       <PromptModal 
         isOpen={isPromptModalOpen} 
-        onClose={() => setIsPromptModalOpen(false)} 
+        onClose={handleClosePromptModal} 
         promptText={modalPromptText} 
       />
       
@@ -479,7 +529,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                         {/* View Prompt Button - should not shrink and stays to the right */}
                         {clip.originalPromptText && clip.originalPromptText.length > 50 && (
                           <button 
-                            onClick={() => { setModalPromptText(clip.originalPromptText || "No prompt available"); setIsPromptModalOpen(true); }}
+                            onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
                             className="px-2.5 py-1 text-[9px] font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-650 border border-neutral-600 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-neutral-500"
                           >
                             View Full Prompt
