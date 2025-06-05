@@ -3,6 +3,9 @@ import Queue from "./_pages/Queue"
 import { ToastViewport } from "@radix-ui/react-toast"
 import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "react-query"
+import { onAuthStateChanged, User } from "firebase/auth"
+import { auth } from "./lib/firebase"
+import LoginPage from "./_pages/LoginPage"
 
 // Define ConversationItem type - should match electron/main.ts
 export type ConversationItem =
@@ -52,7 +55,7 @@ declare global {
       // Audio Recording and Generation
       onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void;
       onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void;
-      generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string } }>;
+      generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>;
 
       // VAD Events
       onVadWaiting: (callback: () => void) => () => void;
@@ -68,8 +71,8 @@ declare global {
       startFileDrag: (filePath: string) => void;
 
       // For notifying about newly generated audio
-      notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }) => void;
-      onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string } }) => void) => () => void;
+      notifyGeneratedAudioReady: (generatedUrl: string, originalPath: string | undefined, features: { bpm: string | number, key: string }) => void;
+      onGeneratedAudioReady: (callback: (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string } }) => void) => () => void;
 
       // ADDED for user follow-up
       userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
@@ -93,7 +96,19 @@ const queryClient = new QueryClient({
 })
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     // Attempt to move the window to the right on startup
@@ -123,7 +138,7 @@ const App: React.FC = () => {
       window.electronAPI.onUnauthorized(() => {
         setConversation([]);
         console.log("Unauthorized, conversation cleared.");
-        window.electronAPI.startNewChat();
+        auth.signOut();
       }),
 
       window.electronAPI.onResetView(() => {
@@ -136,6 +151,18 @@ const App: React.FC = () => {
 
     return () => cleanupFunctions.forEach((cleanup) => cleanup());
   }, [queryClient]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

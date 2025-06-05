@@ -12,9 +12,7 @@ const path_1 = __importDefault(require("path")); // Import path for icon handlin
 const fs_1 = __importDefault(require("fs"));
 const replicate_1 = __importDefault(require("replicate"));
 const dotenv_1 = __importDefault(require("dotenv"));
-const https_1 = __importDefault(require("https")); // For downloading
 const child_process_1 = require("child_process"); // For calling ffmpeg
-const child_process_2 = require("child_process"); // For calling python script
 // Import the new function from shortcuts.ts
 const shortcuts_1 = require("./shortcuts");
 // Variable to store the UI preferred generation duration
@@ -170,63 +168,11 @@ async function callReplicateMusicGeneration(operationId, promptText, inputFilePa
         if (finalPrediction.status === "succeeded") {
             const outputUrl = finalPrediction.output;
             console.log(`[Replicate] Prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
+            console.log("THIS IS THE FINAL ATTEMPT");
             const baseName = inputFilePath
                 ? path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath))
                 : sanitizePromptForFilename(promptText);
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const outputFileName = `${baseName}_${inputFilePath ? 'cont' : 'gen'}_${timestamp}.wav`;
-            const projectRootRecordingsDir = path_1.default.resolve(process.cwd(), "local_recordings");
-            const generatedDirInProjectRoot = path_1.default.join(projectRootRecordingsDir, "generated");
-            if (!fs_1.default.existsSync(generatedDirInProjectRoot))
-                fs_1.default.mkdirSync(generatedDirInProjectRoot, { recursive: true });
-            const localOutputPath = path_1.default.join(generatedDirInProjectRoot, outputFileName);
-            await new Promise((resolve, reject) => {
-                const file = fs_1.default.createWriteStream(localOutputPath);
-                https_1.default.get(outputUrl, (response) => {
-                    if (response.statusCode !== 200) {
-                        file.close(); // Close the file stream on error before rejecting
-                        fs_1.default.unlink(localOutputPath, () => { }); // Attempt to delete partial file
-                        reject(new Error(`Failed to download: HTTP ${response.statusCode}`));
-                        return;
-                    }
-                    response.pipe(file);
-                    file.on("finish", () => { file.close(); resolve(); });
-                }).on("error", (err) => {
-                    file.close(); // Close the file stream on error before rejecting
-                    fs_1.default.unlink(localOutputPath, () => { }); // Attempt to delete partial file
-                    reject(err);
-                });
-            });
-            let audioFeatures = { bpm: "N/A", key: "N/A" };
-            try {
-                const pythonProcess = (0, child_process_2.spawn)("python", [path_1.default.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
-                let scriptOutput = "";
-                let scriptError = "";
-                pythonProcess.stdout.on("data", (data) => scriptOutput += data.toString());
-                pythonProcess.stderr.on("data", (data) => scriptError += data.toString());
-                await new Promise((res, _rej) => {
-                    pythonProcess.on("close", (code) => {
-                        if (code === 0) {
-                            try {
-                                audioFeatures = JSON.parse(scriptOutput);
-                            }
-                            catch (e) {
-                                console.error(`[Replicate] Py parse err for op ${operationId}:`, e, "Out:", scriptOutput);
-                            }
-                        }
-                        else {
-                            console.error(`[Replicate] Py script err code ${code} for op ${operationId}. STDERR: ${scriptError}`);
-                        }
-                        res();
-                    });
-                    pythonProcess.on("error", (err) => { console.error(`[Replicate] Py spawn err for op ${operationId}:`, err); res(); });
-                });
-            }
-            catch (pyErr) {
-                console.error(`[Replicate] Py exec err for op ${operationId}:`, pyErr);
-            }
-            console.log(`[Replicate] callReplicateMusicGeneration for op ${operationId} returning:`, { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText });
-            return { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText };
+            return { generatedUrl: outputUrl, features: { bpm: "N/A", key: "N/A" }, displayName: baseName, originalPromptText: promptText };
         }
         else if (finalPrediction.status === "canceled") {
             console.log(`[Replicate] Music generation canceled for operation ${operationId}, prediction ${predictionId}.`);

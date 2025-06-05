@@ -12,6 +12,10 @@ import QueueCommands from "../components/Queue/QueueCommands"
 import Solutions from "./Solutions"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 import { ConversationItem } from "../App"
+import { auth, storage } from "../lib/firebase"
+import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "firebase/storage"
+import { v4 as uuidv4 } from 'uuid';
+import { onAuthStateChanged, User } from "firebase/auth"
 
 interface PromptModalProps {
   isOpen: boolean;
@@ -88,6 +92,165 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   // State for the prompt modal
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [modalPromptText, setModalPromptText] = useState("");
+
+  // State for current user
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoadingExistingFiles, setIsLoadingExistingFiles] = useState(false);
+
+  const handleQuitApp = () => {
+    if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
+      window.electronAPI.quitApp();
+    }
+  };
+
+  // Helper function to format display names
+  const formatDisplayName = (name?: string, originalPrompt?: string, maxLength: number = 50): string => {
+    if (!name || name === "generated_audio") return 'Generated Track'; // Default if no name or it's the generic one
+    
+    let formattedName = name
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    if (originalPrompt && originalPrompt.length > maxLength) {
+      // Check if the formatted name already ends with ... (e.g. if sanitizePromptForFilename added it, though it currently doesn't)
+      // Or if the name itself is short enough that the original prompt being long is the main point.
+      // For simplicity, if original was long, and name isn't the default, append ellipsis.
+      if (!formattedName.endsWith('...')) {
+        formattedName += '...';
+      }
+    }
+    return formattedName;
+  };
+
+  // Function to load existing audio files from Firebase Storage
+  const loadExistingMusicFiles = async (user: User) => {
+    if (!user) return;
+
+    setIsLoadingExistingFiles(true);
+    try {
+      console.log("Loading existing music files for user:", user.uid);
+      
+      // Create a reference to the user's audio folder
+      const userAudioRef = ref(storage, `users/${user.uid}/audio`);
+      
+      // List all files in the user's audio folder
+      const listResult = await listAll(userAudioRef);
+      
+      console.log("Found", listResult.items.length, "existing audio files");
+      
+      // Create an array to store the audio clips
+      const existingClips: GeneratedAudioClip[] = [];
+      
+      // Process each file
+      for (const itemRef of listResult.items) {
+        try {
+          // Get the download URL
+          const downloadURL = await getDownloadURL(itemRef);
+          
+          // Get metadata to extract timestamp and other info
+          const metadata = await getMetadata(itemRef);
+          
+          // Extract the clip ID from the file name (remove .wav extension)
+          const clipId = itemRef.name.replace('.wav', '');
+          
+          // Create the GeneratedAudioClip object
+          const clip: GeneratedAudioClip = {
+            id: clipId,
+            path: downloadURL,
+            timestamp: metadata.timeCreated ? new Date(metadata.timeCreated) : new Date(),
+            bpm: metadata.customMetadata?.bpm || 'N/A',
+            key: metadata.customMetadata?.key || 'N/A',
+            status: 'ready',
+            displayName: metadata.customMetadata?.displayName || formatDisplayName(clipId),
+            originalPromptText: metadata.customMetadata?.originalPromptText,
+            originalPath: metadata.customMetadata?.originalPath
+          };
+          
+          existingClips.push(clip);
+        } catch (error) {
+          console.error("Error processing file:", itemRef.name, error);
+        }
+      }
+      
+      // Sort clips by timestamp (newest first)
+      existingClips.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      
+      // Update the state with existing clips
+      setGeneratedAudioClips(existingClips);
+      
+      if (existingClips.length > 0) {
+        showToast("Loaded", `Found ${existingClips.length} existing music files`, "success");
+      }
+      
+    } catch (error) {
+      console.error("Error loading existing music files:", error);
+      showToast("Error", "Failed to load existing music files", "error");
+    } finally {
+      setIsLoadingExistingFiles(false);
+    }
+  };
+
+  // useEffect to handle authentication state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed:", user ? `User logged in: ${user.uid}` : "User logged out");
+      setCurrentUser(user);
+      
+      if (user) {
+        // User is logged in, load their existing music files
+        await loadExistingMusicFiles(user);
+      } else {
+        // User is logged out, clear the generated audio clips
+        setGeneratedAudioClips([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Function to delete an audio file from Firebase Storage and local state
+  const deleteAudioFile = async (clip: GeneratedAudioClip) => {
+    const user = auth.currentUser;
+    if (!user) {
+      showToast("Error", "You must be logged in to delete files.", "error");
+      return;
+    }
+
+    try {
+      console.log("Deleting audio file:", clip.id);
+      showToast("Deleting", `Deleting "${clip.displayName || 'audio file'}"...`, "info");
+      
+      // Create a reference to the file in Firebase Storage
+      const fileRef = ref(storage, `users/${user.uid}/audio/${clip.id}.wav`);
+      
+      // Delete the file from Firebase Storage
+      await deleteObject(fileRef);
+      
+      // Remove the clip from local state
+      setGeneratedAudioClips(prevClips => 
+        prevClips.filter(existingClip => existingClip.id !== clip.id)
+      );
+      
+      showToast("Deleted", `"${clip.displayName || 'Audio file'}" has been deleted permanently.`, "success");
+      
+    } catch (error: any) {
+      console.error("Error deleting audio file:", error);
+      
+      // Handle specific Firebase errors
+      if (error.code === 'storage/object-not-found') {
+        // File doesn't exist in storage, but remove from local state anyway
+        setGeneratedAudioClips(prevClips => 
+          prevClips.filter(existingClip => existingClip.id !== clip.id)
+        );
+        showToast("Removed", "File was already deleted from storage. Removed from list.", "info");
+      } else if (error.code === 'storage/unauthorized') {
+        showToast("Permission Denied", "You don't have permission to delete this file.", "error");
+      } else {
+        showToast("Delete Failed", `Could not delete the audio file: ${error.message || 'Unknown error'}`, "error");
+      }
+    }
+  };
 
   // Effect to update recording duration in main process when slider changes (debounced)
   useEffect(() => {
@@ -202,24 +365,70 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     }
   }
 
-  // Helper function to format display names
-  const formatDisplayName = (name?: string, originalPrompt?: string, maxLength: number = 50): string => {
-    if (!name || name === "generated_audio") return 'Generated Track'; // Default if no name or it's the generic one
-    
-    let formattedName = name
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-
-    if (originalPrompt && originalPrompt.length > maxLength) {
-      // Check if the formatted name already ends with ... (e.g. if sanitizePromptForFilename added it, though it currently doesn't)
-      // Or if the name itself is short enough that the original prompt being long is the main point.
-      // For simplicity, if original was long, and name isn't the default, append ellipsis.
-      if (!formattedName.endsWith('...')) {
-        formattedName += '...';
-      }
+  const getAudioSrc = (path: string) => {
+    if (path.startsWith('https://') || path.startsWith('http://')) {
+      return path;
     }
-    return formattedName;
+    return `clp://${path}`;
+  };
+
+  const handleGeneratedAudioReady = async (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
+    console.log("Generated audio is ready to be uploaded:", data);
+    const user = auth.currentUser;
+    if (!user) {
+      showToast("Error", "You must be logged in to save music.", "error");
+      return;
+    }
+
+    showToast("Uploading", "Uploading generated music to the cloud...", "info");
+
+    try {
+      // Fetch audio from the generated URL
+      const response = await fetch(data.generatedUrl);
+      const audioBlob = await response.blob();
+      
+      const clipId = uuidv4();
+      const storagePath = `users/${user.uid}/audio/${clipId}.wav`;
+      const storageRef = ref(storage, storagePath);
+
+      // Create metadata to store with the file
+      const fileMetadata = {
+        contentType: 'audio/wav',
+        customMetadata: {
+          bpm: String(data.features.bpm),
+          key: String(data.features.key),
+          displayName: data.displayName || formatDisplayName(clipId),
+          originalPromptText: data.originalPromptText || '',
+          originalPath: data.originalPath || ''
+        }
+      };
+
+      // Upload to Firebase Storage with metadata
+      const uploadResult = await uploadBytes(storageRef, audioBlob, fileMetadata);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+
+      console.log("Uploaded to Firebase Storage:", downloadURL);
+
+      const newClip: GeneratedAudioClip = {
+        id: clipId,
+        path: downloadURL, // Use the Firebase Storage URL
+        timestamp: new Date(),
+        bpm: data.features.bpm,
+        key: data.features.key,
+        status: 'ready',
+        originalPath: data.originalPath,
+        displayName: data.displayName,
+        originalPromptText: data.originalPromptText
+      };
+
+      setGeneratedAudioClips(prevClips => [newClip, ...prevClips]);
+        
+      showToast("Music Ready", `Generated music "${data.displayName || 'track'}" is ready.`, "success");
+
+    } catch (error) {
+      console.error("Error uploading to Firebase Storage:", error);
+      showToast("Upload Failed", "Could not save music to the cloud.", "error");
+    }
   };
 
   useEffect(() => {
@@ -286,7 +495,8 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                 bpm: features.bpm,
                 key: features.key,
                 displayName: displayName,
-                originalPromptText: originalPromptText // Add originalPromptText in fallback too
+                originalPromptText: originalPromptText,
+                status: 'ready'
             };
             setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
         }
@@ -297,25 +507,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       }
     };
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
-    const handleGeneratedAudioReady = (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
-      console.log("[Queue.tsx] handleGeneratedAudioReady triggered. Data:", data);
-      const newGeneratedClip: GeneratedAudioClip = { 
-        id: `gen-clip-${Date.now()}`,
-        path: data.generatedPath,
-        originalPath: data.originalPath || "",
-        timestamp: new Date(),
-        bpm: data.features.bpm,
-        key: data.features.key,
-        displayName: data.displayName, // Store displayName
-        originalPromptText: data.originalPromptText // Store originalPromptText
-      };
-      setGeneratedAudioClips(prevClips => {
-        const updatedClips = [newGeneratedClip, ...prevClips];
-        console.log("[Queue.tsx] Updated generatedAudioClips state:", updatedClips);
-        return updatedClips;
-      });
-    };
-
+    
     const unsubscribes = [
       window.electronAPI.onVadWaiting(handleVadWaiting),
       window.electronAPI.onVadRecordingStarted(handleVadRecordingStarted),
@@ -357,7 +549,205 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-850 pt-0 pb-2 px-2 space-y-1.5">
+    <div className="flex flex-col h-screen text-white bg-neutral-900">
+      {/* Main Content */}
+      <div className="flex-grow flex flex-col overflow-hidden">
+        {/* Top bar with commands */}
+        <div className="flex-none">
+          <QueueCommands
+            onTooltipVisibilityChange={handleTooltipVisibilityChange}
+            screenshots={screenshots}
+            isProcessingSolution={isProcessingSolution}
+            quitApp={handleQuitApp}
+          />
+        </div>
+
+        {/* Scrollable area for solutions */}
+        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full">
+          <div className="w-full space-y-3 p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
+            {vadStatusMessage && (
+              <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-neutral-400`}>
+                {vadStatusMessage}
+              </div>
+            )}
+            {globalRecordings.length > 0 && (
+              <div className="space-y-2">
+                <div 
+                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                  onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
+                >
+                  <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Recorded Audio</h4>
+                  <span className="text-neutral-400 text-xs">
+                    {isRecordedAudioOpen ? '▼' : '▶'}
+                  </span>
+                </div>
+                {isRecordedAudioOpen && (
+                  <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                    {globalRecordings.map((rec) => (
+                      <div 
+                        key={rec.id} 
+                        className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                        draggable={true}
+                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                          e.preventDefault(); // Prevent default HTML drag behavior
+                          e.stopPropagation(); // Stop event propagation
+                          if (rec.path) {
+                            // Set dataTransfer properties for robustness
+                            e.dataTransfer.setData('text/plain', rec.path); // Using path as dummy data
+                            e.dataTransfer.effectAllowed = 'copy';
+                            window.electronAPI.startFileDrag(rec.path);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                        </div>
+                        <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
+                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {globalRecordingError && (
+              <div className="mx-0.5 mt-2 p-2 bg-red-800/40 rounded text-red-300 text-xs border border-red-700/50 font-medium">
+                <span className="font-semibold">Audio Error:</span> {globalRecordingError}
+              </div>
+            )}
+            {/* Duration Controls */}
+            <div className="mx-0.5 mt-3 p-3 bg-neutral-800 rounded-lg border border-neutral-700/60 space-y-3">
+              <div>
+                <label htmlFor="recordingDuration" className="block text-xs font-medium text-neutral-300 mb-1">
+                  Recording Duration: {recordingDurationSeconds}s
+                </label>
+                <input
+                  type="range"
+                  id="recordingDuration"
+                  name="recordingDuration"
+                  min="1"
+                  max="30" // Max 30 seconds for recording
+                  value={recordingDurationSeconds}
+                  onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="generationDuration" className="block text-xs font-medium text-neutral-300 mb-1">
+                  Generation Length: {generationDurationSeconds}s
+                </label>
+                <input
+                  type="range"
+                  id="generationDuration"
+                  name="generationDuration"
+                  min="1"
+                  max="30" // Max 30 seconds for generation
+                  value={generationDurationSeconds}
+                  onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
+                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                />
+              </div>
+            </div>
+            {generatedAudioClips.length > 0 && (
+              <div className="space-y-2 pt-1.5">
+                <div 
+                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                  onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
+                >
+                  <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Generated Audio</h4>
+                  <span className="text-neutral-400 text-xs">
+                    {isGeneratedAudioOpen ? '▼' : '▶'}
+                  </span>
+                </div>
+                {isGeneratedAudioOpen && (
+                  <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                    {generatedAudioClips.map((clip) => (
+                      <div 
+                        key={clip.id} 
+                        className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                        draggable={true}
+                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                          e.preventDefault(); // Prevent default HTML drag behavior
+                          e.stopPropagation(); // Stop event propagation
+                          if (clip.path) {
+                            // Set dataTransfer properties for robustness
+                            e.dataTransfer.setData('text/plain', clip.path); // Using path as dummy data
+                            e.dataTransfer.effectAllowed = 'copy';
+                            window.electronAPI.startFileDrag(clip.path);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent triggering drag events
+                              if (window.confirm(`Are you sure you want to delete "${clip.displayName || 'this audio file'}"?\n\nThis action cannot be undone.`)) {
+                                deleteAudioFile(clip);
+                              }
+                            }}
+                            className="group px-1.5 py-0.5 text-[9px] font-medium text-red-400 hover:text-red-200 hover:bg-red-900/30 border border-red-600/40 hover:border-red-500/60 rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 active:scale-95"
+                            title="Delete this audio file permanently"
+                          >
+                            <span className="group-hover:scale-110 transition-transform duration-200 inline-block">🗑️</span>
+                          </button>
+                        </div>
+                        
+                        {/* Container for Track Name and View Prompt Button - using justify-between */}
+                        <div className="flex items-center justify-between mb-0.5">
+                          {/* Group for Icon and Track Name - this group will shrink and truncate */}
+                          <div className="flex items-center min-w-0 mr-2">
+                            <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
+                            <span className="text-sm font-semibold text-neutral-100 truncate">
+                              {formatDisplayName(clip.displayName, clip.originalPromptText)}
+                            </span>
+                          </div>
+
+                          {/* View Prompt Button - should not shrink and stays to the right */}
+                          {clip.originalPromptText && clip.originalPromptText.length > 50 && (
+                            <button 
+                              onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
+                              className="px-2.5 py-1 text-[9px] font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-650 border border-neutral-600 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                            >
+                              View Full Prompt
+                            </button>
+                          )}
+                        </div>
+                        
+                        {/* Based on line */}
+                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
+                          <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
+                        </div>
+                        <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
+                        <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {isLoadingExistingFiles && (
+              <div className="text-center py-4">
+                <p className="text-sm text-neutral-500 font-medium">Loading your music files...</p>
+              </div>
+            )}
+            {(!isLoadingExistingFiles && globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
+               <div className="text-center py-8">
+                  <p className="text-sm text-neutral-500 font-medium">Record or generate audio to see it here.</p>
+               </div>
+            )}
+          </div>
+
+          <div className="w-full p-0.5 flex-grow flex flex-col min-h-0">
+            <Solutions 
+              showCommands={true}
+              onProcessingStateChange={setIsProcessingSolution}
+              conversation={conversation}
+            />
+          </div>
+        </div>
+      </div>
+
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -373,181 +763,6 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         onClose={handleClosePromptModal} 
         promptText={modalPromptText} 
       />
-      
-      <div className="flex-shrink-0 pt-0 pb-0.5 px-1">
-        <QueueCommands
-          screenshots={screenshots}
-          onTooltipVisibilityChange={handleTooltipVisibilityChange} 
-          isProcessingSolution={isProcessingSolution}
-        />
-      </div>
-
-      <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full">
-        <div className="w-full space-y-3 p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
-          {vadStatusMessage && (
-            <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-neutral-400`}>
-              {vadStatusMessage}
-            </div>
-          )}
-          {globalRecordings.length > 0 && (
-            <div className="space-y-2">
-              <div 
-                className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
-                onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
-              >
-                <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Recorded Audio</h4>
-                <span className="text-neutral-400 text-xs">
-                  {isRecordedAudioOpen ? '▼' : '▶'}
-                </span>
-              </div>
-              {isRecordedAudioOpen && (
-                <div className="space-y-2 pl-1 pr-0.5 pt-1">
-                  {globalRecordings.map((rec) => (
-                    <div 
-                      key={rec.id} 
-                      className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
-                      draggable={true}
-                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                        e.preventDefault(); // Prevent default HTML drag behavior
-                        e.stopPropagation(); // Stop event propagation
-                        if (rec.path) {
-                          // Set dataTransfer properties for robustness
-                          e.dataTransfer.setData('text/plain', rec.path); // Using path as dummy data
-                          e.dataTransfer.effectAllowed = 'copy';
-                          window.electronAPI.startFileDrag(rec.path);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                      </div>
-                      <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
-                      <audio controls src={`clp://${rec.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {globalRecordingError && (
-            <div className="mx-0.5 mt-2 p-2 bg-red-800/40 rounded text-red-300 text-xs border border-red-700/50 font-medium">
-              <span className="font-semibold">Audio Error:</span> {globalRecordingError}
-            </div>
-          )}
-          {/* Duration Controls */}
-          <div className="mx-0.5 mt-3 p-3 bg-neutral-800 rounded-lg border border-neutral-700/60 space-y-3">
-            <div>
-              <label htmlFor="recordingDuration" className="block text-xs font-medium text-neutral-300 mb-1">
-                Recording Duration: {recordingDurationSeconds}s
-              </label>
-              <input
-                type="range"
-                id="recordingDuration"
-                name="recordingDuration"
-                min="1"
-                max="30" // Max 30 seconds for recording
-                value={recordingDurationSeconds}
-                onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
-              />
-            </div>
-            <div>
-              <label htmlFor="generationDuration" className="block text-xs font-medium text-neutral-300 mb-1">
-                Generation Length: {generationDurationSeconds}s
-              </label>
-              <input
-                type="range"
-                id="generationDuration"
-                name="generationDuration"
-                min="1"
-                max="30" // Max 30 seconds for generation
-                value={generationDurationSeconds}
-                onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
-                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
-              />
-            </div>
-          </div>
-          {generatedAudioClips.length > 0 && (
-            <div className="space-y-2 pt-1.5">
-              <div 
-                className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
-                onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
-              >
-                <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Generated Audio</h4>
-                <span className="text-neutral-400 text-xs">
-                  {isGeneratedAudioOpen ? '▼' : '▶'}
-                </span>
-              </div>
-              {isGeneratedAudioOpen && (
-                <div className="space-y-2 pl-1 pr-0.5 pt-1">
-                  {generatedAudioClips.map((clip) => (
-                    <div 
-                      key={clip.id} 
-                      className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
-                      draggable={true}
-                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                        e.preventDefault(); // Prevent default HTML drag behavior
-                        e.stopPropagation(); // Stop event propagation
-                        if (clip.path) {
-                          // Set dataTransfer properties for robustness
-                          e.dataTransfer.setData('text/plain', clip.path); // Using path as dummy data
-                          e.dataTransfer.effectAllowed = 'copy';
-                          window.electronAPI.startFileDrag(clip.path);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                      </div>
-                      
-                      {/* Container for Track Name and View Prompt Button - using justify-between */}
-                      <div className="flex items-center justify-between mb-0.5">
-                        {/* Group for Icon and Track Name - this group will shrink and truncate */}
-                        <div className="flex items-center min-w-0 mr-2">
-                          <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
-                          <span className="text-sm font-semibold text-neutral-100 truncate">
-                            {formatDisplayName(clip.displayName, clip.originalPromptText)}
-                          </span>
-                        </div>
-
-                        {/* View Prompt Button - should not shrink and stays to the right */}
-                        {clip.originalPromptText && clip.originalPromptText.length > 50 && (
-                          <button 
-                            onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
-                            className="px-2.5 py-1 text-[9px] font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-650 border border-neutral-600 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-neutral-500"
-                          >
-                            View Full Prompt
-                          </button>
-                        )}
-                      </div>
-                      
-                      {/* Based on line */}
-                      <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
-                        <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
-                      </div>
-                      <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
-                      <audio controls src={`clp://${clip.path}`} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          {(globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
-             <div className="text-center py-8">
-                <p className="text-sm text-neutral-500 font-medium">Record or generate audio to see it here.</p>
-             </div>
-          )}
-        </div>
-
-        <div className="w-full p-0.5 flex-grow flex flex-col min-h-0">
-          <Solutions 
-            showCommands={true}
-            onProcessingStateChange={setIsProcessingSolution}
-            conversation={conversation}
-          />
-        </div>
-      </div>
     </div>
   )
 }

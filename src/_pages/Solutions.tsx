@@ -311,7 +311,10 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                 </div>
               );
             } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
-              const audioSrc = `clp://${item.content.playableAudioPath}`;
+              // Use the same logic as Queue.tsx getAudioSrc function
+              const audioSrc = item.content.playableAudioPath.startsWith('https://') || item.content.playableAudioPath.startsWith('http://') 
+                ? item.content.playableAudioPath 
+                : `clp://${item.content.playableAudioPath}`;
               audioPlayer = (
                 <div style={{ marginTop: aiTextMessage || suggestionsOutput ? '10px' : '0px', marginBottom: suggestionsOutput && !aiTextMessage ? '10px' : '0px' }}>
                   <audio controls src={audioSrc} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity">

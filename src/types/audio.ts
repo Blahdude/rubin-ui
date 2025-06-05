@@ -16,6 +16,7 @@ export interface GeneratedAudioClip {
   timestamp: Date;
   bpm: string | number;
   key: string;
+  status: 'generating' | 'ready' | 'failed';
   displayName?: string; // Name to be displayed in the UI, derived from sanitized prompt or original filename
   originalPromptText?: string; // The full, original prompt text if generated from text
 } 

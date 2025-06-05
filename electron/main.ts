@@ -245,6 +245,16 @@ async function initializeApp() {
     protocol.registerFileProtocol("clp", (request, callback) => {
       console.log(`[CLP Protocol] Received request for URL: ${request.url}`);
       let rawPath = request.url.slice("clp://".length);
+
+      // Check if the path is a full URL (like from Firebase Storage)
+      if (rawPath.startsWith('https://') || rawPath.startsWith('http://')) {
+        // For remote URLs, we can't use `callback({ path })`.
+        // The renderer should be updated to not use `clp://` for remote URLs.
+        // As a temporary measure, we will return an error to prevent a crash.
+        console.warn(`[CLP Protocol] Attempting to load a remote URL (${rawPath}) via the 'clp' protocol. This should be handled in the renderer.`);
+        callback({ error: -6 }); // -6 is net::ERR_FILE_NOT_FOUND
+        return;
+      }
       
       let decodedPath;
       try {

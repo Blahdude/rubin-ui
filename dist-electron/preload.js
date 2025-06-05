@@ -153,8 +153,8 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     },
     generateMusic: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
     cancelMusicGeneration: (operationId) => electron_1.ipcRenderer.invoke("cancel-music-generation", operationId),
-    notifyGeneratedAudioReady: (generatedPath, originalPath, features, displayName, originalPromptText) => {
-        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
+    notifyGeneratedAudioReady: (generatedUrl, originalPath, features, displayName, originalPromptText) => {
+        electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedUrl, originalPath, features, displayName, originalPromptText });
     },
     onGeneratedAudioReady: (callback) => {
         const handler = (_event, data) => callback(data);

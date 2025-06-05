@@ -157,14 +157,14 @@ export class ProcessingHelper {
         } else {
           console.log(`[ProcessingHelper] Attempting Replicate text-to-music for AI Message ID: ${aiMessageId} with prompt: "${musicPrompt}". UI preferred duration will be used.`)
           try {
-            const { generatedPath, features, displayName, originalPromptText } = await callReplicateMusicGeneration(aiMessageId, musicPrompt, undefined /* inputFilePath */, undefined /* durationFromCaller - force use of UI preference */);
-            console.log(`[ProcessingHelper] Replicate generated audio (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedPath}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`)
+            const { generatedUrl, features, displayName, originalPromptText } = await callReplicateMusicGeneration(aiMessageId, musicPrompt, undefined /* inputFilePath */, undefined /* durationFromCaller - force use of UI preference */);
+            console.log(`[ProcessingHelper] Replicate generated audio URL (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedUrl}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`)
             finalAudioMessageContentUpdate = {
               isLoadingAudio: false,
-              playableAudioPath: generatedPath
+              playableAudioPath: generatedUrl
             }
             if (mainWindow && !mainWindow.isDestroyed()) {
-                 mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: undefined, features, displayName, originalPromptText })
+                 mainWindow.webContents.send("generated-audio-ready", { generatedUrl, originalPath: undefined, features, displayName, originalPromptText })
             }
           } catch (replicateError: any) {
             console.error(`[ProcessingHelper] Error calling Replicate for text-to-music for AI Message ID: ${aiMessageId}:`, replicateError)
@@ -232,7 +232,7 @@ export class ProcessingHelper {
         } else {
           try {
             // This legacy call does not currently support cancellation as it doesn't use an operationId. Consider refactoring.
-            const { generatedPath, features, displayName, originalPromptText } = await callReplicateMusicGeneration(tempContinuationAiMessageId, musicPrompt, baseAudioForContinuation, duration)
+            const { generatedUrl, features, displayName, originalPromptText } = await callReplicateMusicGeneration(tempContinuationAiMessageId, musicPrompt, baseAudioForContinuation, duration)
             continuationMessageItem = {
               id: tempContinuationAiMessageId, type: "ai_response",
               content: { 
@@ -243,14 +243,15 @@ export class ProcessingHelper {
                       suggested_responses: solution.suggested_responses || [],
                       reasoning: solution.reasoning || "Called Replicate for music continuation."
                     }, 
-                  playableAudioPath: generatedPath 
+                  playableAudioPath: generatedUrl
                 },
               timestamp: Date.now()
             }
             if (mainWindow && !mainWindow.isDestroyed()) {
-                 mainWindow.webContents.send("generated-audio-ready", { generatedPath, originalPath: baseAudioForContinuation, features, displayName, originalPromptText })
+                 mainWindow.webContents.send("generated-audio-ready", { generatedUrl, originalPath: baseAudioForContinuation, features, displayName, originalPromptText })
             }
           } catch (replicateError: any) {
+            console.error("[ProcessingHelper] Error calling Replicate for continuation:", replicateError);
             continuationMessageItem = { 
                 id: tempContinuationAiMessageId, 
                 type: "ai_response", 

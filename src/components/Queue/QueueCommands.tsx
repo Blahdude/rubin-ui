@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
+import { auth } from "../../lib/firebase";
+import { signOut } from "firebase/auth";
 // Removed IoLogOutOutline as it's not used after sign out button removal
 // import { FiClock, FiFileText } from "react-icons/fi"; // Not used
 
@@ -7,6 +9,7 @@ interface QueueCommandsProps {
   // screenshots prop is kept as it's used for display logic if any (currently not directly, but good to keep signature)
   screenshots: Array<{ path: string; preview: string }>
   isProcessingSolution?: boolean
+  quitApp: () => void;
 }
 
 // Removed GlobalRecording interface (managed in Queue.tsx)
@@ -15,7 +18,8 @@ interface QueueCommandsProps {
 const QueueCommands: React.FC<QueueCommandsProps> = ({
   onTooltipVisibilityChange,
   // screenshots, // Not directly used in the simplified version
-  isProcessingSolution
+  isProcessingSolution,
+  quitApp
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -50,6 +54,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   // }
 
   // Removed handleRecordClick as it was for local UI state / old recording logic
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      // The onAuthStateChanged listener in App.tsx will handle the UI update
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      // Optionally, show a toast message on error
+    }
+  };
 
   return (
     <div className="w-full"> 
@@ -101,6 +115,26 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
               ;
             </button>
           </div>
+        </div>
+
+        {/* Sign Out Button */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleSignOut}
+            className="bg-neutral-700 hover:bg-red-800 transition-colors rounded px-2 py-1 text-[10px] leading-none text-neutral-300 font-medium"
+          >
+            Sign Out
+          </button>
+        </div>
+        
+        {/* Quit Button */}
+        <div className="flex items-center gap-1">
+            <button 
+              onClick={quitApp}
+              className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-2 py-1 text-[10px] leading-none text-neutral-300 font-medium"
+            >
+             Quit App
+            </button>
         </div>
 
       </div>

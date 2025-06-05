@@ -45,7 +45,7 @@ export async function callReplicateMusicGeneration(
   promptText: string,
   inputFilePath?: string,
   durationFromCaller?: number // This is the UI slider value for "new segment length" in continuation, or desired total length if passed for text-to-music (though usually undefined for text-to-music now)
-): Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
+): Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
   
   let finalApiDuration: number;
   let originalInputDurationForLog: number | string = "N/A";
@@ -172,54 +172,13 @@ export async function callReplicateMusicGeneration(
     if (finalPrediction.status === "succeeded") {
       const outputUrl = finalPrediction.output as string;
       console.log(`[Replicate] Prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
+      console.log("THIS IS THE FINAL ATTEMPT")
       
       const baseName = inputFilePath 
         ? path.basename(inputFilePath, path.extname(inputFilePath)) 
         : sanitizePromptForFilename(promptText);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const outputFileName = `${baseName}_${inputFilePath ? 'cont' : 'gen'}_${timestamp}.wav`;
 
-      const projectRootRecordingsDir = path.resolve(process.cwd(), "local_recordings");
-      const generatedDirInProjectRoot = path.join(projectRootRecordingsDir, "generated");
-      if (!fs.existsSync(generatedDirInProjectRoot)) fs.mkdirSync(generatedDirInProjectRoot, { recursive: true });
-      const localOutputPath = path.join(generatedDirInProjectRoot, outputFileName);
-
-      await new Promise<void>((resolve, reject) => {
-        const file = fs.createWriteStream(localOutputPath);
-        https.get(outputUrl, (response) => {
-          if (response.statusCode !== 200) { 
-            file.close(); // Close the file stream on error before rejecting
-            fs.unlink(localOutputPath, () => {}); // Attempt to delete partial file
-            reject(new Error(`Failed to download: HTTP ${response.statusCode}`)); 
-            return; 
-          }
-          response.pipe(file);
-          file.on("finish", () => { file.close(); resolve(); });
-        }).on("error", (err) => { 
-            file.close(); // Close the file stream on error before rejecting
-            fs.unlink(localOutputPath, () => {}); // Attempt to delete partial file
-            reject(err); 
-        });
-      });
-
-      let audioFeatures = { bpm: "N/A", key: "N/A" };
-      try {
-        const pythonProcess = spawn("python", [path.resolve(process.cwd(), "extract_audio_features.py"), localOutputPath]);
-        let scriptOutput = ""; let scriptError = "";
-        pythonProcess.stdout.on("data", (data) => scriptOutput += data.toString());
-        pythonProcess.stderr.on("data", (data) => scriptError += data.toString());
-        await new Promise<void>((res, _rej) => { 
-          pythonProcess.on("close", (code) => { 
-            if (code === 0) { try { audioFeatures = JSON.parse(scriptOutput); } catch (e) { console.error(`[Replicate] Py parse err for op ${operationId}:`, e, "Out:", scriptOutput); } }
-            else { console.error(`[Replicate] Py script err code ${code} for op ${operationId}. STDERR: ${scriptError}`); }
-            res(); 
-          });
-          pythonProcess.on("error", (err) => { console.error(`[Replicate] Py spawn err for op ${operationId}:`, err); res(); });
-        });
-      } catch (pyErr) { console.error(`[Replicate] Py exec err for op ${operationId}:`, pyErr); }
-
-      console.log(`[Replicate] callReplicateMusicGeneration for op ${operationId} returning:`, { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText });
-      return { generatedPath: localOutputPath, features: audioFeatures, displayName: baseName, originalPromptText: promptText };
+      return { generatedUrl: outputUrl, features: { bpm: "N/A", key: "N/A" }, displayName: baseName, originalPromptText: promptText };
     } else if (finalPrediction.status === "canceled") {
         console.log(`[Replicate] Music generation canceled for operation ${operationId}, prediction ${predictionId}.`);
         throw new Error(`Music generation for operation ${operationId} was canceled.`);
@@ -443,7 +402,7 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   });
 
-  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
+  ipcMain.on("notify-generated-audio-ready", (event, data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
     console.log(`[IPC Main] Received notify-generated-audio-ready. Data:`, data);
     const mainWindow = appState.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
