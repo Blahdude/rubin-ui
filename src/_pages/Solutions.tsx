@@ -15,6 +15,12 @@ import { AudioResult } from "../types/audio"
 import SolutionCommands from "../components/Solutions/SolutionCommands"
 import Debug from "./Debug"
 import { ConversationItem } from "../App"
+import { Image as ImageIcon, X } from "lucide-react"
+
+interface Screenshot {
+  path: string;
+  preview: string;
+}
 
 // (Using global ElectronAPI type from src/types/electron.d.ts)
 
@@ -45,6 +51,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
     description: "",
     variant: "info"
   })
+
+  const [queuedScreenshots, setQueuedScreenshots] = useState<Screenshot[]>([])
+  const [viewingScreenshotPreview, setViewingScreenshotPreview] = useState<string | null>(null);
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const [tooltipHeight, setTooltipHeight] = useState(0)
@@ -86,6 +95,50 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       console.error("Error deleting extra screenshot:", error)
     }
   }
+
+  useEffect(() => {
+    const electronAPI = window.electronAPI as any;
+
+    const cleanupOnScreenshotTaken = electronAPI.onScreenshotTaken((data: Screenshot) => {
+      setQueuedScreenshots((prev) => [...prev, data]);
+    });
+
+    const cleanupOnQueueCleared = electronAPI.onScreenshotQueueCleared(() => {
+      setQueuedScreenshots([]);
+    });
+
+    const fetchInitialScreenshots = async () => {
+      try {
+        const initialScreenshots = await electronAPI.getScreenshots();
+        if (initialScreenshots) {
+          setQueuedScreenshots(initialScreenshots);
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial screenshots:', error);
+      }
+    };
+
+    fetchInitialScreenshots();
+
+    return () => {
+      cleanupOnScreenshotTaken();
+      cleanupOnQueueCleared();
+    };
+  }, []);
+
+  const handleDeleteScreenshot = async (pathToDelete: string) => {
+    const electronAPI = window.electronAPI as any;
+    try {
+      const result = await electronAPI.deleteScreenshot(pathToDelete);
+      if (result.success) {
+        setQueuedScreenshots((prev) => prev.filter((s) => s.path !== pathToDelete));
+      } else {
+        console.error('Failed to delete screenshot:', result.error);
+      }
+    } catch (error) {
+      console.error('Error calling deleteScreenshot:', error);
+    }
+  };
 
   useEffect(() => {
     // console.log("Solutions.tsx: Conversation prop updated:", conversation);
@@ -234,9 +287,10 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   </p>
                   <button
                     onClick={async () => {
+                      const electronAPI = window.electronAPI as any;
                       console.log(`[Solutions] Attempting to cancel music generation for item ID: ${item.id}`);
                       try {
-                        const result = await window.electronAPI?.cancelMusicGeneration?.(item.id);
+                        const result = await electronAPI.cancelMusicGeneration(item.id);
                         console.log(`[Solutions] Cancellation result for item ID ${item.id}:`, result);
                         if (result?.success) {
                           showToast("Cancelled", "Music generation has been cancelled.", "info");
@@ -329,6 +383,53 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           }
         })}
       </div>
+      
+      {queuedScreenshots.length > 0 && (
+        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-neutral-400">Attached:</span>
+            {queuedScreenshots.map((screenshot) => (
+              <div key={screenshot.path} className="group relative">
+                <button
+                  onClick={() => setViewingScreenshotPreview(screenshot.preview)}
+                  className="flex items-center gap-1 bg-neutral-700/90 backdrop-blur-sm text-white text-[11px] leading-none px-1.5 py-1 rounded-md border border-neutral-600 hover:bg-neutral-600 transition-colors shadow-md"
+                >
+                  <ImageIcon className="w-2.5 h-2.5 text-neutral-400" />
+                  <span className="font-medium">Image</span>
+                </button>
+                <div 
+                  className="absolute -top-1 -right-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleDeleteScreenshot(screenshot.path)}
+                >
+                  <div className="bg-black/80 rounded-full p-px">
+                    <X className="w-2.5 h-2.5 text-neutral-400 hover:text-white" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {viewingScreenshotPreview && (
+        <div 
+          className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-8 animate-in fade-in"
+          onClick={() => setViewingScreenshotPreview(null)}
+        >
+          <img
+            src={viewingScreenshotPreview}
+            className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
+            alt="Screenshot Preview"
+            onClick={(e) => e.stopPropagation()}
+          />
+           <button
+            onClick={() => setViewingScreenshotPreview(null)}
+            className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+          >
+            <X size={28} />
+           </button>
+        </div>
+      )}
 
       {showCommands && (
         <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-0">

@@ -37,11 +37,12 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
   const handleSendUserResponse = async () => {
     if (userInput.trim() === "" || !isAiResponseActive) return;
+    const electronAPI = window.electronAPI as any;
     try {
       console.log(`Sending to AI: ${userInput}`);
 
       // Get pending screenshots
-      const pendingScreenshots = await window.electronAPI.getScreenshots();
+      const pendingScreenshots = await electronAPI.getScreenshots();
       // Log what is being fetched (optional, for debugging)
       if (pendingScreenshots && pendingScreenshots.length > 0) {
         console.log(`Attaching ${pendingScreenshots.length} screenshots to the user query.`);
@@ -49,7 +50,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
       // Send user input and screenshots to the AI
       // We'll pass pendingScreenshots even if empty, main process can handle it.
-      const result = await window.electronAPI.userResponseToAi(userInput, pendingScreenshots);
+      const result = await electronAPI.userResponseToAi(userInput, pendingScreenshots);
       
       if (result.success) {
         console.log("User response sent successfully.");

@@ -3,7 +3,6 @@ import Queue from "./_pages/Queue"
 import { ToastViewport } from "@radix-ui/react-toast"
 import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "react-query"
-import FloatingScreenshotQueue from "./components/FloatingScreenshotQueue"
 
 // Define ConversationItem type - should match electron/main.ts
 export type ConversationItem =
@@ -144,7 +143,6 @@ const App: React.FC = () => {
         <div className="h-screen bg-transparent text-black/80 flex flex-col">
           <Queue conversation={conversation} />
         </div>
-        <FloatingScreenshotQueue />
         <ToastViewport />
       </ToastProvider>
     </QueryClientProvider>
