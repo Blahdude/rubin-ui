@@ -77,6 +77,8 @@ class ProcessingHelper {
             console.error("[ProcessingHelper] Cannot process user text - GEMINI_API_KEY not configured");
             return;
         }
+        // Create an abort controller for this request
+        this.currentProcessingAbortController = new AbortController();
         // Add user text to conversation history if present
         if (userText.trim()) {
             const userMessageItem = {
@@ -105,7 +107,17 @@ class ProcessingHelper {
                 console.warn("[ProcessingHelper] processUserText: No message parts to send to LLM (empty text and no screenshots). Aborting AI call.");
                 return;
             }
+            // Check if the request was cancelled before making the LLM call
+            if (this.currentProcessingAbortController?.signal.aborted) {
+                console.log("[ProcessingHelper] Request was cancelled before LLM call");
+                return;
+            }
             const aiLLMResponse = await this.llmHelper.sendMessage(messageParts);
+            // Check if the request was cancelled after the LLM call
+            if (this.currentProcessingAbortController?.signal.aborted) {
+                console.log("[ProcessingHelper] Request was cancelled after LLM call");
+                return;
+            }
             const aiMessageId = (0, uuid_1.v4)(); // Unique ID for this whole AI interaction turn
             const solution = aiLLMResponse.solution; // Assuming aiLLMResponse structure
             if (solution?.action === 'generate_music_from_text') {
@@ -292,6 +304,11 @@ class ProcessingHelper {
         }
         catch (error) {
             console.error("[ProcessingHelper] Error in processUserText:", error);
+            // Check if this was a cancellation
+            if (this.currentProcessingAbortController?.signal.aborted) {
+                console.log("[ProcessingHelper] Request was cancelled during processing");
+                return;
+            }
             const errorItem = {
                 id: (0, uuid_1.v4)(), // New ID for a distinct error message
                 type: "ai_response",
@@ -300,6 +317,10 @@ class ProcessingHelper {
             };
             this.appState.addToConversationHistory(errorItem);
             mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, errorItem);
+        }
+        finally {
+            // Clean up the abort controller
+            this.currentProcessingAbortController = null;
         }
     }
     async processUserFile(filePath, accompanyingText) {

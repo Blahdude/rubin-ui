@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { IoLogOutOutline } from "react-icons/io5"
 import { LuSend } from "react-icons/lu"
+import { HiStop } from "react-icons/hi2"
 
 interface SolutionCommandsProps {
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void
@@ -14,6 +15,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [userInput, setUserInput] = useState("")
+  const [isQueryInProgress, setIsQueryInProgress] = useState(false)
 
   useEffect(() => {
     if (onTooltipVisibilityChange) {
@@ -25,6 +27,20 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
     }
   }, [isTooltipVisible, onTooltipVisibilityChange])
 
+  // Listen for chat updates to reset query in progress state
+  useEffect(() => {
+    const electronAPI = window.electronAPI as any;
+    if (electronAPI.onChatUpdated) {
+      const unsubscribe = electronAPI.onChatUpdated((data: any) => {
+        // Reset query in progress when we receive an AI response
+        if (data.type === "ai_response") {
+          setIsQueryInProgress(false);
+        }
+      });
+      return unsubscribe;
+    }
+  }, [])
+
   const handleMouseEnter = () => {
     setIsTooltipVisible(true)
   }
@@ -34,10 +50,20 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   }
 
   const handleSendUserResponse = async () => {
-    if (userInput.trim() === "" || !isAiResponseActive) return;
+    if (userInput.trim() === "" || !isAiResponseActive || isQueryInProgress) return;
+    
+    // Store the input value before clearing it
+    const inputToSend = userInput;
+    
+    // Clear the input field immediately
+    setUserInput("");
+    
+    // Set query in progress
+    setIsQueryInProgress(true);
+    
     const electronAPI = window.electronAPI as any;
     try {
-      console.log(`Sending to AI: ${userInput}`);
+      console.log(`Sending to AI: ${inputToSend}`);
 
       // Get pending screenshots
       const pendingScreenshots = await electronAPI.getScreenshots();
@@ -48,7 +74,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
       // Send user input and screenshots to the AI
       // We'll pass pendingScreenshots even if empty, main process can handle it.
-      const result = await electronAPI.userResponseToAi(userInput, pendingScreenshots);
+      const result = await electronAPI.userResponseToAi(inputToSend, pendingScreenshots);
       
       if (result.success) {
         console.log("User response sent successfully.");
@@ -57,9 +83,26 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
       } else {
         console.error("Failed to send user response:", result.error);
       }
-      setUserInput(""); // Clear the input field
     } catch (error) {
       console.error("Error calling userResponseToAi or getScreenshots:", error);
+    } finally {
+      // Always reset the query in progress state
+      setIsQueryInProgress(false);
+    }
+  };
+
+  const handleCancelQuery = async () => {
+    const electronAPI = window.electronAPI as any;
+    try {
+      console.log("Cancelling query...");
+      if (electronAPI.cancelQuery) {
+        await electronAPI.cancelQuery();
+      }
+      setIsQueryInProgress(false);
+    } catch (error) {
+      console.error("Error cancelling query:", error);
+      // Reset state anyway
+      setIsQueryInProgress(false);
     }
   };
 
@@ -109,12 +152,20 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               }}
             />
             <button
-              onClick={handleSendUserResponse}
-              title="Send response"
-              className="bg-neutral-600 hover:bg-neutral-500 text-neutral-200 rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
-              disabled={!userInput.trim() || !isAiResponseActive}
+              onClick={isQueryInProgress ? handleCancelQuery : handleSendUserResponse}
+              title={isQueryInProgress ? "Cancel query" : "Send response"}
+              className={`${
+                isQueryInProgress 
+                  ? "bg-neutral-600 hover:bg-neutral-500" 
+                  : "bg-neutral-600 hover:bg-neutral-500"
+              } text-neutral-200 rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center`}
+              disabled={!isQueryInProgress && (!userInput.trim() || !isAiResponseActive)}
             >
-              <LuSend className="w-3.5 h-3.5" />
+              {isQueryInProgress ? (
+                <HiStop className="w-3.5 h-3.5" />
+              ) : (
+                <LuSend className="w-3.5 h-3.5" />
+              )}
             </button>
           </div>
         )}

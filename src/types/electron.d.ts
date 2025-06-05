@@ -40,6 +40,7 @@ export interface ElectronAPI {
   setUiPreferredGenerationDuration: (durationSeconds: number) => void
 
   userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) => Promise<{ success: boolean; error?: string }>;
+  cancelQuery: () => Promise<{ success: boolean; error?: string }>;
   onFollowUpSuccess: (callback: (data: any) => void) => () => void;
   onFollowUpError: (callback: (error: string) => void) => () => void;
   startNewChat: () => Promise<void>

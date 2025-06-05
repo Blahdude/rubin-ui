@@ -83,6 +83,9 @@ export class ProcessingHelper {
       return
     }
 
+    // Create an abort controller for this request
+    this.currentProcessingAbortController = new AbortController();
+
     // Add user text to conversation history if present
     if (userText.trim()) {
       const userMessageItem: ConversationItem = {
@@ -116,7 +119,19 @@ export class ProcessingHelper {
         return;
       }
 
+      // Check if the request was cancelled before making the LLM call
+      if (this.currentProcessingAbortController?.signal.aborted) {
+        console.log("[ProcessingHelper] Request was cancelled before LLM call");
+        return;
+      }
+
       const aiLLMResponse = await this.llmHelper.sendMessage(messageParts);
+
+      // Check if the request was cancelled after the LLM call
+      if (this.currentProcessingAbortController?.signal.aborted) {
+        console.log("[ProcessingHelper] Request was cancelled after LLM call");
+        return;
+      }
    
       const aiMessageId = uuidv4(); // Unique ID for this whole AI interaction turn
       const solution = aiLLMResponse.solution; // Assuming aiLLMResponse structure
@@ -307,6 +322,13 @@ export class ProcessingHelper {
       }
     } catch (error: any) {
       console.error("[ProcessingHelper] Error in processUserText:", error)
+      
+      // Check if this was a cancellation
+      if (this.currentProcessingAbortController?.signal.aborted) {
+        console.log("[ProcessingHelper] Request was cancelled during processing");
+        return;
+      }
+      
       const errorItem: ConversationItem = {
         id: uuidv4(), // New ID for a distinct error message
         type: "ai_response",
@@ -315,6 +337,9 @@ export class ProcessingHelper {
       }
       this.appState.addToConversationHistory(errorItem)
       mainWindow.webContents.send(this.appState.PROCESSING_EVENTS.CHAT_UPDATED, errorItem)
+    } finally {
+      // Clean up the abort controller
+      this.currentProcessingAbortController = null;
     }
   }
 

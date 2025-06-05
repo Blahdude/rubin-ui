@@ -430,6 +430,20 @@ function initializeIpcHandlers(appState) {
             return { success: false, error: error.message };
         }
     });
+    // ADDED: Handler for canceling queries
+    electron_1.ipcMain.handle("cancel-query", async () => {
+        if (!appState)
+            return { success: false, error: "AppState not initialized" };
+        try {
+            console.log("[IPC] Received cancel-query request");
+            appState.processingHelper.cancelOngoingRequests();
+            return { success: true };
+        }
+        catch (error) {
+            console.error("Failed to cancel query via IPC:", error);
+            return { success: false, error: error.message };
+        }
+    });
     // ADDED: IPC handler for moving the window to the right
     electron_1.ipcMain.handle("move-window-right", async (event) => {
         try {

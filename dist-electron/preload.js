@@ -162,6 +162,7 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         return () => electron_1.ipcRenderer.removeListener("generated-audio-ready", handler);
     },
     userResponseToAi: (userText, screenshots) => electron_1.ipcRenderer.invoke("user-response-to-ai", userText, screenshots),
+    cancelQuery: () => electron_1.ipcRenderer.invoke("cancel-query"),
     onFollowUpSuccess: (callback) => {
         const handler = (_event, data) => callback(data);
         electron_1.ipcRenderer.on("follow-up-success", handler);

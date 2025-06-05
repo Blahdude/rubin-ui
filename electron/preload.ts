@@ -246,6 +246,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) =>
     ipcRenderer.invoke("user-response-to-ai", userText, screenshots),
+  cancelQuery: () => ipcRenderer.invoke("cancel-query"),
   onFollowUpSuccess: (callback: (data: any) => void) => {
     const handler = (_event: IpcRendererEvent, data: any) => callback(data);
     ipcRenderer.on("follow-up-success", handler);
