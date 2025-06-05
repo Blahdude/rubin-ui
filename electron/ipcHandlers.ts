@@ -11,6 +11,12 @@ import { exec } from "child_process"; // For calling ffmpeg
 import { open } from "fs/promises"; // For opening files
 import { spawn } from "child_process"; // For calling python script
 
+// Import the new function from shortcuts.ts
+import { setRecordingDuration as setShortcutRecordingDuration } from "./shortcuts";
+
+// Variable to store the UI preferred generation duration
+let uiPreferredGenerationDurationSeconds: number = 8; // Default value
+
 // Map to store active Replicate prediction IDs associated with an operation ID
 const activeReplicatePredictions = new Map<string, string>(); // operationId -> predictionId
 
@@ -38,9 +44,41 @@ export async function callReplicateMusicGeneration(
   operationId: string,
   promptText: string,
   inputFilePath?: string,
-  durationSeconds: number = 8
+  durationFromCaller?: number // This is the UI slider value for "new segment length" in continuation, or desired total length if passed for text-to-music (though usually undefined for text-to-music now)
 ): Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
-  console.log(`[Replicate] callReplicateMusicGeneration for operation ${operationId}. Prompt: "${promptText}". InputFile: ${inputFilePath || 'N/A'}'. Duration: ${durationSeconds}s`);
+  
+  let finalApiDuration: number;
+  let originalInputDurationForLog: number | string = "N/A";
+
+  if (inputFilePath && typeof inputFilePath === 'string' && fs.existsSync(inputFilePath)) {
+    // CONTINUATION LOGIC
+    let knownInputAudioDurationSeconds: number | undefined;
+    try {
+      const durationOutput = await new Promise<string>((resolve, reject) => {
+        exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`, (err, stdout, stderr) => {
+          if (err) { console.error(`[Replicate] ffprobe stderr for op ${operationId}: ${stderr}`); return reject(err); }
+          resolve(stdout.trim());
+        });
+      });
+      knownInputAudioDurationSeconds = parseFloat(durationOutput);
+      if (isNaN(knownInputAudioDurationSeconds)) knownInputAudioDurationSeconds = undefined;
+    } catch (e) { console.error(`[Replicate] ffprobe error for op ${operationId}:`, e); knownInputAudioDurationSeconds = undefined; }
+    
+    originalInputDurationForLog = knownInputAudioDurationSeconds ?? "N/A";
+    const newSegmentDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds; // Length of the part to add
+    finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
+    // Round to nearest integer for the API
+    finalApiDuration = Math.round(finalApiDuration);
+    console.log(`[Replicate] CONTINUATION for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s.`);
+
+  } else {
+    // TEXT-TO-MUSIC (FROM SCRATCH) LOGIC
+    // durationFromCaller is expected to be undefined here (from ProcessingHelper), so uiPreferredGenerationDurationSeconds is used.
+    finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
+    // Ensure it's an integer for text-to-music as well, though it usually will be from the slider.
+    finalApiDuration = Math.round(finalApiDuration);
+    console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Prompt: "${promptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
+  }
 
   const replicateApiKey = process.env.REPLICATE_API_KEY;
   if (!replicateApiKey) {
@@ -72,7 +110,7 @@ export async function callReplicateMusicGeneration(
   const modelInputs: any = {
     model_version: "stereo-melody-large",
     prompt: promptText,
-    duration: durationSeconds,
+    duration: finalApiDuration, // Use the calculated final API duration
     output_format: "wav"
   };
 
@@ -455,5 +493,27 @@ export function initializeIpcHandlers(appState: AppState): void {
   ipcMain.on("simple-message", (event, arg) => {
     console.log("Received simple message:", arg);
     event.reply("simple-message-reply", "Message received!");
+  });
+
+  ipcMain.handle("set-recording-duration", (event, durationSeconds: number) => {
+    if (typeof durationSeconds === 'number' && durationSeconds > 0) {
+      setShortcutRecordingDuration(durationSeconds);
+      console.log(`[IPC Main] Recording duration set to ${durationSeconds}s via IPC.`);
+      return { success: true };
+    } else {
+      console.warn(`[IPC Main] Invalid recording duration received: ${durationSeconds}`);
+      return { success: false, error: "Invalid duration provided." };
+    }
+  });
+
+  ipcMain.handle("set-ui-preferred-generation-duration", (event, durationSeconds: number) => {
+    if (typeof durationSeconds === 'number' && durationSeconds > 0 && durationSeconds <= 30) { // Max 30s like the slider
+      uiPreferredGenerationDurationSeconds = durationSeconds;
+      console.log(`[IPC Main] UI Preferred Generation Duration set to ${durationSeconds}s.`);
+      return { success: true };
+    } else {
+      console.warn(`[IPC Main] Invalid UI preferred generation duration received: ${durationSeconds}`);
+      return { success: false, error: "Invalid or out-of-range duration provided." };
+    }
   });
 }

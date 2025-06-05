@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ShortcutsHelper = void 0;
+exports.setRecordingDuration = setRecordingDuration;
 const electron_1 = require("electron");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
@@ -14,7 +15,7 @@ const node_record_lpcm16_1 = __importDefault(require("node-record-lpcm16")); // 
 const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound (default, adjust as needed)
 const VAD_SILENCE_TIMEOUT_MS = 2000; // Time of silence before stopping (default, adjust as needed)
 const VAD_WAIT_TIMEOUT_MS = 3000; // Max time to wait for sound
-const RECORDING_DURATION_MS = 2000; // Max recording time after sound starts
+let currentRecordingDurationMs = 5000; // Default 5 seconds, will be updated by UI
 // Helper function to calculate RMS of an audio chunk (16-bit PCM)
 function calculateRMS(pcmData) {
     if (pcmData.length === 0)
@@ -28,10 +29,14 @@ function calculateRMS(pcmData) {
     return Math.sqrt(sumSquares / (pcmData.length / 2));
 }
 const TEMP_LOG_RMS_MODE = false; // SET TO false FOR NORMAL VAD OPERATION
-const INITIAL_CHUNKS_TO_SKIP = 3; // Skip the first few chunks to avoid initial spike
+const INITIAL_CHUNKS_TO_SKIP = 5; // Number of initial audio chunks to skip for VAD to stabilize
 // SoX command parameters for trimming trailing silence
 const SOX_SILENCE_THRESHOLD = "0.5%"; // Percentage of max volume to be considered silence
 const SOX_SILENCE_DURATION = "0.5"; // Duration in seconds of silence to trigger trim
+function setRecordingDuration(durationSeconds) {
+    console.log(`[Shortcuts] Setting recording duration to ${durationSeconds} seconds.`);
+    currentRecordingDurationMs = durationSeconds * 1000;
+}
 class ShortcutsHelper {
     appState;
     // To manage VAD state for potentially multiple concurrent attempts (though unlikely with global shortcut)
@@ -322,11 +327,10 @@ class ShortcutsHelper {
             };
             const session = this.vadState[sessionId];
             session.recordingInstance = node_record_lpcm16_1.default.record({
-                sampleRate: 16000,
-                channels: 1,
+                sampleRate: 48000,
+                channels: 2,
                 bitDepth: 16, // Ensure this matches WavWriter options
                 recorder: "sox",
-                device: "BlackHole 2ch",
             });
             session.recordingInstance.stream()
                 .on('data', (chunk) => {
@@ -348,8 +352,8 @@ class ShortcutsHelper {
                             clearTimeout(session.vadWaitTimeoutId);
                         session.vadWaitTimeoutId = undefined;
                         session.wavWriterInstance = new wav_1.Writer({
-                            channels: 1,
-                            sampleRate: 16000,
+                            channels: 2,
+                            sampleRate: 48000,
                             bitDepth: 16
                         });
                         session.fileStream = fs_1.default.createWriteStream(audioPath);
@@ -361,13 +365,13 @@ class ShortcutsHelper {
                         }
                         session.stopTimeoutId = setTimeout(() => {
                             if (this.vadState[sessionId]) {
-                                console.log(`10s recording duration reached for session ${sessionId}. Stopping.`);
+                                console.log(`${currentRecordingDurationMs / 1000}s recording duration reached for session ${sessionId}. Stopping.`);
                                 this.cleanupVadSession(sessionId, true);
                             }
                             else {
-                                console.log(`10s timer for ${sessionId} fired, but session already cleaned up.`);
+                                console.log(`${currentRecordingDurationMs / 1000}s timer for ${sessionId} fired, but session already cleaned up.`);
                             }
-                        }, RECORDING_DURATION_MS);
+                        }, currentRecordingDurationMs);
                     }
                 }
                 else if (session.hasStartedSaving && session.wavWriterInstance) {

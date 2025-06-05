@@ -75,9 +75,57 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isProcessingSolution, setIsProcessingSolution] = useState(false);
 
+  // State for recording and generation duration
+  const [recordingDurationSeconds, setRecordingDurationSeconds] = useState(5); // Default 5 seconds
+  const [generationDurationSeconds, setGenerationDurationSeconds] = useState(8); // Default 8 seconds
+
   // State for the prompt modal
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
   const [modalPromptText, setModalPromptText] = useState("");
+
+  // Effect to update recording duration in main process when slider changes (debounced)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (window.electronAPI && typeof window.electronAPI.setRecordingDuration === 'function') {
+        console.log(`[Queue.tsx] Sending recording duration to main (debounced): ${recordingDurationSeconds}s`);
+        window.electronAPI.setRecordingDuration(recordingDurationSeconds)
+          .then((result: { success: boolean; error?: string }) => {
+            if (!result.success) {
+              console.warn(`[Queue.tsx] Failed to set recording duration in main process: ${result.error}`);
+            }
+          })
+          .catch((err: any) => {
+            console.error(`[Queue.tsx] Error calling setRecordingDuration:`, err);
+          });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [recordingDurationSeconds]);
+
+  // Effect to update UI preferred generation duration in main process when slider changes (debounced)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (window.electronAPI && typeof window.electronAPI.setUiPreferredGenerationDuration === 'function') {
+        console.log(`[Queue.tsx] Sending UI preferred generation duration to main (debounced): ${generationDurationSeconds}s`);
+        window.electronAPI.setUiPreferredGenerationDuration(generationDurationSeconds)
+          .then((result: { success: boolean; error?: string }) => {
+            if (!result.success) {
+              console.warn(`[Queue.tsx] Failed to set UI preferred generation duration in main process: ${result.error}`);
+            }
+          })
+          .catch((err: any) => {
+            console.error(`[Queue.tsx] Error calling setUiPreferredGenerationDuration:`, err);
+          });
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [generationDurationSeconds]);
 
   const { data: screenshots = [], refetch } = useQuery<
     Array<{ path: string; preview: string }>
@@ -187,7 +235,14 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         // For continuation, the first argument (prompt) can be generic.
         // The second argument is the inputFilePath (the recording).
         // The generationFunction now returns displayName and originalPromptText as well.
-        const { generatedPath, features, displayName, originalPromptText } = await generationFunction("Continue this recording", data.path);
+        const operationId = `cont-${Date.now()}`; // Generate a unique operation ID
+        const continuationPrompt = "Continue this audio"; // Generic prompt for continuation
+        const { generatedPath, features, displayName, originalPromptText } = await generationFunction(
+          operationId, 
+          continuationPrompt, 
+          data.path, // This is the inputFilePath for continuation
+          generationDurationSeconds // This is the duration for the new segment
+        );
         
         showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
         console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features, displayName, originalPromptText });
@@ -345,6 +400,39 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
               <span className="font-semibold">Audio Error:</span> {globalRecordingError}
             </div>
           )}
+          {/* Duration Controls */}
+          <div className="mx-0.5 mt-3 p-3 bg-neutral-800 rounded-lg border border-neutral-700/60 space-y-3">
+            <div>
+              <label htmlFor="recordingDuration" className="block text-xs font-medium text-neutral-300 mb-1">
+                Recording Duration: {recordingDurationSeconds}s
+              </label>
+              <input
+                type="range"
+                id="recordingDuration"
+                name="recordingDuration"
+                min="1"
+                max="30" // Max 30 seconds for recording
+                value={recordingDurationSeconds}
+                onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="generationDuration" className="block text-xs font-medium text-neutral-300 mb-1">
+                Generation Length: {generationDurationSeconds}s
+              </label>
+              <input
+                type="range"
+                id="generationDuration"
+                name="generationDuration"
+                min="1"
+                max="30" // Max 30 seconds for generation
+                value={generationDurationSeconds}
+                onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
+                className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
+              />
+            </div>
+          </div>
           {generatedAudioClips.length > 0 && (
             <div className="space-y-2 pt-1.5">
               <div 

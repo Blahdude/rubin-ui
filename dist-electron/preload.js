@@ -152,6 +152,8 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     },
     generateMusic: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
     cancelMusicGeneration: (operationId) => electron_1.ipcRenderer.invoke("cancel-music-generation", operationId),
+    setRecordingDuration: (durationSeconds) => electron_1.ipcRenderer.invoke("set-recording-duration", durationSeconds),
+    setUiPreferredGenerationDuration: (durationSeconds) => electron_1.ipcRenderer.invoke("set-ui-preferred-generation-duration", durationSeconds),
     notifyGeneratedAudioReady: (generatedPath, originalPath, features, displayName, originalPromptText) => {
         electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
     },

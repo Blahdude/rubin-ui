@@ -10,7 +10,7 @@ import NodeRecordLpcm16 from "node-record-lpcm16" // Use require for CommonJS
 const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound (default, adjust as needed)
 const VAD_SILENCE_TIMEOUT_MS = 2000; // Time of silence before stopping (default, adjust as needed)
 const VAD_WAIT_TIMEOUT_MS = 3000; // Max time to wait for sound
-const RECORDING_DURATION_MS = 2000; // Max recording time after sound starts
+let currentRecordingDurationMs = 5000; // Default 5 seconds, will be updated by UI
 
 // Helper function to calculate RMS of an audio chunk (16-bit PCM)
 function calculateRMS(pcmData: Buffer): number {
@@ -26,26 +26,21 @@ function calculateRMS(pcmData: Buffer): number {
 
 const TEMP_LOG_RMS_MODE = false; // SET TO false FOR NORMAL VAD OPERATION
 
-const INITIAL_CHUNKS_TO_SKIP = 3; // Skip the first few chunks to avoid initial spike
+const INITIAL_CHUNKS_TO_SKIP = 5; // Number of initial audio chunks to skip for VAD to stabilize
 
 // SoX command parameters for trimming trailing silence
 const SOX_SILENCE_THRESHOLD = "0.5%" // Percentage of max volume to be considered silence
 const SOX_SILENCE_DURATION = "0.5"   // Duration in seconds of silence to trigger trim
 
+export function setRecordingDuration(durationSeconds: number): void {
+  console.log(`[Shortcuts] Setting recording duration to ${durationSeconds} seconds.`);
+  currentRecordingDurationMs = durationSeconds * 1000;
+}
+
 export class ShortcutsHelper {
   private appState: AppState
   // To manage VAD state for potentially multiple concurrent attempts (though unlikely with global shortcut)
-  private vadState: { [key: string]: { 
-      isDetecting: boolean;
-      hasStartedSaving: boolean;
-      recordingInstance?: any; // To store the NodeRecordLpcm16 instance
-      fileStream?: fs.WriteStream;
-      wavWriterInstance?: WavWriter; // Added WavWriter instance
-      stopTimeoutId?: NodeJS.Timeout; // Main 10s timer
-      vadWaitTimeoutId?: NodeJS.Timeout; // VAD initial wait timer
-      audioPath?: string;
-      chunksProcessedCounter: number; // New: to count chunks for skipping initial ones
-    }} = {};
+  private vadState: { [key: string]: any } = {};
 
   constructor(appState: AppState) {
     this.appState = appState
@@ -291,7 +286,7 @@ export class ShortcutsHelper {
                 }
             }
         });
-         session.fileStream.once('error', (err) => {
+         session.fileStream.once('error', (err: Error) => {
             console.error(`[VAD Cleanup] Error with file stream during cleanup for session ${sessionId}:`, err);
         });
     } else if (!session.hasStartedSaving && session.audioPath && fs.existsSync(session.audioPath)) {
@@ -344,11 +339,10 @@ export class ShortcutsHelper {
       const session = this.vadState[sessionId];
 
       session.recordingInstance = NodeRecordLpcm16.record({
-        sampleRate: 16000,
-        channels: 1,
+        sampleRate: 48000,
+        channels: 2,
         bitDepth: 16, // Ensure this matches WavWriter options
         recorder: "sox", 
-        device: "BlackHole 2ch",
       });
 
       session.recordingInstance.stream()
@@ -375,8 +369,8 @@ export class ShortcutsHelper {
               session.vadWaitTimeoutId = undefined; 
 
               session.wavWriterInstance = new WavWriter({
-                channels: 1,
-                sampleRate: 16000,
+                channels: 2,
+                sampleRate: 48000,
                 bitDepth: 16
               });
               session.fileStream = fs.createWriteStream(audioPath);
@@ -390,12 +384,12 @@ export class ShortcutsHelper {
 
               session.stopTimeoutId = setTimeout(() => {
                 if (this.vadState[sessionId]) {
-                    console.log(`10s recording duration reached for session ${sessionId}. Stopping.`);
+                    console.log(`${currentRecordingDurationMs / 1000}s recording duration reached for session ${sessionId}. Stopping.`);
                     this.cleanupVadSession(sessionId, true);
                 } else {
-                    console.log(`10s timer for ${sessionId} fired, but session already cleaned up.`);
+                    console.log(`${currentRecordingDurationMs / 1000}s timer for ${sessionId} fired, but session already cleaned up.`);
                 }
-              }, RECORDING_DURATION_MS);
+              }, currentRecordingDurationMs);
             }
           } else if (session.hasStartedSaving && session.wavWriterInstance) {
             session.wavWriterInstance.write(chunk);

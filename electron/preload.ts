@@ -43,6 +43,8 @@ interface ElectronAPI {
   cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
+  setRecordingDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
+  setUiPreferredGenerationDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
 
   // ADDED for user follow-up
   userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
@@ -232,6 +234,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
   cancelMusicGeneration: (operationId: string) => 
     ipcRenderer.invoke("cancel-music-generation", operationId),
+  setRecordingDuration: (durationSeconds: number) => 
+    ipcRenderer.invoke("set-recording-duration", durationSeconds),
+  setUiPreferredGenerationDuration: (durationSeconds: number) =>
+    ipcRenderer.invoke("set-ui-preferred-generation-duration", durationSeconds),
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => {
     ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
   },

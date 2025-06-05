@@ -79,7 +79,6 @@ class ProcessingHelper {
             if (solution?.action === 'generate_music_from_text') {
                 console.log(`[ProcessingHelper] Detected "generate_music_from_text" action for AI Message ID: ${aiMessageId}`);
                 const musicPrompt = solution.musicGenerationPrompt || "";
-                const duration = solution.durationSeconds ? parseInt(String(solution.durationSeconds), 10) : 8;
                 // --- Send Initial AI Textual Response with Loading Indicator --- 
                 const initialAiMessageItem = {
                     id: aiMessageId, // Use the master ID for this interaction
@@ -109,9 +108,9 @@ class ProcessingHelper {
                     };
                 }
                 else {
-                    console.log(`[ProcessingHelper] Attempting Replicate text-to-music for AI Message ID: ${aiMessageId} with prompt: "${musicPrompt}", duration: ${duration}s`);
+                    console.log(`[ProcessingHelper] Attempting Replicate text-to-music for AI Message ID: ${aiMessageId} with prompt: "${musicPrompt}". UI preferred duration will be used.`);
                     try {
-                        const { generatedPath, features, displayName, originalPromptText } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(aiMessageId, musicPrompt, undefined, duration);
+                        const { generatedPath, features, displayName, originalPromptText } = await (0, ipcHandlers_1.callReplicateMusicGeneration)(aiMessageId, musicPrompt, undefined /* inputFilePath */, undefined /* durationFromCaller - force use of UI preference */);
                         console.log(`[ProcessingHelper] Replicate generated audio (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedPath}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`);
                         finalAudioMessageContentUpdate = {
                             isLoadingAudio: false,
