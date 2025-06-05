@@ -11,6 +11,8 @@ export type ConversationItem =
   | { type: "ai_response"; content: any; timestamp: number; id: string; } // content is the structured AI JSON
   | { type: "system_message"; content: { message: string }; timestamp: number; id: string; };
 
+
+  
 declare global {
   interface Window {
     electronAPI: {
