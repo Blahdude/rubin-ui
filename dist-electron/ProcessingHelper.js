@@ -27,14 +27,21 @@ class ProcessingHelper {
         this.appState = appState;
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
-            throw new Error("GEMINI_API_KEY not found in environment variables");
+            console.warn("GEMINI_API_KEY not found in environment variables - AI features will be disabled");
+            // Don't create LLMHelper if no API key - will be checked when needed
         }
-        this.llmHelper = new LLMHelper_1.LLMHelper(apiKey);
+        else {
+            this.llmHelper = new LLMHelper_1.LLMHelper(apiKey);
+        }
     }
     async startNewChat() {
         const mainWindow = this.appState.getMainWindow();
         if (!mainWindow)
             return;
+        if (!this.llmHelper) {
+            console.error("[ProcessingHelper] Cannot start chat - GEMINI_API_KEY not configured");
+            return;
+        }
         try {
             console.log("[ProcessingHelper] Starting new chat...");
             const initialAiResponse = await this.llmHelper.newChat();
@@ -64,6 +71,10 @@ class ProcessingHelper {
         const mainWindow = this.appState.getMainWindow();
         if (!mainWindow || (!userText.trim() && (!screenshots || screenshots.length === 0))) {
             console.log("[ProcessingHelper] processUserText: Called with no text and no screenshots. Aborting.");
+            return;
+        }
+        if (!this.llmHelper) {
+            console.error("[ProcessingHelper] Cannot process user text - GEMINI_API_KEY not configured");
             return;
         }
         // Add user text to conversation history if present
@@ -402,7 +413,7 @@ class ProcessingHelper {
         return this.llmHelper.analyzeAudioFile(filePath);
     }
     getLLMHelper() {
-        return this.llmHelper;
+        return this.llmHelper || null;
     }
 }
 exports.ProcessingHelper = ProcessingHelper;

@@ -92,17 +92,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   // Effect to update recording duration in main process when slider changes (debounced)
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (window.electronAPI && typeof window.electronAPI.setRecordingDuration === 'function') {
+      if (window.electronAPI && typeof (window.electronAPI as any).setRecordingDuration === 'function') {
         console.log(`[Queue.tsx] Sending recording duration to main (debounced): ${recordingDurationSeconds}s`);
-        window.electronAPI.setRecordingDuration(recordingDurationSeconds)
-          .then((result: { success: boolean; error?: string }) => {
-            if (!result.success) {
-              console.warn(`[Queue.tsx] Failed to set recording duration in main process: ${result.error}`);
-            }
-          })
-          .catch((err: any) => {
-            console.error(`[Queue.tsx] Error calling setRecordingDuration:`, err);
-          });
+        (window.electronAPI as any).setRecordingDuration(recordingDurationSeconds);
       }
     }, 500); // 500ms debounce
 
@@ -114,17 +106,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   // Effect to update UI preferred generation duration in main process when slider changes (debounced)
   useEffect(() => {
     const handler = setTimeout(() => {
-      if (window.electronAPI && typeof window.electronAPI.setUiPreferredGenerationDuration === 'function') {
+      if (window.electronAPI && typeof (window.electronAPI as any).setUiPreferredGenerationDuration === 'function') {
         console.log(`[Queue.tsx] Sending UI preferred generation duration to main (debounced): ${generationDurationSeconds}s`);
-        window.electronAPI.setUiPreferredGenerationDuration(generationDurationSeconds)
-          .then((result: { success: boolean; error?: string }) => {
-            if (!result.success) {
-              console.warn(`[Queue.tsx] Failed to set UI preferred generation duration in main process: ${result.error}`);
-            }
-          })
-          .catch((err: any) => {
-            console.error(`[Queue.tsx] Error calling setUiPreferredGenerationDuration:`, err);
-          });
+        (window.electronAPI as any).setUiPreferredGenerationDuration(generationDurationSeconds);
       }
     }, 500); // 500ms debounce
 
@@ -290,7 +274,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         
         // Check if notifyGeneratedAudioReady exists before calling
         if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
-            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features, displayName, originalPromptText); // Pass originalPromptText (5th arg)
+            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
         } else {
             console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
             // Fallback: directly update state here if notify doesn't exist

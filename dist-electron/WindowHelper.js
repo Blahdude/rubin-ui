@@ -62,7 +62,7 @@ class WindowHelper {
         this.screenWidth = workArea.width;
         this.screenHeight = workArea.height;
         this.step = Math.floor(this.screenWidth / 10); // 10 steps
-        // MODIFIED: Adjust initial window size for narrower width and taller height
+        // Adjust initial window size for narrower width and taller height
         const initialWidth = Math.floor(workArea.width * 0.25); // Narrower: 25% width
         const initialHeight = Math.floor(workArea.height * 0.90); // Taller: 90% height
         const horizontalMargin = 5;
@@ -72,46 +72,51 @@ class WindowHelper {
         const windowSettings = {
             height: initialHeight,
             width: initialWidth,
-            minWidth: undefined,
-            maxWidth: undefined,
             x: this.currentX,
-            y: this.currentY, // Use centered Y
+            y: this.currentY,
             webPreferences: {
                 nodeIntegration: true,
                 contextIsolation: true,
                 preload: node_path_1.default.join(__dirname, "preload.js")
             },
-            show: true,
-            alwaysOnTop: true,
-            frame: false,
-            transparent: true,
-            fullscreenable: false,
-            hasShadow: false,
-            backgroundColor: "#00000000",
+            show: true, // TEMP: Show immediately to debug
+            alwaysOnTop: false, // Normal window behavior
+            frame: false, // Frameless for overlay style
+            transparent: false, // TEMP: Make opaque to see content
+            backgroundColor: '#1a1a1a', // TEMP: Dark background
+            fullscreenable: true,
+            hasShadow: true,
             focusable: true
         };
         this.mainWindow = new electron_1.BrowserWindow(windowSettings);
-        // this.mainWindow.webContents.openDevTools()
-        this.mainWindow.setContentProtection(true);
+        // TEMP: Direct show since we're debugging content loading
+        // Remove the ready-to-show handler for now
         if (process.platform === "darwin") {
             this.mainWindow.setVisibleOnAllWorkspaces(true, {
                 visibleOnFullScreen: true
             });
             this.mainWindow.setHiddenInMissionControl(true);
-            this.mainWindow.setAlwaysOnTop(true, "floating");
+            this.mainWindow.setAlwaysOnTop(false);
         }
         if (process.platform === "linux") {
-            // Linux-specific optimizations for stealth overlays
-            if (this.mainWindow.setHasShadow) {
-                this.mainWindow.setHasShadow(false);
-            }
-            this.mainWindow.setFocusable(false);
+            // Linux-specific window settings if needed
         }
-        this.mainWindow.setSkipTaskbar(true);
-        this.mainWindow.setAlwaysOnTop(true);
-        this.mainWindow.loadURL(startUrl).catch((err) => {
-            console.error("Failed to load URL:", err);
+        this.mainWindow.setSkipTaskbar(true); // Keep it as overlay app
+        console.log("Loading URL:", startUrl);
+        this.mainWindow.loadURL(startUrl).then(() => {
+            console.log("✅ URL loaded successfully");
+        }).catch((err) => {
+            console.error("❌ Failed to load URL:", err);
         });
+        // Add debugging for content loading
+        this.mainWindow.webContents.on('did-finish-load', () => {
+            console.log("✅ Content finished loading");
+        });
+        this.mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+            console.error("❌ Content failed to load:", errorCode, errorDescription);
+        });
+        // Dev tools disabled - uncomment to debug if needed
+        // this.mainWindow.webContents.openDevTools()
         const bounds = this.mainWindow.getBounds();
         this.windowPosition = { x: bounds.x, y: bounds.y };
         this.windowSize = { width: bounds.width, height: bounds.height };

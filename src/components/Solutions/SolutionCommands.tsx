@@ -3,13 +3,11 @@ import { IoLogOutOutline } from "react-icons/io5"
 import { LuSend } from "react-icons/lu"
 
 interface SolutionCommandsProps {
-  extraScreenshots: any[]
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void
   isAiResponseActive?: boolean;
 }
 
 const SolutionCommands: React.FC<SolutionCommandsProps> = ({
-  extraScreenshots,
   onTooltipVisibilityChange,
   isAiResponseActive = true
 }) => {

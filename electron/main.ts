@@ -238,6 +238,7 @@ async function initializeApp() {
   initializeIpcHandlers(appState)
 
   app.whenReady().then(() => {
+    appState.createWindow()
     console.log("App is ready")
 
     // Register custom protocol for local audio files
@@ -283,7 +284,6 @@ async function initializeApp() {
       }
     })
 
-    appState.createWindow()
     appState.shortcutsHelper.registerGlobalShortcuts()
     appState.shortcutsHelper.registerAudioShortcut()
   })
@@ -302,7 +302,7 @@ async function initializeApp() {
     }
   })
 
-  app.dock?.hide() // Hide dock icon (optional)
+  app.dock?.hide() // Hide dock icon for overlay app
   app.commandLine.appendSwitch("disable-background-timer-throttling")
 }
 

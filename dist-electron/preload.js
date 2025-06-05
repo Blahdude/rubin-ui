@@ -153,8 +153,6 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     },
     generateMusic: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
     cancelMusicGeneration: (operationId) => electron_1.ipcRenderer.invoke("cancel-music-generation", operationId),
-    setRecordingDuration: (durationSeconds) => electron_1.ipcRenderer.invoke("set-recording-duration", durationSeconds),
-    setUiPreferredGenerationDuration: (durationSeconds) => electron_1.ipcRenderer.invoke("set-ui-preferred-generation-duration", durationSeconds),
     notifyGeneratedAudioReady: (generatedPath, originalPath, features, displayName, originalPromptText) => {
         electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
     },
@@ -182,17 +180,20 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     onChatUpdated: (callback) => {
         const handler = (_event, data) => callback(data);
         electron_1.ipcRenderer.on("chat-updated", handler);
-        return () => {
-            electron_1.ipcRenderer.removeListener("chat-updated", handler);
-        };
+        return () => electron_1.ipcRenderer.removeListener("chat-updated", handler);
     },
-    // For screenshot queue UI updates
     onScreenshotQueueCleared: (callback) => {
-        const handler = () => callback();
-        electron_1.ipcRenderer.on("screenshot-queue-cleared", handler);
+        const subscription = () => callback();
+        electron_1.ipcRenderer.on("screenshot-queue-cleared", subscription);
         return () => {
-            electron_1.ipcRenderer.removeListener("screenshot-queue-cleared", handler);
+            electron_1.ipcRenderer.removeListener("screenshot-queue-cleared", subscription);
         };
     },
+    setRecordingDuration: (durationSeconds) => {
+        electron_1.ipcRenderer.send("set-recording-duration", durationSeconds);
+    },
+    setUiPreferredGenerationDuration: (durationSeconds) => {
+        electron_1.ipcRenderer.send("set-ui-preferred-generation-duration", durationSeconds);
+    }
 });
 //# sourceMappingURL=preload.js.map

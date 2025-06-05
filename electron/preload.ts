@@ -43,8 +43,8 @@ interface ElectronAPI {
   cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
-  setRecordingDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
-  setUiPreferredGenerationDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
+  setRecordingDuration: (durationSeconds: number) => void
+  setUiPreferredGenerationDuration: (durationSeconds: number) => void
 
   // ADDED for user follow-up
   userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) => Promise<{ success: boolean; error?: string }>;
@@ -236,10 +236,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
   cancelMusicGeneration: (operationId: string) => 
     ipcRenderer.invoke("cancel-music-generation", operationId),
-  setRecordingDuration: (durationSeconds: number) => 
-    ipcRenderer.invoke("set-recording-duration", durationSeconds),
-  setUiPreferredGenerationDuration: (durationSeconds: number) =>
-    ipcRenderer.invoke("set-ui-preferred-generation-duration", durationSeconds),
   notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => {
     ipcRenderer.send("notify-generated-audio-ready", { generatedPath, originalPath, features, displayName, originalPromptText });
   },
@@ -268,17 +264,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onChatUpdated: (callback: (data: any) => void) => {
     const handler = (_event: IpcRendererEvent, data: any) => callback(data);
     ipcRenderer.on("chat-updated", handler);
-    return () => {
-      ipcRenderer.removeListener("chat-updated", handler);
-    };
+    return () => ipcRenderer.removeListener("chat-updated", handler);
   },
-
-  // For screenshot queue UI updates
   onScreenshotQueueCleared: (callback: () => void) => {
-    const handler = () => callback();
-    ipcRenderer.on("screenshot-queue-cleared", handler);
+    const subscription = () => callback();
+    ipcRenderer.on("screenshot-queue-cleared", subscription);
     return () => {
-      ipcRenderer.removeListener("screenshot-queue-cleared", handler);
+      ipcRenderer.removeListener("screenshot-queue-cleared", subscription);
     };
   },
+  setRecordingDuration: (durationSeconds: number) => {
+    ipcRenderer.send("set-recording-duration", durationSeconds);
+  },
+  setUiPreferredGenerationDuration: (durationSeconds: number) => {
+    ipcRenderer.send("set-ui-preferred-generation-duration", durationSeconds);
+  }
 });

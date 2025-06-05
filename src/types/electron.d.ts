@@ -24,14 +24,27 @@ export interface ElectronAPI {
   analyzeAudioFile: (path: string) => Promise<{ text: string; timestamp: number }>
   quitApp: () => Promise<void>
   onAudioAnalysisError: (callback: (error: string) => void) => () => void
+  onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void
+  onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void
+  onVadWaiting: (callback: () => void) => () => void
+  onVadRecordingStarted: (callback: () => void) => () => void
+  onVadTimeout: (callback: () => void) => () => void
+  startFileDrag: (filePath: string) => void
 
   // MUSIC GENERATION
   generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedPath: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
   cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
-  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
+  notifyGeneratedAudioReady: (generatedPath: string, originalPath: string | undefined, features: { bpm: string | number, key: string }) => void
   onGeneratedAudioReady: (callback: (data: { generatedPath: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
-  setRecordingDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
-  setUiPreferredGenerationDuration: (durationSeconds: number) => Promise<{success: boolean, error?: string}>
+  setRecordingDuration: (durationSeconds: number) => void
+  setUiPreferredGenerationDuration: (durationSeconds: number) => void
+
+  userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) => Promise<{ success: boolean; error?: string }>;
+  onFollowUpSuccess: (callback: (data: any) => void) => () => void;
+  onFollowUpError: (callback: (error: string) => void) => () => void;
+  startNewChat: () => Promise<void>
+  onChatUpdated: (callback: (data: any) => void) => () => void
+  onScreenshotQueueCleared: (callback: () => void) => () => void;
 }
 
 declare global {

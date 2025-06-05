@@ -176,6 +176,7 @@ async function initializeApp() {
     // Initialize IPC handlers before window creation
     (0, ipcHandlers_1.initializeIpcHandlers)(appState);
     electron_1.app.whenReady().then(() => {
+        appState.createWindow();
         console.log("App is ready");
         // Register custom protocol for local audio files
         electron_1.protocol.registerFileProtocol("clp", (request, callback) => {
@@ -219,7 +220,6 @@ async function initializeApp() {
                 callback({ error: -2 }); // net::ERR_FAILED or a more specific error
             }
         });
-        appState.createWindow();
         appState.shortcutsHelper.registerGlobalShortcuts();
         appState.shortcutsHelper.registerAudioShortcut();
     });
@@ -235,7 +235,7 @@ async function initializeApp() {
             electron_1.app.quit();
         }
     });
-    electron_1.app.dock?.hide(); // Hide dock icon (optional)
+    electron_1.app.dock?.hide(); // Hide dock icon for overlay app
     electron_1.app.commandLine.appendSwitch("disable-background-timer-throttling");
 }
 // Start the application

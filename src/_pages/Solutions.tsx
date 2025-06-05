@@ -433,8 +433,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
       {showCommands && (
         <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-0">
-          <SolutionCommands 
-            extraScreenshots={extraScreenshots}
+          <SolutionCommands
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
             isAiResponseActive={true}
           />

@@ -10,7 +10,6 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const wav_1 = require("wav"); // Import WavWriter
 const child_process_1 = require("child_process"); // For running SoX
-const node_record_lpcm16_1 = __importDefault(require("node-record-lpcm16")); // Use require for CommonJS
 // VAD Constants (assuming they were defined here or should be)
 const VAD_RMS_THRESHOLD = 500; // Threshold for actual sound (default, adjust as needed)
 const VAD_SILENCE_TIMEOUT_MS = 2000; // Time of silence before stopping (default, adjust as needed)
@@ -155,42 +154,50 @@ class ShortcutsHelper {
     async trimAudioWithSox(filePath) {
         return new Promise((resolve, reject) => {
             const originalPath = filePath;
-            const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
-            // SoX command: sox original.wav trimmed.wav silence 1 0.1 1% reverse silence 1 0.1 1% reverse
-            // The parameters are: 1 period of silence, duration (SOX_SILENCE_DURATION), threshold (SOX_SILENCE_THRESHOLD)
-            const soxCommand = `sox "${originalPath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
-            console.log(`[SoX Trimming] Executing: ${soxCommand}`);
-            (0, child_process_1.exec)(soxCommand, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`[SoX Trimming] Error during SoX execution for ${originalPath}:`, error);
-                    console.error(`[SoX Trimming] SoX stderr: ${stderr}`);
-                    // If SoX fails, we still have the original file.
-                    // Depending on the error, SoX might create an empty/corrupt trimmed file, ensure it's removed.
-                    if (fs_1.default.existsSync(trimmedPath)) {
-                        try {
-                            fs_1.default.unlinkSync(trimmedPath);
-                        }
-                        catch (e) { /* ignore */ }
-                    }
-                    reject(error); // Reject with error, original path will be used as fallback
+            // Check if sox is available first
+            (0, child_process_1.exec)('which sox', (whichError) => {
+                if (whichError) {
+                    console.warn(`[SoX Trimming] SoX not available - skipping audio trimming for ${originalPath}`);
+                    resolve(originalPath); // Return original file without trimming
                     return;
                 }
-                console.log(`[SoX Trimming] Successfully trimmed ${originalPath} to ${trimmedPath}. SoX stdout: ${stdout}`);
-                // Replace original with trimmed version
-                try {
-                    fs_1.default.unlinkSync(originalPath);
-                    fs_1.default.renameSync(trimmedPath, originalPath);
-                    console.log(`[SoX Trimming] Replaced ${originalPath} with trimmed version.`);
-                    resolve(originalPath); // Resolve with the original path, now pointing to the trimmed audio
-                }
-                catch (fileError) {
-                    console.error(`[SoX Trimming] Error replacing original file with trimmed version for ${originalPath}:`, fileError);
-                    // If replacing fails, try to resolve with trimmedPath if it exists, otherwise original
-                    if (fs_1.default.existsSync(trimmedPath))
-                        resolve(trimmedPath);
-                    else
-                        resolve(originalPath);
-                }
+                const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
+                // SoX command: sox original.wav trimmed.wav silence 1 0.1 1% reverse silence 1 0.1 1% reverse
+                // The parameters are: 1 period of silence, duration (SOX_SILENCE_DURATION), threshold (SOX_SILENCE_THRESHOLD)
+                const soxCommand = `sox "${originalPath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
+                console.log(`[SoX Trimming] Executing: ${soxCommand}`);
+                (0, child_process_1.exec)(soxCommand, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error(`[SoX Trimming] Error during SoX execution for ${originalPath}:`, error);
+                        console.error(`[SoX Trimming] SoX stderr: ${stderr}`);
+                        // If SoX fails, we still have the original file.
+                        // Depending on the error, SoX might create an empty/corrupt trimmed file, ensure it's removed.
+                        if (fs_1.default.existsSync(trimmedPath)) {
+                            try {
+                                fs_1.default.unlinkSync(trimmedPath);
+                            }
+                            catch (e) { /* ignore */ }
+                        }
+                        resolve(originalPath); // Return original file if trimming fails
+                        return;
+                    }
+                    console.log(`[SoX Trimming] Successfully trimmed ${originalPath} to ${trimmedPath}. SoX stdout: ${stdout}`);
+                    // Replace original with trimmed version
+                    try {
+                        fs_1.default.unlinkSync(originalPath);
+                        fs_1.default.renameSync(trimmedPath, originalPath);
+                        console.log(`[SoX Trimming] Replaced ${originalPath} with trimmed version.`);
+                        resolve(originalPath); // Resolve with the original path, now pointing to the trimmed audio
+                    }
+                    catch (fileError) {
+                        console.error(`[SoX Trimming] Error replacing original file with trimmed version for ${originalPath}:`, fileError);
+                        // If replacing fails, try to resolve with trimmedPath if it exists, otherwise original
+                        if (fs_1.default.existsSync(trimmedPath))
+                            resolve(trimmedPath);
+                        else
+                            resolve(originalPath);
+                    }
+                });
             });
         });
     }
@@ -212,6 +219,11 @@ class ShortcutsHelper {
                 session.recordingInstance.stream().removeAllListeners('error');
                 console.log(`[VAD Cleanup] Removed data/error listeners from recordingInstance stream for session ${sessionId}`);
             }
+        }
+        // Handle ffmpeg process cleanup
+        if (session.ffmpegProcess && !session.ffmpegProcess.killed) {
+            console.log(`[VAD Cleanup] Killing ffmpeg process for session ${sessionId}`);
+            session.ffmpegProcess.kill('SIGINT');
         }
         // End WavWriter if it exists
         if (session.wavWriterInstance) {
@@ -294,7 +306,7 @@ class ShortcutsHelper {
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send("vad-waiting");
             }
-            const audioDir = path_1.default.join(electron_1.app.getAppPath(), "local_recordings");
+            const audioDir = path_1.default.join(electron_1.app.getPath('userData'), "local_recordings");
             if (!fs_1.default.existsSync(audioDir)) {
                 fs_1.default.mkdirSync(audioDir, { recursive: true });
             }
@@ -307,12 +319,50 @@ class ShortcutsHelper {
                 chunksProcessedCounter: 0,
             };
             const session = this.vadState[sessionId];
-            session.recordingInstance = node_record_lpcm16_1.default.record({
-                sampleRate: 48000,
-                channels: 2,
-                bitDepth: 16, // Ensure this matches WavWriter options
-                recorder: "sox",
+            // NUCLEAR OPTION: Use ffmpeg directly since it's more reliable
+            const { spawn } = require('child_process');
+            // Use ffmpeg to record from BLACKHOLE with MAXIMUM QUALITY
+            const ffmpegProcess = spawn('ffmpeg', [
+                '-f', 'avfoundation', // macOS audio foundation
+                '-i', ':BlackHole 2ch', // Specifically target BLACKHOLE 2ch device
+                '-acodec', 'pcm_s32le', // 32-bit PCM (highest quality)
+                '-ar', '192000', // 192kHz sample rate (professional quality)
+                '-ac', '2', // 2 channels (stereo)
+                '-t', '30', // Max 30 seconds
+                '-af', 'highpass=f=20,lowpass=f=20000', // Clean frequency response
+                '-y', // Overwrite output
+                audioPath
+            ]);
+            session.ffmpegProcess = ffmpegProcess;
+            ffmpegProcess.on('error', (err) => {
+                console.error(`[FFmpeg Recording] Error:`, err);
+                const mw = this.appState.getMainWindow();
+                if (mw && !mw.isDestroyed()) {
+                    mw.webContents.send("audio-recording-error", {
+                        message: `Audio recording failed: ${err.message}`
+                    });
+                }
             });
+            // Set a timeout to stop recording after X seconds
+            session.stopTimeoutId = setTimeout(() => {
+                if (session.ffmpegProcess && !session.ffmpegProcess.killed) {
+                    session.ffmpegProcess.kill('SIGINT'); // Graceful stop
+                    console.log(`[FFmpeg Recording] Stopped recording after timeout`);
+                    // Wait a bit for ffmpeg to finish writing, then send completion
+                    setTimeout(() => {
+                        const mainWindow = this.appState.getMainWindow();
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send("audio-recording-complete", { path: audioPath });
+                        }
+                    }, 1000);
+                }
+            }, currentRecordingDurationMs);
+            // Immediate feedback that recording started
+            const currentMainWindow = this.appState.getMainWindow();
+            if (currentMainWindow && !currentMainWindow.isDestroyed()) {
+                currentMainWindow.webContents.send("vad-recording-started");
+            }
+            return; // Skip the old NodeRecordLpcm16 code entirely
             session.recordingInstance.stream()
                 .on('data', (chunk) => {
                 if (!this.vadState[sessionId]) {

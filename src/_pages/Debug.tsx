@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
-import { ComplexitySection, ContentSection } from "./Solutions"
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 import {
   Toast,
@@ -28,6 +27,67 @@ const syntaxHighlighterStyles = {
     overflowWrap: "break-word"
   }
 } as const
+
+const ContentSection = ({ title, content, isLoading }: { title: string, content: React.ReactNode, isLoading: boolean }) => {
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5">
+        <h2 className="text-[13px] font-medium text-white tracking-wide">{title}</h2>
+        <div className="mt-3 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Loading...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!content) {
+    return null; // Don't render anything if there's no content
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <h2 className="text-[13px] font-medium text-white tracking-wide">{title}</h2>
+      <div className="text-sm text-neutral-300">{content}</div>
+    </div>
+  );
+};
+
+const ComplexitySection = ({ timeComplexity, spaceComplexity, isLoading }: { timeComplexity: string | null, spaceComplexity: string | null, isLoading: boolean }) => {
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5">
+        <h2 className="text-[13px] font-medium text-white tracking-wide">Complexity Analysis</h2>
+        <div className="mt-3 flex">
+          <p className="text-xs bg-gradient-to-r from-gray-300 via-gray-100 to-gray-300 bg-clip-text text-transparent animate-pulse">
+            Loading analysis...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <h2 className="text-[13px] font-medium text-white tracking-wide">Complexity Analysis</h2>
+      <div className="flex items-center gap-6 text-sm">
+        <div>
+          <span className="font-medium text-neutral-400">Time: </span>
+          <span className="font-mono text-neutral-200 bg-neutral-700/50 rounded px-1.5 py-0.5 text-xs">
+            {timeComplexity || "N/A"}
+          </span>
+        </div>
+        <div>
+          <span className="font-medium text-neutral-400">Space: </span>
+          <span className="font-mono text-neutral-200 bg-neutral-700/50 rounded px-1.5 py-0.5 text-xs">
+            {spaceComplexity || "N/A"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const CodeComparisonSection = ({
   oldCode,
@@ -219,7 +279,7 @@ const Debug: React.FC<DebugProps> = ({ isProcessing, setIsProcessing }) => {
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
     description: "",
-    variant: "neutral"
+    variant: "info"
   })
 
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
@@ -367,7 +427,6 @@ const Debug: React.FC<DebugProps> = ({ isProcessing, setIsProcessing }) => {
 
       {/* Navbar of commands with the tooltip */}
       <ExtraScreenshotsQueueHelper
-        extraScreenshots={extraScreenshots}
         onTooltipVisibilityChange={handleTooltipVisibilityChange}
       />
 

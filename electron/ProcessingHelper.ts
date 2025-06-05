@@ -20,7 +20,7 @@ const MOCK_API_WAIT_TIME = Number(process.env.MOCK_API_WAIT_TIME) || 500
 
 export class ProcessingHelper {
   private appState: AppState
-  private llmHelper: LLMHelper
+  private llmHelper: LLMHelper | undefined
   private currentProcessingAbortController: AbortController | null = null
   private currentExtraProcessingAbortController: AbortController | null = null
 
@@ -28,14 +28,21 @@ export class ProcessingHelper {
     this.appState = appState
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY not found in environment variables")
+      console.warn("GEMINI_API_KEY not found in environment variables - AI features will be disabled")
+      // Don't create LLMHelper if no API key - will be checked when needed
+    } else {
+      this.llmHelper = new LLMHelper(apiKey)
     }
-    this.llmHelper = new LLMHelper(apiKey)
   }
 
   public async startNewChat(): Promise<void> {
     const mainWindow = this.appState.getMainWindow()
     if (!mainWindow) return
+
+    if (!this.llmHelper) {
+      console.error("[ProcessingHelper] Cannot start chat - GEMINI_API_KEY not configured")
+      return
+    }
 
     try {
       console.log("[ProcessingHelper] Starting new chat...")
@@ -69,6 +76,11 @@ export class ProcessingHelper {
     if (!mainWindow || (!userText.trim() && (!screenshots || screenshots.length === 0))) {
       console.log("[ProcessingHelper] processUserText: Called with no text and no screenshots. Aborting.");
       return;
+    }
+
+    if (!this.llmHelper) {
+      console.error("[ProcessingHelper] Cannot process user text - GEMINI_API_KEY not configured")
+      return
     }
 
     // Add user text to conversation history if present
@@ -421,6 +433,6 @@ export class ProcessingHelper {
   }
 
   public getLLMHelper() {
-    return this.llmHelper
+    return this.llmHelper || null
   }
 }
