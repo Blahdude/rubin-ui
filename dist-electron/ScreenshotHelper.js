@@ -13,7 +13,7 @@ const screenshot_desktop_1 = __importDefault(require("screenshot-desktop"));
 class ScreenshotHelper {
     screenshotQueue = [];
     extraScreenshotQueue = [];
-    MAX_SCREENSHOTS = 3;
+    MAX_SCREENSHOTS = 2;
     screenshotDir;
     extraScreenshotDir;
     view = "queue";
@@ -54,6 +54,12 @@ class ScreenshotHelper {
     async takeScreenshot(hideMainWindow, showMainWindow) {
         hideMainWindow();
         let screenshotPath = "";
+        // Check total screenshots across both queues
+        const totalScreenshots = this.screenshotQueue.length + this.extraScreenshotQueue.length;
+        if (totalScreenshots >= this.MAX_SCREENSHOTS) {
+            showMainWindow();
+            throw new Error(`Maximum ${this.MAX_SCREENSHOTS} screenshots allowed across all views`);
+        }
         if (this.view === "queue") {
             screenshotPath = node_path_1.default.join(this.screenshotDir, `${(0, uuid_1.v4)()}.png`);
             await (0, screenshot_desktop_1.default)({ filename: screenshotPath });

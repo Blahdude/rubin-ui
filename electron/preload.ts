@@ -110,6 +110,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
       ipcRenderer.removeListener("reset-view", subscription)
     }
   },
+  onScreenshotLimitReached: (callback: (data: { message: string }) => void) => {
+    const subscription = (_: any, data: { message: string }) => callback(data)
+    ipcRenderer.on("screenshot-limit-reached", subscription)
+    return () => {
+      ipcRenderer.removeListener("screenshot-limit-reached", subscription)
+    }
+  },
   onSolutionStart: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on(PROCESSING_EVENTS.INITIAL_START, subscription)

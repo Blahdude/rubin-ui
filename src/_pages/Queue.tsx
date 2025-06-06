@@ -474,7 +474,10 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         refetch(); 
       }),
       window.electronAPI.onSolutionError((error: string) => { showToast("Solution Error", error, "error"); }),
-      window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "info"); })
+      window.electronAPI.onProcessingNoScreenshots(() => { showToast("No Screenshots", "No screenshots to process.", "info"); }),
+      window.electronAPI.onScreenshotLimitReached((data: { message: string }) => { 
+        showToast("Screenshot Limit", data.message, "error"); 
+      })
     ];
     return () => { unsubscribes.forEach(unsub => unsub()); clearVadStatusTimeout(); };
   }, [refetch]);

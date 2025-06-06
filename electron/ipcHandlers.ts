@@ -259,10 +259,13 @@ export function initializeIpcHandlers(appState: AppState): void {
     try {
       const screenshotPath = await appState.takeScreenshot()
       const preview = await appState.getImagePreview(screenshotPath)
-      return { path: screenshotPath, preview }
-    } catch (error) {
+      return { success: true, path: screenshotPath, preview }
+    } catch (error: any) {
       console.error("Error taking screenshot:", error)
-      throw error
+      if (error.message && error.message.includes("Maximum")) {
+        return { success: false, error: "screenshot_limit", message: "Max 2 Screenshots" }
+      }
+      return { success: false, error: "unknown", message: error.message || "Unknown error" }
     }
   })
 

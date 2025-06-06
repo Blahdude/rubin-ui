@@ -19,6 +19,7 @@ interface ElectronAPI {
   ) => () => void
   onSolutionsReady: (callback: (solutions: string) => void) => () => void
   onResetView: (callback: () => void) => () => void
+  onScreenshotLimitReached: (callback: (data: { message: string }) => void) => () => void
   onSolutionStart: (callback: () => void) => () => void
   onDebugStart: (callback: () => void) => () => void
   onDebugSuccess: (callback: (data: any) => void) => () => void

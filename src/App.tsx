@@ -33,6 +33,7 @@ declare global {
       ) => () => void
       onProcessingNoScreenshots: (callback: () => void) => () => void
       onResetView: (callback: () => void) => () => void
+      onScreenshotLimitReached: (callback: (data: { message: string }) => void) => () => void
       takeScreenshot: () => Promise<void>
 
       //INITIAL SOLUTION EVENTS

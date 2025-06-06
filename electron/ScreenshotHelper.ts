@@ -9,7 +9,7 @@ import screenshot from "screenshot-desktop"
 export class ScreenshotHelper {
   private screenshotQueue: string[] = []
   private extraScreenshotQueue: string[] = []
-  private readonly MAX_SCREENSHOTS = 3
+  private readonly MAX_SCREENSHOTS = 2
 
   private readonly screenshotDir: string
   private readonly extraScreenshotDir: string
@@ -68,6 +68,13 @@ export class ScreenshotHelper {
   ): Promise<string> {
     hideMainWindow()
     let screenshotPath = ""
+
+    // Check total screenshots across both queues
+    const totalScreenshots = this.screenshotQueue.length + this.extraScreenshotQueue.length
+    if (totalScreenshots >= this.MAX_SCREENSHOTS) {
+      showMainWindow()
+      throw new Error(`Maximum ${this.MAX_SCREENSHOTS} screenshots allowed across all views`)
+    }
 
     if (this.view === "queue") {
       screenshotPath = path.join(this.screenshotDir, `${uuidv4()}.png`)

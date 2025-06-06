@@ -250,11 +250,14 @@ function initializeIpcHandlers(appState) {
         try {
             const screenshotPath = await appState.takeScreenshot();
             const preview = await appState.getImagePreview(screenshotPath);
-            return { path: screenshotPath, preview };
+            return { success: true, path: screenshotPath, preview };
         }
         catch (error) {
             console.error("Error taking screenshot:", error);
-            throw error;
+            if (error.message && error.message.includes("Maximum")) {
+                return { success: false, error: "screenshot_limit", message: "Max 2 Screenshots" };
+            }
+            return { success: false, error: "unknown", message: error.message || "Unknown error" };
         }
     });
     electron_1.ipcMain.handle("get-screenshots", async () => {

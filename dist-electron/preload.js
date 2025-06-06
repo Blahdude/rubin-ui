@@ -44,6 +44,13 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
             electron_1.ipcRenderer.removeListener("reset-view", subscription);
         };
     },
+    onScreenshotLimitReached: (callback) => {
+        const subscription = (_, data) => callback(data);
+        electron_1.ipcRenderer.on("screenshot-limit-reached", subscription);
+        return () => {
+            electron_1.ipcRenderer.removeListener("screenshot-limit-reached", subscription);
+        };
+    },
     onSolutionStart: (callback) => {
         const subscription = () => callback();
         electron_1.ipcRenderer.on(exports.PROCESSING_EVENTS.INITIAL_START, subscription);

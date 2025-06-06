@@ -44,27 +44,23 @@ class ShortcutsHelper {
     }
     registerGlobalShortcuts() {
         electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
-            console.log("'Solve' (CommandOrControl+Enter) triggered.");
+            console.log("'Take Screenshot' (CommandOrControl+Enter) triggered.");
             const mainWindow = this.appState.getMainWindow();
-            let screenshotTakenSuccessfully = false;
             if (mainWindow && !mainWindow.isDestroyed()) {
                 try {
                     const screenshotPath = await this.appState.takeScreenshot();
                     if (screenshotPath) {
                         const preview = await this.appState.getImagePreview(screenshotPath);
                         mainWindow.webContents.send("screenshot-taken", { path: screenshotPath, preview });
-                        screenshotTakenSuccessfully = true;
+                        console.log("Screenshot taken and stored. It will be analyzed when user provides a text prompt.");
                     }
                 }
                 catch (error) {
-                    console.error("Error auto-capturing screenshot for 'Solve':", error);
+                    console.error("Error taking screenshot:", error);
+                    if (error.message && error.message.includes("Maximum")) {
+                        mainWindow.webContents.send("screenshot-limit-reached", { message: "Max 2 Screenshots" });
+                    }
                 }
-            }
-            if (this.appState.getScreenshots().length > 0 || screenshotTakenSuccessfully) {
-                await this.appState.processingHelper.processScreenshots();
-            }
-            else if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send("processing-no-screenshots");
             }
         });
         electron_1.globalShortcut.register("CommandOrControl+R", () => {
