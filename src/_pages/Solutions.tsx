@@ -195,13 +195,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
         className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full"
         style={{ paddingBottom: `${tooltipHeight + 10}px` }}
       >
-        {(!conversation || conversation.length === 0) && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-center text-sm text-neutral-500 font-medium p-6">
-              Context captured. Ask a follow-up, or the AI will begin processing.
-            </p>
-          </div>
-        )}
         {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
             return (
@@ -365,7 +358,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       </div>
       
       {queuedScreenshots.length > 0 && (
-        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-2.5">
+        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 px-2.5 py-1.5 flex items-center">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-neutral-400">Attached:</span>
             {queuedScreenshots.map((screenshot) => (

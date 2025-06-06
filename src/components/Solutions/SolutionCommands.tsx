@@ -132,32 +132,6 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   return (
     <div>
       <div className="w-full bg-neutral-800 border-t border-neutral-700 py-2 px-3 flex items-center gap-2 flex-wrap">
-        {/* Show/Hide */}
-        <div className="flex items-center gap-1 whitespace-nowrap">
-          <span className="text-[10px] leading-none font-normal text-neutral-400">Show/Hide</span>
-          <div className="flex gap-0.5">
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
-              ⌘
-            </button>
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
-              B
-            </button>
-          </div>
-        </div>
-
-        {/* Start Over */}
-        <div className="flex items-center gap-1 whitespace-nowrap">
-          <span className="text-[10px] leading-none font-normal text-neutral-400">Start over</span>
-          <div className="flex gap-0.5">
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
-              ⌘
-            </button>
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
-              R
-            </button>
-          </div>
-        </div>
-
         {/* User Input for Follow-up */}
         {isAiResponseActive && (
           <div className="flex items-center gap-1.5 whitespace-nowrap flex-grow min-w-[150px] sm:min-w-[200px]">
@@ -222,6 +196,24 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                     Keyboard Shortcuts
                   </h3>
                   <div className="space-y-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center justify-between">
+                        <span className="whitespace-nowrap font-normal text-neutral-300">
+                          Take a Screenshot
+                        </span>
+                        <div className="flex gap-0.5">
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            ⌘
+                          </span>
+                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                            Enter
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                        Add a screenshot to the user query.
+                      </p>
+                    </div>
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
                         <span className="whitespace-nowrap font-normal text-neutral-300">
