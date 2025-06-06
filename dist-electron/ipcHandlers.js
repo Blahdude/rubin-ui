@@ -12,6 +12,7 @@ const path_1 = __importDefault(require("path")); // Import path for icon handlin
 const fs_1 = __importDefault(require("fs"));
 const replicate_1 = __importDefault(require("replicate"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const os_1 = __importDefault(require("os")); // For temp directory
 const child_process_1 = require("child_process"); // For calling ffmpeg
 // Import the new function from shortcuts.ts
 const shortcuts_1 = require("./shortcuts");
@@ -333,23 +334,68 @@ function initializeIpcHandlers(appState) {
     // Handler for starting a file drag operation
     electron_1.ipcMain.on('ondragstart-file', async (event, filePath) => {
         console.log(`[IPC Main] Received ondragstart-file for: ${filePath}`);
-        if (!filePath || !fs_1.default.existsSync(filePath)) {
-            console.error(`[IPC Main] Drag failed: File path "${filePath}" is invalid or file does not exist.`);
-            return;
+        // Check if it's a URL (Firebase Storage) or local file path
+        if (filePath.startsWith('https://') || filePath.startsWith('http://')) {
+            // Handle Firebase Storage URL by downloading temporarily
+            try {
+                console.log(`[IPC Main] Downloading Firebase Storage file for drag: ${filePath}`);
+                // Create a temporary file path
+                const url = new URL(filePath);
+                const fileName = path_1.default.basename(url.pathname) || 'audio.wav';
+                const tempDir = path_1.default.join(os_1.default.tmpdir(), 'rubin-drag-temp');
+                const tempFilePath = path_1.default.join(tempDir, fileName);
+                // Ensure temp directory exists
+                if (!fs_1.default.existsSync(tempDir)) {
+                    fs_1.default.mkdirSync(tempDir, { recursive: true });
+                }
+                // Download the file to temp location
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`Failed to download file: ${response.statusText}`);
+                }
+                const buffer = await response.arrayBuffer();
+                fs_1.default.writeFileSync(tempFilePath, Buffer.from(buffer));
+                console.log(`[IPC Main] Downloaded to temp file: ${tempFilePath}`);
+                // Now drag the temp file
+                const icon = await electron_1.app.getFileIcon(tempFilePath);
+                event.sender.startDrag({
+                    file: tempFilePath,
+                    icon: icon
+                });
+                // Clean up temp file after a delay (give time for drag to complete)
+                setTimeout(() => {
+                    try {
+                        if (fs_1.default.existsSync(tempFilePath)) {
+                            fs_1.default.unlinkSync(tempFilePath);
+                            console.log(`[IPC Main] Cleaned up temp drag file: ${tempFilePath}`);
+                        }
+                    }
+                    catch (cleanupError) {
+                        console.error(`[IPC Main] Failed to clean up temp file: ${tempFilePath}`, cleanupError);
+                    }
+                }, 30000); // Clean up after 30 seconds
+            }
+            catch (error) {
+                console.error(`[IPC Main] Failed to download and drag Firebase Storage file: ${filePath}`, error);
+                return;
+            }
         }
-        try {
-            const icon = await electron_1.app.getFileIcon(filePath);
-            event.sender.startDrag({
-                file: filePath,
-                icon: icon
-            });
-        }
-        catch (error) {
-            console.error(`[IPC Main] Failed to start drag for ${filePath}:`, error);
-            // Optionally, you could try to drag without a custom icon as a fallback,
-            // but given the previous errors, it might be better to just log and not drag.
-            // For example, to try with the potentially problematic empty string icon path:
-            // event.sender.startDrag({ file: filePath, icon: '' });
+        else {
+            // Handle local file path (existing logic)
+            if (!filePath || !fs_1.default.existsSync(filePath)) {
+                console.error(`[IPC Main] Drag failed: File path "${filePath}" is invalid or file does not exist.`);
+                return;
+            }
+            try {
+                const icon = await electron_1.app.getFileIcon(filePath);
+                event.sender.startDrag({
+                    file: filePath,
+                    icon: icon
+                });
+            }
+            catch (error) {
+                console.error(`[IPC Main] Failed to start drag for ${filePath}:`, error);
+            }
         }
     });
     // Renamed IPC Handler, inputFilePath is now optional
@@ -460,26 +506,22 @@ function initializeIpcHandlers(appState) {
         console.log("Received simple message:", arg);
         event.reply("simple-message-reply", "Message received!");
     });
-    electron_1.ipcMain.handle("set-recording-duration", (event, durationSeconds) => {
+    electron_1.ipcMain.on("set-recording-duration", (event, durationSeconds) => {
         if (typeof durationSeconds === 'number' && durationSeconds > 0) {
             (0, shortcuts_1.setRecordingDuration)(durationSeconds);
             console.log(`[IPC Main] Recording duration set to ${durationSeconds}s via IPC.`);
-            return { success: true };
         }
         else {
             console.warn(`[IPC Main] Invalid recording duration received: ${durationSeconds}`);
-            return { success: false, error: "Invalid duration provided." };
         }
     });
-    electron_1.ipcMain.handle("set-ui-preferred-generation-duration", (event, durationSeconds) => {
+    electron_1.ipcMain.on("set-ui-preferred-generation-duration", (event, durationSeconds) => {
         if (typeof durationSeconds === 'number' && durationSeconds > 0 && durationSeconds <= 30) { // Max 30s like the slider
             uiPreferredGenerationDurationSeconds = durationSeconds;
             console.log(`[IPC Main] UI Preferred Generation Duration set to ${durationSeconds}s.`);
-            return { success: true };
         }
         else {
             console.warn(`[IPC Main] Invalid UI preferred generation duration received: ${durationSeconds}`);
-            return { success: false, error: "Invalid or out-of-range duration provided." };
         }
     });
 }

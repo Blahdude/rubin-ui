@@ -280,6 +280,14 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     };
   }, [generationDurationSeconds]);
 
+  // Effect to sync initial generation duration on mount
+  useEffect(() => {
+    if (window.electronAPI && typeof (window.electronAPI as any).setUiPreferredGenerationDuration === 'function') {
+      console.log(`[Queue.tsx] Setting initial UI preferred generation duration: ${generationDurationSeconds}s`);
+      (window.electronAPI as any).setUiPreferredGenerationDuration(generationDurationSeconds);
+    }
+  }, []); // Empty dependency array = runs once on mount
+
   const { data: screenshots = [], refetch } = useQuery<
     Array<ScreenshotItem> // Use the defined ScreenshotItem type
     , Error>(
@@ -440,9 +448,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     };
     const handleVadWaiting = () => { clearVadStatusTimeout(); setVadStatusMessage("Waiting for audio..."); setGlobalRecordingError(null); };
     const handleVadRecordingStarted = () => { clearVadStatusTimeout(); setVadStatusMessage("Recording audio..."); };
-    const handleVadTimeout = () => { setVadStatusMessage("No sound detected. Recording timed out."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
-    
-    const handleAudioRecordingComplete = async (data: { path: string }) => {
+          const handleVadTimeout = () => { setVadStatusMessage("No sound detected. Recording timed out."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
+
+      const handleAudioRecordingComplete = async (data: { path: string }) => {
       console.log("Global audio recording complete (Queue.tsx):", data.path);
       const newRecording: GlobalRecording = { id: `global-rec-${Date.now()}`, path: data.path, timestamp: new Date() };
       setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]);
@@ -450,61 +458,6 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       clearVadStatusTimeout();
       setVadStatusMessage(null);
       showToast("Recording Saved", `Audio saved to ${data.path}`, "success");
-      try {
-        showToast("Processing", "Attempting to generate music from recording...", "info");
-        
-        let generationFunction: any = undefined;
-        if (window.electronAPI && typeof window.electronAPI.generateMusic === 'function') {
-          generationFunction = window.electronAPI.generateMusic;
-          console.log("[Queue.tsx] Found window.electronAPI.generateMusic");
-        } else if (window.electronAPI && typeof (window.electronAPI as any).generateMusicContinuation === 'function') {
-          generationFunction = (window.electronAPI as any).generateMusicContinuation;
-          console.warn("[Queue.tsx] Found legacy window.electronAPI.generateMusicContinuation");
-        } else {
-          console.error("[Queue.tsx] No valid music generation function found on window.electronAPI (tried generateMusic, generateMusicContinuation).");
-          showToast("Generation Error", "Music generation API function not found.", "error");
-          return;
-        }
-
-        // For continuation, the first argument (prompt) can be generic.
-        // The second argument is the inputFilePath (the recording).
-        // The generationFunction now returns displayName and originalPromptText as well.
-        const operationId = `cont-${Date.now()}`; // Generate a unique operation ID
-        const continuationPrompt = "Continue this audio"; // Generic prompt for continuation
-        const { generatedPath, features, displayName, originalPromptText } = await generationFunction(
-          operationId, 
-          continuationPrompt, 
-          data.path, // This is the inputFilePath for continuation
-          generationDurationSeconds // This is the duration for the new segment
-        );
-        
-        showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
-        console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedPath, originalPath: data.path, features, displayName, originalPromptText });
-        
-        // Check if notifyGeneratedAudioReady exists before calling
-        if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
-            window.electronAPI.notifyGeneratedAudioReady(generatedPath, data.path, features);
-        } else {
-            console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
-            // Fallback: directly update state here if notify doesn't exist
-            const newGeneratedClip: GeneratedAudioClip = { 
-                id: `gen-clip-direct-${Date.now()}`,
-                path: generatedPath,
-                originalPath: data.path || "",
-                timestamp: new Date(),
-                bpm: features.bpm,
-                key: features.key,
-                displayName: displayName,
-                originalPromptText: originalPromptText,
-                status: 'ready'
-            };
-            setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
-        }
-
-      } catch (error: any) {
-        console.error("Error generating music (Queue.tsx):", error);
-        showToast("Generation Failed", error.message || "Could not generate audio.", "error");
-      }
     };
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
     
@@ -525,6 +478,64 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     ];
     return () => { unsubscribes.forEach(unsub => unsub()); clearVadStatusTimeout(); };
   }, [refetch]);
+
+  const handleGenerateMusicFromRecording = async (recordingPath: string) => {
+    try {
+      showToast("Processing", "Generating music from recording...", "info");
+      
+      let generationFunction: any = undefined;
+      if (window.electronAPI && typeof window.electronAPI.generateMusic === 'function') {
+        generationFunction = window.electronAPI.generateMusic;
+        console.log("[Queue.tsx] Found window.electronAPI.generateMusic");
+      } else if (window.electronAPI && typeof (window.electronAPI as any).generateMusicContinuation === 'function') {
+        generationFunction = (window.electronAPI as any).generateMusicContinuation;
+        console.warn("[Queue.tsx] Found legacy window.electronAPI.generateMusicContinuation");
+      } else {
+        console.error("[Queue.tsx] No valid music generation function found on window.electronAPI (tried generateMusic, generateMusicContinuation).");
+        showToast("Generation Error", "Music generation API function not found.", "error");
+        return;
+      }
+
+      // For continuation, the first argument (prompt) can be generic.
+      // The second argument is the inputFilePath (the recording).
+      // The generationFunction now returns displayName and originalPromptText as well.
+      const operationId = `cont-${Date.now()}`; // Generate a unique operation ID
+      const continuationPrompt = "Continue this audio"; // Generic prompt for continuation
+              const { generatedUrl, features, displayName, originalPromptText } = await generationFunction(
+        operationId, 
+        continuationPrompt, 
+        recordingPath, // This is the inputFilePath for continuation
+        generationDurationSeconds // This is the duration for the new segment
+      );
+      
+      showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
+              console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedUrl, originalPath: recordingPath, features, displayName, originalPromptText });
+        
+        // Check if notifyGeneratedAudioReady exists before calling
+        if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
+            window.electronAPI.notifyGeneratedAudioReady(generatedUrl, recordingPath, features, displayName, originalPromptText);
+        } else {
+            console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
+            // Fallback: directly update state here if notify doesn't exist
+            const newGeneratedClip: GeneratedAudioClip = { 
+                id: `gen-clip-direct-${Date.now()}`,
+                path: generatedUrl,
+                originalPath: recordingPath || "",
+                timestamp: new Date(),
+                bpm: features.bpm,
+                key: features.key,
+                displayName: displayName,
+                originalPromptText: originalPromptText,
+                status: 'ready'
+            };
+            setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+        }
+
+    } catch (error: any) {
+      console.error("Error generating music (Queue.tsx):", error);
+      showToast("Generation Failed", error.message || "Could not generate audio.", "error");
+    }
+  };
 
   const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
     setIsTooltipVisible(visible)
@@ -603,7 +614,19 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                         </div>
                         <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
-                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2"></audio>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering drag events
+                            handleGenerateMusicFromRecording(rec.path);
+                          }}
+                          className="w-full px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                          title="Generate music based on this recording"
+                        >
+                          <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
+                          <span>Generate Music</span>
+                          <span className="opacity-60 group-hover:opacity-100 transition-opacity">✨</span>
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -615,37 +638,43 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                 <span className="font-semibold">Audio Error:</span> {globalRecordingError}
               </div>
             )}
-            {/* Duration Controls */}
-            <div className="mx-0.5 mt-3 p-3 bg-neutral-800 rounded-lg border border-neutral-700/60 space-y-3">
-              <div>
-                <label htmlFor="recordingDuration" className="block text-xs font-medium text-neutral-300 mb-1">
-                  Recording Duration: {recordingDurationSeconds}s
+            {/* Duration Controls - Minimal Design */}
+            <div className="mx-0.5 mt-3 space-y-2">
+              <div className="flex items-center justify-between px-2 py-1.5 bg-neutral-800/50 rounded-md border border-neutral-700/30">
+                <label htmlFor="recordingDuration" className="text-[10px] font-medium text-neutral-400 tracking-wide uppercase">
+                  Recording
                 </label>
-                <input
-                  type="range"
-                  id="recordingDuration"
-                  name="recordingDuration"
-                  min="1"
-                  max="30" // Max 30 seconds for recording
-                  value={recordingDurationSeconds}
-                  onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
-                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-sky-500"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    id="recordingDuration"
+                    name="recordingDuration"
+                    min="1"
+                    max="30"
+                    value={recordingDurationSeconds}
+                    onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
+                    className="w-16 h-1 bg-neutral-700/60 rounded-full appearance-none cursor-pointer slider-minimal accent-sky-400"
+                  />
+                  <span className="text-xs font-medium text-neutral-300 w-6 text-right">{recordingDurationSeconds}s</span>
+                </div>
               </div>
-              <div>
-                <label htmlFor="generationDuration" className="block text-xs font-medium text-neutral-300 mb-1">
-                  Generation Length: {generationDurationSeconds}s
+              <div className="flex items-center justify-between px-2 py-1.5 bg-neutral-800/50 rounded-md border border-neutral-700/30">
+                <label htmlFor="generationDuration" className="text-[10px] font-medium text-neutral-400 tracking-wide uppercase">
+                  Generation
                 </label>
-                <input
-                  type="range"
-                  id="generationDuration"
-                  name="generationDuration"
-                  min="1"
-                  max="30" // Max 30 seconds for generation
-                  value={generationDurationSeconds}
-                  onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
-                  className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    id="generationDuration"
+                    name="generationDuration"
+                    min="1"
+                    max="30"
+                    value={generationDurationSeconds}
+                    onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
+                    className="w-16 h-1 bg-neutral-700/60 rounded-full appearance-none cursor-pointer slider-minimal accent-teal-400"
+                  />
+                  <span className="text-xs font-medium text-neutral-300 w-6 text-right">{generationDurationSeconds}s</span>
+                </div>
               </div>
             </div>
             {generatedAudioClips.length > 0 && (

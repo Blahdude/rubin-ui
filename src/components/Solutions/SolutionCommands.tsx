@@ -6,16 +6,26 @@ import { HiStop } from "react-icons/hi2"
 interface SolutionCommandsProps {
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void
   isAiResponseActive?: boolean;
+  conversation?: any[];
 }
 
 const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   onTooltipVisibilityChange,
-  isAiResponseActive = true
+  isAiResponseActive = true,
+  conversation = []
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [userInput, setUserInput] = useState("")
   const [isQueryInProgress, setIsQueryInProgress] = useState(false)
+
+  // Check if music generation is in progress
+  const isMusicGenerationInProgress = conversation.some((item: any) => 
+    item.content?.isLoadingAudio === true
+  );
+
+  // Determine overall processing state
+  const isProcessing = isQueryInProgress || isMusicGenerationInProgress;
 
   useEffect(() => {
     if (onTooltipVisibilityChange) {
@@ -50,7 +60,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   }
 
   const handleSendUserResponse = async () => {
-    if (userInput.trim() === "" || !isAiResponseActive || isQueryInProgress) return;
+    if (userInput.trim() === "" || !isAiResponseActive || isProcessing) return;
     
     // Store the input value before clearing it
     const inputToSend = userInput;
@@ -94,13 +104,26 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   const handleCancelQuery = async () => {
     const electronAPI = window.electronAPI as any;
     try {
-      console.log("Cancelling query...");
-      if (electronAPI.cancelQuery) {
-        await electronAPI.cancelQuery();
+      if (isMusicGenerationInProgress) {
+        // Cancel music generation
+        console.log("Cancelling music generation...");
+        const musicGenerationItem = conversation.find((item: any) => 
+          item.content?.isLoadingAudio === true
+        );
+        if (musicGenerationItem && electronAPI.cancelMusicGeneration) {
+          const result = await electronAPI.cancelMusicGeneration(musicGenerationItem.id);
+          console.log("Music generation cancellation result:", result);
+        }
+      } else if (isQueryInProgress) {
+        // Cancel AI query
+        console.log("Cancelling query...");
+        if (electronAPI.cancelQuery) {
+          await electronAPI.cancelQuery();
+        }
+        setIsQueryInProgress(false);
       }
-      setIsQueryInProgress(false);
     } catch (error) {
-      console.error("Error cancelling query:", error);
+      console.error("Error cancelling operation:", error);
       // Reset state anyway
       setIsQueryInProgress(false);
     }
@@ -152,16 +175,22 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               }}
             />
             <button
-              onClick={isQueryInProgress ? handleCancelQuery : handleSendUserResponse}
-              title={isQueryInProgress ? "Cancel query" : "Send response"}
+              onClick={isProcessing ? handleCancelQuery : handleSendUserResponse}
+              title={
+                isMusicGenerationInProgress 
+                  ? "Cancel music generation" 
+                  : isQueryInProgress 
+                    ? "Cancel query" 
+                    : "Send response"
+              }
               className={`${
-                isQueryInProgress 
+                isProcessing 
                   ? "bg-neutral-600 hover:bg-neutral-500" 
                   : "bg-neutral-600 hover:bg-neutral-500"
               } text-neutral-200 rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center`}
-              disabled={!isQueryInProgress && (!userInput.trim() || !isAiResponseActive)}
+              disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
             >
-              {isQueryInProgress ? (
+              {isProcessing ? (
                 <HiStop className="w-3.5 h-3.5" />
               ) : (
                 <LuSend className="w-3.5 h-3.5" />

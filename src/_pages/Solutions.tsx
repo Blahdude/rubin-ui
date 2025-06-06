@@ -285,29 +285,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   <p className="text-xs text-neutral-400 italic">
                     Crafting your sound...
                   </p>
-                  <button
-                    onClick={async () => {
-                      const electronAPI = window.electronAPI as any;
-                      console.log(`[Solutions] Attempting to cancel music generation for item ID: ${item.id}`);
-                      try {
-                        const result = await electronAPI.cancelMusicGeneration(item.id);
-                        console.log(`[Solutions] Cancellation result for item ID ${item.id}:`, result);
-                        if (result?.success) {
-                          showToast("Cancelled", "Music generation has been cancelled.", "info");
-                        } else {
-                          // Use 'error' for actual failures, 'info' for non-actionable outcomes like already cancelled.
-                          const toastVariant: ToastVariant = result?.message?.includes("already in terminal state") || result?.message?.includes("No active prediction") ? "info" : "error";
-                          showToast("Cancellation Info", result?.message || "Could not cancel the music generation.", toastVariant);
-                        }
-                      } catch (error: any) {
-                        console.error(`[Solutions] Error calling cancelMusicGeneration for item ID ${item.id}:`, error);
-                        showToast("Cancellation Error", error.message || "An error occurred while trying to cancel.", "error");
-                      }
-                    }}
-                    className="mt-2 px-2.5 py-1 bg-neutral-600 hover:bg-neutral-500 text-white text-xs rounded-md transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                  >
-                    Cancel
-                  </button>
                 </div>
               );
             } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
@@ -439,6 +416,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
           <SolutionCommands
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
             isAiResponseActive={true}
+            conversation={conversation || []}
           />
         </div>
       )}

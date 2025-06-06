@@ -71,8 +71,8 @@ declare global {
       startFileDrag: (filePath: string) => void;
 
       // For notifying about newly generated audio
-      notifyGeneratedAudioReady: (generatedUrl: string, originalPath: string | undefined, features: { bpm: string | number, key: string }) => void;
-      onGeneratedAudioReady: (callback: (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string } }) => void) => () => void;
+      notifyGeneratedAudioReady: (generatedUrl: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void;
+      onGeneratedAudioReady: (callback: (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void;
 
       // ADDED for user follow-up
       userResponseToAi: (userText: string) => Promise<{ success: boolean; error?: string }>;
