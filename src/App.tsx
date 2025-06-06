@@ -99,16 +99,28 @@ const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
+  const [sessionInitialized, setSessionInitialized] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+      if (currentUser) {
+        if (!sessionInitialized) {
+          console.log('User authenticated, initializing session with welcome message.');
+          window.electronAPI.startNewChat();
+          setSessionInitialized(true);
+        }
+      } else {
+        // User signed out, clear conversation and reset the session flag
+        setConversation([]);
+        setSessionInitialized(false);
+      }
     });
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, []);
+  }, [sessionInitialized]);
 
   useEffect(() => {
     // Attempt to move the window to the right on startup
@@ -135,12 +147,6 @@ const App: React.FC = () => {
         });
       }),
 
-      window.electronAPI.onUnauthorized(() => {
-        setConversation([]);
-        console.log("Unauthorized, conversation cleared.");
-        auth.signOut();
-      }),
-
       window.electronAPI.onResetView(() => {
         console.log("Received 'reset-view' message from main process");
         setConversation([]);
@@ -150,7 +156,7 @@ const App: React.FC = () => {
     ];
 
     return () => cleanupFunctions.forEach((cleanup) => cleanup());
-  }, [queryClient]);
+  }, []);
 
   if (loading) {
     return (

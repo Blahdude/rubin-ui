@@ -1,7 +1,7 @@
 // ipcHandlers.ts
 
 import { ipcMain, app } from "electron"
-import { AppState } from "./main"
+import { AppState, ConversationItem } from "./main"
 import path from "path"; // Import path for icon handling if needed later
 import fs from "fs";
 import Replicate from "replicate";
@@ -490,13 +490,41 @@ export function initializeIpcHandlers(appState: AppState): void {
 
   // ADDED: Handler for starting a new chat
   ipcMain.handle("start-new-chat", async () => {
-    if (!appState) return { success: false, error: "AppState not initialized" };
+    console.log("[IPC] Received start-new-chat request.");
     try {
-      await appState.processingHelper.startNewChat();
+      // 1. Clear backend history
+      appState.clearConversationHistory();
+      
+      // 2. Reset the LLM's internal chat state
+      await appState.processingHelper.llmHelper.newChat();
+      
+      // 3. Generate the dynamic welcome message
+      console.log("[IPC] Generating welcome message...");
+      const welcomeAiResponse = await appState.processingHelper.llmHelper.generateWelcomeMessage();
+      
+      // 4. Create a new conversation item for the welcome message
+      const welcomeMessageItem: ConversationItem = {
+        id: `ai_${Date.now()}`,
+        type: 'ai_response',
+        content: welcomeAiResponse, // The full JSON from the LLM
+        timestamp: Date.now(),
+      };
+
+      // 5. Add it to the (now empty) conversation history
+      appState.addToConversationHistory(welcomeMessageItem);
+      appState.setLastAiResponse(welcomeAiResponse); // Also set it as the last response
+
+      // 6. Notify the frontend to update its view with the new item
+      const mainWindow = appState.getMainWindow();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(appState.PROCESSING_EVENTS.CHAT_UPDATED, welcomeMessageItem);
+        console.log("[IPC] Sent new welcome message to renderer.");
+      }
+
       return { success: true };
-    } catch (error: any) {
-      console.error("Failed to start new chat via IPC:", error);
-      return { success: false, error: error.message };
+    } catch (error) {
+      console.error("[IPC] Error handling start-new-chat:", error);
+      return { success: false, error: (error as Error).message };
     }
   });
 
