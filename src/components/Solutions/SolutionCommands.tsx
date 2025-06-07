@@ -131,7 +131,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
   return (
     <div>
-      <div className="w-full bg-neutral-800 border-t border-neutral-700 py-2 px-3 flex items-center gap-2 flex-wrap">
+      <div className="w-full bg-card border-t border-border py-2 px-3 flex items-center gap-2 flex-wrap">
         {/* User Input for Follow-up */}
         {isAiResponseActive && (
           <div className="flex items-center gap-1.5 whitespace-nowrap flex-grow min-w-[150px] sm:min-w-[200px]">
@@ -140,7 +140,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               placeholder="Ask a follow-up..."
-              className="px-2 py-1 text-xs text-neutral-200 bg-neutral-700 border border-neutral-600 rounded-md focus:ring-1 focus:ring-neutral-500 focus:border-neutral-500 outline-none transition-colors flex-grow placeholder-neutral-500"
+              className="px-2 py-1 text-xs text-foreground bg-input border border-border rounded-md focus:ring-1 focus:ring-ring focus:border-ring outline-none transition-colors flex-grow placeholder-muted-foreground"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -159,9 +159,9 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               }
               className={`${
                 isProcessing 
-                  ? "bg-neutral-600 hover:bg-neutral-500" 
-                  : "bg-neutral-600 hover:bg-neutral-500"
-              } text-neutral-200 rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center`}
+                  ? "bg-secondary hover:bg-muted" 
+                  : "bg-secondary hover:bg-muted"
+              } text-secondary-foreground rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center`}
               disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
             >
               {isProcessing ? (
@@ -181,8 +181,8 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="w-7 h-7 rounded-md bg-neutral-700 hover:bg-neutral-600 transition-colors flex items-center justify-center cursor-help z-10">
-            <span className="text-xs text-neutral-300 font-medium">?</span>
+          <div className="w-7 h-7 rounded-md bg-secondary hover:bg-muted transition-colors flex items-center justify-center cursor-help z-10">
+            <span className="text-xs text-secondary-foreground font-medium">?</span>
           </div>
           {isTooltipVisible && (
             <div
@@ -190,61 +190,61 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               className="absolute bottom-full right-0 mb-2 w-72" 
               style={{ zIndex: 100 }}
             >
-              <div className="p-2.5 text-[11px] bg-neutral-800/95 backdrop-blur-sm rounded-md border border-neutral-700 text-neutral-300 shadow-lg font-normal">
+              <div className="p-2.5 text-[11px] bg-card/95 backdrop-blur-sm rounded-md border border-border text-card-foreground shadow-lg font-normal">
                 <div className="space-y-3">
-                  <h3 className="font-medium whitespace-nowrap text-xs text-neutral-200 border-b border-neutral-700 pb-1.5 mb-1.5">
+                  <h3 className="font-medium whitespace-nowrap text-xs text-card-foreground border-b border-border pb-1.5 mb-1.5">
                     Keyboard Shortcuts
                   </h3>
                   <div className="space-y-2">
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-neutral-300">
+                        <span className="whitespace-nowrap font-normal text-card-foreground">
                           Take a Screenshot
                         </span>
                         <div className="flex gap-0.5">
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             ⌘
                           </span>
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             Enter
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
                         Add a screenshot to the user query.
                       </p>
                     </div>
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-neutral-300">
+                        <span className="whitespace-nowrap font-normal text-card-foreground">
                           Toggle Window
                         </span>
                         <div className="flex gap-0.5">
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             ⌘
                           </span>
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             B
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
                         Show or hide this window.
                       </p>
                     </div>
                     <div className="space-y-0.5">
                       <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-neutral-300">Start Over</span>
+                        <span className="whitespace-nowrap font-normal text-card-foreground">Start Over</span>
                         <div className="flex gap-0.5">
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             ⌘
                           </span>
-                          <span className="bg-neutral-700 text-neutral-300 px-1 py-0.5 rounded text-[9px] leading-none font-medium">
+                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
                             R
                           </span>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-snug text-neutral-400 font-normal">
+                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
                         Start fresh with a new question.
                       </p>
                     </div>
@@ -257,7 +257,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
         {/* Sign Out Button */}
         <button
-          className="text-neutral-400 hover:text-red-500 transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-neutral-700 flex items-center justify-center"
+          className="text-muted-foreground hover:text-primary transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-secondary flex items-center justify-center"
           title="Sign Out"
           onClick={() => window.electronAPI.quitApp()}
         >

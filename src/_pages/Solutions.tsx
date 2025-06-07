@@ -166,7 +166,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
   if (isResetting) {
     return (
-      <div className="flex-grow h-full flex items-center justify-center text-neutral-500">
+      <div className="flex-grow h-full flex items-center justify-center text-muted-foreground">
         <p className="text-sm">Clearing chat...</p>
       </div>
     );
@@ -181,7 +181,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   };
 
   return (
-    <div className="flex-grow h-full flex flex-col bg-neutral-850">
+    <div className="flex-grow h-full flex flex-col bg-background">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -192,16 +192,16 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
       <div
         ref={contentRef}
-        className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full"
+        className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full"
         style={{ paddingBottom: `${tooltipHeight + 10}px` }}
       >
         {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
             return (
               <div key={item.id} className="flex justify-end group">
-                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
+                <div className="bg-card border border-border text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
                   {item.content}
-                  <span className="text-[10px] text-neutral-500 absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-[10px] text-muted-foreground absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -214,9 +214,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             if (isLoading) {
               return (
                 <div key={item.id} className="flex justify-center group">
-                  <div className="bg-neutral-800 border border-neutral-700 text-neutral-400 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full italic">
+                  <div className="bg-card border border-border text-muted-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full italic">
                     AI is thinking...
-                    <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <span className="text-[10px] text-muted-foreground absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       {formatTimestamp(item.timestamp)}
                     </span>
                   </div>
@@ -244,7 +244,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
                         if (suggestionText !== null) {
                           return (
-                            <li key={i} className="text-xs text-neutral-300 hover:text-neutral-100 hover:bg-neutral-700/60 p-1.5 rounded-md transition-colors cursor-pointer">
+                            <li key={i} className="text-xs text-secondary-foreground hover:text-foreground hover:bg-secondary p-1.5 rounded-md transition-colors cursor-pointer">
                               {suggestionText}
                             </li>
                           );
@@ -275,7 +275,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
               audioLoadingIndicator = (
                 <div className="mt-3 mb-2 flex flex-col items-center justify-center space-y-2">
                   <img src="/icon/image.png" alt="Loading audio..." className="w-10 h-10 animate-pulse opacity-75" />
-                  <p className="text-xs text-neutral-400 italic">
+                  <p className="text-xs text-muted-foreground italic">
                     Crafting your sound...
                   </p>
                 </div>
@@ -283,7 +283,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             } else if (item.content?.musicGenerationCancelled === true && item.content?.musicGenerationError) {
               // Specific display for user-cancelled generations
               audioErrorIndicator = (
-                <div className="mt-2.5 text-xs text-neutral-400 bg-neutral-700/50 p-2 rounded-md">
+                <div className="mt-2.5 text-xs text-muted-foreground bg-secondary p-2 rounded-md">
                   <p>{item.content.musicGenerationError}</p> 
                 </div>
               );
@@ -315,7 +315,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
             return (
               <div key={item.id} className="flex justify-center group">
-                <div className="bg-neutral-800 border border-neutral-700 text-neutral-200 rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
+                <div className="bg-card border border-border text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
                   {hasContent ? (
                     <>
                       {aiTextMessage}
@@ -325,9 +325,9 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                       {suggestionsOutput}
                     </>
                   ) : (
-                    <p className="text-xs text-neutral-500 italic">AI response received, but no displayable content found.</p>
+                    <p className="text-xs text-muted-foreground italic">AI response received, but no displayable content found.</p>
                   )}
-                  <span className="text-[10px] text-neutral-500 absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-[10px] text-muted-foreground absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
                   </span>
                 </div>
@@ -340,7 +340,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             return (
               <div key={item.id} className="flex justify-center group">
                 <div className="text-center my-2.5">
-                  <span className="text-xs text-neutral-500 italic bg-neutral-800/60 px-3 py-1 rounded-full">
+                  <span className="text-xs text-muted-foreground italic bg-secondary px-3 py-1 rounded-full">
                     {item.content.message}
                   </span>
                 </div>
@@ -360,24 +360,24 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       </div>
       
       {queuedScreenshots.length > 0 && (
-        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 px-2.5 py-1.5 flex items-center">
+        <div className="flex-shrink-0 border-t border-border bg-card px-2.5 py-1.5 flex items-center">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-neutral-400">Attached:</span>
+            <span className="text-xs font-medium text-muted-foreground">Attached:</span>
             {queuedScreenshots.map((screenshot) => (
               <div key={screenshot.path} className="group relative">
                 <button
                   onClick={() => setViewingScreenshotPreview(screenshot.preview)}
-                  className="flex items-center gap-1 bg-neutral-700/90 backdrop-blur-sm text-white text-[11px] leading-none px-1.5 py-1 rounded-md border border-neutral-600 hover:bg-neutral-600 transition-colors shadow-md"
+                  className="flex items-center gap-1 bg-secondary backdrop-blur-sm text-secondary-foreground text-[11px] leading-none px-1.5 py-1 rounded-md border border-border hover:bg-muted transition-colors shadow-md"
                 >
-                  <ImageIcon className="w-2.5 h-2.5 text-neutral-400" />
+                  <ImageIcon className="w-2.5 h-2.5 text-muted-foreground" />
                   <span className="font-medium">Image</span>
                 </button>
                 <div 
                   className="absolute -top-1 -right-1 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleDeleteScreenshot(screenshot.path)}
                 >
-                  <div className="bg-black/80 rounded-full p-px">
-                    <X className="w-2.5 h-2.5 text-neutral-400 hover:text-white" />
+                  <div className="bg-foreground/80 rounded-full p-px">
+                    <X className="w-2.5 h-2.5 text-background hover:text-background" />
                   </div>
                 </div>
               </div>

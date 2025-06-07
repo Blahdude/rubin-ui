@@ -161,7 +161,7 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+      <div className="flex items-center justify-center h-screen bg-background text-foreground">
         Loading...
       </div>
     );
@@ -174,7 +174,7 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="h-screen bg-transparent text-black/80 flex flex-col">
+        <div className="h-screen bg-background text-foreground flex flex-col">
           <Queue conversation={conversation} />
         </div>
         <ToastViewport />

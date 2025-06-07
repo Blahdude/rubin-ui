@@ -24,12 +24,12 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-      <div className="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-lg shadow-lg">
-        <h2 className="text-2xl font-bold text-center">Login</h2>
+    <div className="flex items-center justify-center h-screen bg-background text-foreground">
+      <div className="w-full max-w-md p-8 space-y-8 bg-card border border-border rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-center text-card-foreground">Login</h2>
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label htmlFor="email" className="text-sm font-bold text-gray-400">
+            <label htmlFor="email" className="text-sm font-bold text-muted-foreground">
               Email
             </label>
             <input
@@ -37,14 +37,14 @@ const LoginPage = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 mt-2 text-gray-900 bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 mt-2 text-foreground bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               required
             />
           </div>
           <div>
             <label
               htmlFor="password"
-              className="text-sm font-bold text-gray-400"
+              className="text-sm font-bold text-muted-foreground"
             >
               Password
             </label>
@@ -53,14 +53,14 @@ const LoginPage = () => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 mt-2 text-gray-900 bg-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-3 mt-2 text-foreground bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
               required
             />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-foreground">{error}</p>}
           <button
             type="submit"
-            className="w-full p-3 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500"
+            className="w-full p-3 font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-ring"
           >
             Login
           </button>

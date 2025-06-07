@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Main Palette */
+    --background: 0 0% 100%; /* Pure white for a clean, stark background */
+    --foreground: 222.2 84% 4.9%; /* A deep, near-black for all primary text */
+
+    /* Primary Actions (Solid Black Buttons, Active States) */
+    --primary: 222.2 84% 4.9%; /* The same near-black as the text */
+    --primary-foreground: 0 0% 100%; /* White text for on-black elements */
+    
+    /* Cards, Popovers, and other layered elements */
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    /* Secondary/Muted Elements */
+    --secondary: 210 40% 96.1%; /* A very light gray for subtle backgrounds */
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%; /* A lighter gray for secondary text/subtitles */
+
+    /* Borders and Inputs */
+    --border: 214.3 31.8% 91.4%; /* A subtle gray for all borders and dividers */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%; /* For focus rings */
+    
+    /* Radius for rounded corners, as established previously */
+    --radius: 0.75rem; 
+  }
+
+  /* Define any dark mode overrides if needed, though the primary focus is the light theme. */
+}
+
 /* Custom minimal slider styling */
 .slider-minimal {
   @apply transition-all duration-200;
@@ -12,17 +44,17 @@
   height: 10px;
   width: 10px;
   border-radius: 50%;
-  background: currentColor;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: hsl(var(--primary));
+  border: 2px solid hsl(var(--secondary));
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .slider-minimal::-webkit-slider-thumb:hover {
   transform: scale(1.2);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border-color: hsl(var(--border));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .slider-minimal::-webkit-slider-thumb:active {
@@ -34,15 +66,15 @@
   height: 10px;
   width: 10px;
   border-radius: 50%;
-  background: currentColor;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: hsl(var(--primary));
+  border: 2px solid hsl(var(--secondary));
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .slider-minimal::-moz-range-thumb:hover {
   transform: scale(1.2);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  border-color: hsl(var(--border));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }

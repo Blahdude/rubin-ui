@@ -28,14 +28,14 @@ const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-neutral-900 bg-opacity-80 flex items-start justify-center p-4 pt-20 z-50 transition-opacity duration-300 ease-in-out">
-      <div className="bg-neutral-750 p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto border border-neutral-600 relative">
+    <div className="fixed inset-0 bg-foreground/80 flex items-start justify-center p-4 pt-20 z-50 transition-opacity duration-300 ease-in-out">
+      <div className="bg-card p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto border border-border relative">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-semibold text-neutral-200">Full Prompt</h3>
-          <button onClick={onClose} className="text-neutral-500 hover:text-neutral-300 transition-colors text-2xl leading-none">&times;</button>
+          <h3 className="text-sm font-semibold text-card-foreground">Full Prompt</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-2xl leading-none">&times;</button>
         </div>
         <p 
-          className="text-xs text-neutral-300 whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 rounded"
+          className="text-xs text-card-foreground whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary rounded"
         >
           {promptText}
         </p>
@@ -537,7 +537,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen text-white bg-neutral-900">
+    <div className="flex flex-col h-screen text-foreground bg-background">
       {/* Main Content */}
       <div className="flex-grow flex flex-col overflow-hidden">
         {/* Top bar with commands */}
@@ -551,21 +551,21 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         </div>
 
         {/* Scrollable area for solutions */}
-        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-neutral-600 hover:scrollbar-thumb-neutral-500 scrollbar-track-neutral-700 scrollbar-thumb-rounded-full">
-          <div className="w-full space-y-3 p-3 bg-neutral-800 border border-neutral-700 rounded-lg">
+        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full">
+          <div className="w-full space-y-3 p-3 bg-card border border-border rounded-lg">
             {vadStatusMessage && (
-              <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-neutral-400`}>
+              <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-muted-foreground`}>
                 {vadStatusMessage}
               </div>
             )}
             {globalRecordings.length > 0 && (
               <div className="space-y-2">
                 <div 
-                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
                   onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
                 >
-                  <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Recorded Audio</h4>
-                  <span className="text-neutral-400 text-xs">
+                  <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Recorded Audio</h4>
+                  <span className="text-muted-foreground text-xs">
                     {isRecordedAudioOpen ? '▼' : '▶'}
                   </span>
                 </div>
@@ -574,7 +574,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     {globalRecordings.map((rec) => (
                       <div 
                         key={rec.id} 
-                        className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                        className="flex flex-col p-2.5 bg-secondary rounded-lg border border-border"
                         draggable={true}
                         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                           e.preventDefault(); // Prevent default HTML drag behavior
@@ -588,16 +588,16 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                         }}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                          <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                         </div>
-                        <p className="text-[11px] font-medium text-neutral-300 mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
+                        <p className="text-[11px] font-medium text-secondary-foreground mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
                         <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2"></audio>
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent triggering drag events
                             handleGenerateMusicFromRecording(rec.path);
                           }}
-                          className="w-full px-3 py-2 text-xs font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                          className="w-full px-3 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
                           title="Generate music based on this recording"
                         >
                           <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
@@ -611,14 +611,14 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
               </div>
             )}
             {globalRecordingError && (
-              <div className="mx-0.5 mt-2 p-2 bg-red-800/40 rounded text-red-300 text-xs border border-red-700/50 font-medium">
+              <div className="mx-0.5 mt-2 p-2 bg-background rounded text-foreground text-xs border border-foreground font-medium">
                 <span className="font-semibold">Audio Error:</span> {globalRecordingError}
               </div>
             )}
             {/* Duration Controls - Minimal Design */}
             <div className="mx-0.5 mt-3 space-y-2">
-              <div className="flex items-center justify-between px-2 py-1.5 bg-neutral-800/50 rounded-md border border-neutral-700/30">
-                <label htmlFor="recordingDuration" className="text-[10px] font-medium text-neutral-400 tracking-wide uppercase">
+              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary rounded-md border border-border">
+                <label htmlFor="recordingDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
                   Recording
                 </label>
                 <div className="flex items-center gap-2">
@@ -630,13 +630,13 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     max="30"
                     value={recordingDurationSeconds}
                     onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-neutral-700/60 rounded-full appearance-none cursor-pointer slider-minimal accent-sky-400"
+                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal"
                   />
-                  <span className="text-xs font-medium text-neutral-300 w-6 text-right">{recordingDurationSeconds}s</span>
+                  <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{recordingDurationSeconds}s</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-2 py-1.5 bg-neutral-800/50 rounded-md border border-neutral-700/30">
-                <label htmlFor="generationDuration" className="text-[10px] font-medium text-neutral-400 tracking-wide uppercase">
+              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary rounded-md border border-border">
+                <label htmlFor="generationDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
                   Generation
                 </label>
                 <div className="flex items-center gap-2">
@@ -648,20 +648,20 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     max="30"
                     value={generationDurationSeconds}
                     onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-neutral-700/60 rounded-full appearance-none cursor-pointer slider-minimal accent-teal-400"
+                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal"
                   />
-                  <span className="text-xs font-medium text-neutral-300 w-6 text-right">{generationDurationSeconds}s</span>
+                  <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{generationDurationSeconds}s</span>
                 </div>
               </div>
             </div>
             {generatedAudioClips.length > 0 && (
               <div className="space-y-2 pt-1.5">
                 <div 
-                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-neutral-750/50 rounded px-1" 
+                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
                   onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
                 >
-                  <h4 className="font-medium text-xs text-neutral-400 tracking-wider uppercase">Generated Audio</h4>
-                  <span className="text-neutral-400 text-xs">
+                  <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Generated Audio</h4>
+                  <span className="text-muted-foreground text-xs">
                     {isGeneratedAudioOpen ? '▼' : '▶'}
                   </span>
                 </div>
@@ -670,7 +670,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     {generatedAudioClips.map((clip) => (
                       <div 
                         key={clip.id} 
-                        className="flex flex-col p-2.5 bg-neutral-750 rounded-lg border border-neutral-600/70"
+                        className="flex flex-col p-2.5 bg-secondary rounded-lg border border-border"
                         draggable={true}
                         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                           e.preventDefault(); // Prevent default HTML drag behavior
@@ -684,7 +684,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                         }}
                       >
                         <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center text-[10px] text-neutral-400"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                          <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation(); // Prevent triggering drag events
@@ -692,7 +692,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                                 deleteAudioFile(clip);
                               }
                             }}
-                            className="group px-1.5 py-0.5 text-[9px] font-medium text-red-400 hover:text-red-200 hover:bg-red-900/30 border border-red-600/40 hover:border-red-500/60 rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-red-500 active:scale-95"
+                            className="group px-1.5 py-0.5 text-[9px] font-medium text-foreground hover:text-primary hover:bg-secondary border border-border hover:border-primary rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring active:scale-95"
                             title="Delete this audio file permanently"
                           >
                             <span className="group-hover:scale-110 transition-transform duration-200 inline-block">🗑️</span>
@@ -704,7 +704,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           {/* Group for Icon and Track Name - this group will shrink and truncate */}
                           <div className="flex items-center min-w-0 mr-2">
                             <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
-                            <span className="text-sm font-semibold text-neutral-100 truncate">
+                            <span className="text-sm font-semibold text-secondary-foreground truncate">
                               {clip.displayName}
                             </span>
                           </div>
@@ -713,7 +713,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           {clip.originalPromptText && clip.originalPromptText.length > 50 && (
                             <button 
                               onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
-                              className="px-2.5 py-1 text-[9px] font-medium text-neutral-300 bg-neutral-700 hover:bg-neutral-650 border border-neutral-600 rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-neutral-500"
+                              className="px-2.5 py-1 text-[9px] font-medium text-muted-foreground bg-background hover:bg-secondary border border-border rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
                             >
                               View Full Prompt
                             </button>
@@ -721,10 +721,10 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                         </div>
                         
                         {/* Based on line */}
-                        <div className="flex items-center justify-between text-[10px] text-neutral-400 mb-1.5">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
                           <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
                         </div>
-                        <div className="text-[10px] text-neutral-300 mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
+                        <div className="text-[10px] text-secondary-foreground mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
                         <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
                       </div>
                     ))}
@@ -734,12 +734,12 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
             )}
             {isLoadingExistingFiles && (
               <div className="text-center py-4">
-                <p className="text-sm text-neutral-500 font-medium">Loading your music files...</p>
+                <p className="text-sm text-muted-foreground font-medium">Loading your music files...</p>
               </div>
             )}
             {(!isLoadingExistingFiles && globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
                <div className="text-center py-8">
-                  <p className="text-sm text-neutral-500 font-medium">Record or generate audio to see it here.</p>
+                  <p className="text-sm text-muted-foreground font-medium">Record or generate audio to see it here.</p>
                </div>
             )}
           </div>

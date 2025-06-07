@@ -67,15 +67,15 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
   return (
     <div className="w-full"> 
-      <div ref={tooltipRef} className="bg-neutral-800 border-t border-neutral-700 rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
+      <div ref={tooltipRef} className="bg-card border-t border-border rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
         {/* Show/Hide */}
         <div className="flex items-center gap-1">
-          <span className="text-[10px] leading-none font-normal text-neutral-400">Show/Hide</span>
+          <span className="text-[10px] leading-none font-normal text-muted-foreground">Show/Hide</span>
           <div className="flex gap-0.5">
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
               ⌘
             </button>
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
               B
             </button>
           </div>
@@ -83,18 +83,18 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
         {/* Solve Command */}
         <div className="flex items-center gap-1">
-          <span className={`text-[10px] leading-none font-normal ${isProcessingSolution ? 'text-neutral-500 animate-pulse' : 'text-neutral-400'}`}>
+          <span className={`text-[10px] leading-none font-normal ${isProcessingSolution ? 'text-muted-foreground/50 animate-pulse' : 'text-muted-foreground'}`}>
             {isProcessingSolution ? 'Solving...' : 'Solve'}
           </span>
           <div className={`flex gap-0.5 ${isProcessingSolution ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <button 
-              className={`bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-neutral-500' : 'text-neutral-300'}`}
+              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
               disabled={isProcessingSolution}
             >
               ⌘
             </button>
             <button 
-              className={`bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-neutral-500' : 'text-neutral-300'}`}
+              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
               disabled={isProcessingSolution}
             >
               ↵
@@ -104,14 +104,14 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
         {/* Record Audio (triggers global VAD recording shortcut handled in main.ts -> Queue.tsx) */}
         <div className="flex items-center gap-1">
-          <span className="text-[10px] leading-none font-normal text-neutral-400">
+          <span className="text-[10px] leading-none font-normal text-muted-foreground">
             Record Audio
           </span>
           <div className="flex gap-0.5">
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
               ⌘
             </button>
-            <button className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-neutral-300 font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
               ;
             </button>
           </div>
@@ -121,7 +121,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleSignOut}
-            className="bg-neutral-700 hover:bg-red-800 transition-colors rounded px-2 py-1 text-[10px] leading-none text-neutral-300 font-medium"
+            className="bg-secondary hover:bg-primary hover:text-primary-foreground transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium"
           >
             Sign Out
           </button>
@@ -131,7 +131,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         <div className="flex items-center gap-1">
             <button 
               onClick={quitApp}
-              className="bg-neutral-700 hover:bg-neutral-600 transition-colors rounded px-2 py-1 text-[10px] leading-none text-neutral-300 font-medium"
+              className="bg-secondary hover:bg-muted transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium"
             >
              Quit App
             </button>
