@@ -12,8 +12,9 @@ import QueueCommands from "../components/Queue/QueueCommands"
 import Solutions from "./Solutions"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 import { ConversationItem } from "../App"
-import { auth, storage } from "../lib/firebase"
+import { auth, storage, db } from "../lib/firebase"
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "firebase/storage"
+import { doc, setDoc, deleteDoc, collection, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
 import { v4 as uuidv4 } from 'uuid';
 import { onAuthStateChanged, User } from "firebase/auth"
 
@@ -103,26 +104,6 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     }
   };
 
-  // Helper function to format display names
-  const formatDisplayName = (name?: string, originalPrompt?: string, maxLength: number = 50): string => {
-    if (!name || name === "generated_audio") return 'Generated Track'; // Default if no name or it's the generic one
-    
-    let formattedName = name
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-
-    if (originalPrompt && originalPrompt.length > maxLength) {
-      // Check if the formatted name already ends with ... (e.g. if sanitizePromptForFilename added it, though it currently doesn't)
-      // Or if the name itself is short enough that the original prompt being long is the main point.
-      // For simplicity, if original was long, and name isn't the default, append ellipsis.
-      if (!formattedName.endsWith('...')) {
-        formattedName += '...';
-      }
-    }
-    return formattedName;
-  };
-
   // Function to load existing audio files from Firebase Storage
   const loadExistingMusicFiles = async (user: User) => {
     if (!user) return;
@@ -131,50 +112,26 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     try {
       console.log("Loading existing music files for user:", user.uid);
       
-      // Create a reference to the user's audio folder
-      const userAudioRef = ref(storage, `users/${user.uid}/audio`);
-      
-      // List all files in the user's audio folder
-      const listResult = await listAll(userAudioRef);
-      
-      console.log("Found", listResult.items.length, "existing audio files");
-      
-      // Create an array to store the audio clips
+      const generationsRef = collection(db, "users", user.uid, "generations");
+      const q = query(generationsRef, orderBy("timestamp", "desc"));
+      const querySnapshot = await getDocs(q);
+
       const existingClips: GeneratedAudioClip[] = [];
-      
-      // Process each file
-      for (const itemRef of listResult.items) {
-        try {
-          // Get the download URL
-          const downloadURL = await getDownloadURL(itemRef);
-          
-          // Get metadata to extract timestamp and other info
-          const metadata = await getMetadata(itemRef);
-          
-          // Extract the clip ID from the file name (remove .wav extension)
-          const clipId = itemRef.name.replace('.wav', '');
-          
-          // Create the GeneratedAudioClip object
-          const clip: GeneratedAudioClip = {
-            id: clipId,
-            path: downloadURL,
-            timestamp: metadata.timeCreated ? new Date(metadata.timeCreated) : new Date(),
-            bpm: metadata.customMetadata?.bpm || 'N/A',
-            key: metadata.customMetadata?.key || 'N/A',
-            status: 'ready',
-            displayName: metadata.customMetadata?.displayName || formatDisplayName(clipId),
-            originalPromptText: metadata.customMetadata?.originalPromptText,
-            originalPath: metadata.customMetadata?.originalPath
-          };
-          
-          existingClips.push(clip);
-        } catch (error) {
-          console.error("Error processing file:", itemRef.name, error);
-        }
-      }
-      
-      // Sort clips by timestamp (newest first)
-      existingClips.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        const clip: GeneratedAudioClip = {
+          id: data.clipId,
+          path: data.downloadURL,
+          timestamp: data.timestamp.toDate(),
+          bpm: data.bpm,
+          key: data.key,
+          status: 'ready',
+          displayName: data.displayName,
+          originalPromptText: data.originalPromptText,
+          originalPath: data.originalPath
+        };
+        existingClips.push(clip);
+      });
       
       // Update the state with existing clips
       setGeneratedAudioClips(existingClips);
@@ -226,6 +183,10 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       
       // Delete the file from Firebase Storage
       await deleteObject(fileRef);
+
+      // Delete the corresponding Firestore document
+      const docRef = doc(db, "users", user.uid, "generations", clip.id);
+      await deleteDoc(docRef);
       
       // Remove the clip from local state
       setGeneratedAudioClips(prevClips => 
@@ -402,25 +363,38 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       // Create metadata to store with the file
       const fileMetadata = {
         contentType: 'audio/wav',
-        customMetadata: {
-          bpm: String(data.features.bpm),
-          key: String(data.features.key),
-          displayName: data.displayName || formatDisplayName(clipId),
-          originalPromptText: data.originalPromptText || '',
-          originalPath: data.originalPath || ''
-        }
       };
 
       // Upload to Firebase Storage with metadata
-      const uploadResult = await uploadBytes(storageRef, audioBlob, fileMetadata);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
+      await uploadBytes(storageRef, audioBlob, fileMetadata);
+      const downloadURL = await getDownloadURL(storageRef);
 
       console.log("Uploaded to Firebase Storage:", downloadURL);
 
-      const newClip: GeneratedAudioClip = {
+      const newClipData = {
+        storagePath: storagePath,
+        downloadURL: downloadURL,
+        clipId: clipId,
+        userId: user.uid,
+        timestamp: serverTimestamp(),
+        bpm: data.features.bpm,
+        key: data.features.key,
+        status: 'ready' as const,
+        displayName: data.displayName ?? 'Generated Track',
+        originalPromptText: data.originalPromptText ?? '',
+        originalPath: data.originalPath ?? null
+      };
+
+      // Save metadata to Firestore
+      const userDocRef = doc(db, "users", user.uid, "generations", clipId);
+      await setDoc(userDocRef, newClipData);
+      
+      console.log("Saved generation metadata to Firestore");
+      
+      const newClipUI: GeneratedAudioClip = {
         id: clipId,
-        path: downloadURL, // Use the Firebase Storage URL
-        timestamp: new Date(),
+        path: downloadURL,
+        timestamp: new Date(), // Use client-side date for immediate UI update. It will be correct on next load from server.
         bpm: data.features.bpm,
         key: data.features.key,
         status: 'ready',
@@ -429,13 +403,13 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         originalPromptText: data.originalPromptText
       };
 
-      setGeneratedAudioClips(prevClips => [newClip, ...prevClips]);
-        
+      setGeneratedAudioClips(prevClips => [newClipUI, ...prevClips]);
       showToast("Music Ready", `Generated music "${data.displayName || 'track'}" is ready.`, "success");
 
-    } catch (error) {
-      console.error("Error uploading to Firebase Storage:", error);
-      showToast("Upload Failed", "Could not save music to the cloud.", "error");
+    } catch (error: any) {
+      console.error("Error uploading or saving to Firebase:", error);
+      const errorMessage = error.code ? ` (Code: ${error.code})` : '';
+      showToast("Cloud Save Failed", `Could not save music: ${error.message}${errorMessage}`, "error");
     }
   };
 
@@ -731,7 +705,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           <div className="flex items-center min-w-0 mr-2">
                             <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
                             <span className="text-sm font-semibold text-neutral-100 truncate">
-                              {formatDisplayName(clip.displayName, clip.originalPromptText)}
+                              {clip.displayName}
                             </span>
                           </div>
 

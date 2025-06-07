@@ -280,18 +280,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
                   </p>
                 </div>
               );
-            } else if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
-              // Use the same logic as Queue.tsx getAudioSrc function
-              const audioSrc = item.content.playableAudioPath.startsWith('https://') || item.content.playableAudioPath.startsWith('http://') 
-                ? item.content.playableAudioPath 
-                : `clp://${item.content.playableAudioPath}`;
-              audioPlayer = (
-                <div style={{ marginTop: aiTextMessage || suggestionsOutput ? '10px' : '0px', marginBottom: suggestionsOutput && !aiTextMessage ? '10px' : '0px' }}>
-                  <audio controls src={audioSrc} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity">
-                    Your browser does not support the audio element.
-                  </audio>
-                </div>
-              );
             } else if (item.content?.musicGenerationCancelled === true && item.content?.musicGenerationError) {
               // Specific display for user-cancelled generations
               audioErrorIndicator = (
@@ -304,6 +292,20 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
               audioErrorIndicator = (
                 <div className="mt-2.5 text-xs text-red-400 bg-red-900/30 p-2 rounded-md">
                   <span className="font-semibold">Music Generation Error:</span> {item.content.musicGenerationError}
+                </div>
+              );
+            }
+            
+            if (item.content?.playableAudioPath && typeof item.content.playableAudioPath === 'string') {
+              // Use the same logic as Queue.tsx getAudioSrc function
+              const audioSrc = item.content.playableAudioPath.startsWith('https://') || item.content.playableAudioPath.startsWith('http://') 
+                ? item.content.playableAudioPath 
+                : `clp://${item.content.playableAudioPath}`;
+              audioPlayer = (
+                <div style={{ marginTop: aiTextMessage || suggestionsOutput ? '10px' : '0px', marginBottom: suggestionsOutput && !aiTextMessage ? '10px' : '0px' }}>
+                  <audio controls src={audioSrc} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity">
+                    Your browser does not support the audio element.
+                  </audio>
                 </div>
               );
             }

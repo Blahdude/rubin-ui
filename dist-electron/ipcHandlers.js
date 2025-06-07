@@ -87,24 +87,6 @@ async function callReplicateMusicGeneration(operationId, promptText, inputFilePa
         throw new Error("Replicate API key is not configured.");
     }
     const replicate = new replicate_1.default({ auth: replicateApiKey });
-    function sanitizePromptForFilename(prompt, maxLength = 50) {
-        if (!prompt) {
-            return "generated_audio";
-        }
-        const sanitized = prompt
-            .toLowerCase()
-            .replace(/[\/?:*"<>|#%&{}\s+]/g, '_')
-            .replace(/__+/g, '_')
-            .replace(/^_|_$/g, '');
-        let truncated = sanitized.substring(0, maxLength);
-        if (truncated.endsWith('_')) {
-            truncated = truncated.substring(0, truncated.length - 1);
-        }
-        if (!truncated) {
-            return "generated_audio";
-        }
-        return truncated;
-    }
     const modelInputs = {
         model_version: "stereo-melody-large",
         prompt: promptText,
@@ -172,7 +154,7 @@ async function callReplicateMusicGeneration(operationId, promptText, inputFilePa
             console.log("THIS IS THE FINAL ATTEMPT");
             const baseName = inputFilePath
                 ? path_1.default.basename(inputFilePath, path_1.default.extname(inputFilePath))
-                : sanitizePromptForFilename(promptText);
+                : promptText;
             return { generatedUrl: outputUrl, features: { bpm: "N/A", key: "N/A" }, displayName: baseName, originalPromptText: promptText };
         }
         else if (finalPrediction.status === "canceled") {

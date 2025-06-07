@@ -148,7 +148,6 @@ class ProcessingHelper {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     finalAudioMessageContentUpdate = {
                         isLoadingAudio: false,
-                        playableAudioPath: "audio/audio.wav"
                     };
                 }
                 else {
@@ -160,6 +159,7 @@ class ProcessingHelper {
                             isLoadingAudio: false,
                             playableAudioPath: generatedUrl
                         };
+                        // The critical step: Notify the queue that new audio is ready to be processed and uploaded.
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send("generated-audio-ready", { generatedUrl, originalPath: undefined, features, displayName, originalPromptText });
                         }

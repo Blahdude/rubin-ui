@@ -167,20 +167,23 @@ export class ProcessingHelper {
           await new Promise(resolve => setTimeout(resolve, 1000)) 
           finalAudioMessageContentUpdate = {
             isLoadingAudio: false,
-            playableAudioPath: "audio/audio.wav"
           }
         } else {
           console.log(`[ProcessingHelper] Attempting Replicate text-to-music for AI Message ID: ${aiMessageId} with prompt: "${musicPrompt}". UI preferred duration will be used.`)
           try {
             const { generatedUrl, features, displayName, originalPromptText } = await callReplicateMusicGeneration(aiMessageId, musicPrompt, undefined /* inputFilePath */, undefined /* durationFromCaller - force use of UI preference */);
             console.log(`[ProcessingHelper] Replicate generated audio URL (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedUrl}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`)
+            
             finalAudioMessageContentUpdate = {
               isLoadingAudio: false,
               playableAudioPath: generatedUrl
             }
+
+            // The critical step: Notify the queue that new audio is ready to be processed and uploaded.
             if (mainWindow && !mainWindow.isDestroyed()) {
                  mainWindow.webContents.send("generated-audio-ready", { generatedUrl, originalPath: undefined, features, displayName, originalPromptText })
             }
+
           } catch (replicateError: any) {
             console.error(`[ProcessingHelper] Error calling Replicate for text-to-music for AI Message ID: ${aiMessageId}:`, replicateError)
             // Check if the error indicates cancellation
