@@ -12,6 +12,23 @@ const shortcuts_1 = require("./shortcuts");
 const ProcessingHelper_1 = require("./ProcessingHelper");
 const node_path_1 = __importDefault(require("node:path"));
 const node_fs_1 = __importDefault(require("node:fs"));
+const dotenv_1 = __importDefault(require("dotenv"));
+// Load environment variables - handle both development and packaged app
+const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
+if (isDev) {
+    // Development: load from root .env
+    dotenv_1.default.config();
+}
+else {
+    // Production: load from Resources/.env
+    const envPath = node_path_1.default.join(process.resourcesPath, '.env');
+    if (node_fs_1.default.existsSync(envPath)) {
+        dotenv_1.default.config({ path: envPath });
+    }
+    else {
+        console.warn('Environment file not found in packaged app:', envPath);
+    }
+}
 class AppState {
     static instance = null;
     windowHelper;

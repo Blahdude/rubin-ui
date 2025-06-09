@@ -48,11 +48,19 @@ export async function callReplicateMusicGeneration(
   durationFromCaller?: number // This is the UI slider value for "new segment length" in continuation, or desired total length if passed for text-to-music (though usually undefined for text-to-music now)
 ): Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
   
-  let finalApiDuration: number;
-  let originalInputDurationForLog: number | string = "N/A";
+  const replicateApiKey = process.env.REPLICATE_API_KEY;
+  if (!replicateApiKey) {
+    console.error(`[Replicate] API key not configured for operation ${operationId}.`);
+    throw new Error("Replicate API key is not configured.");
+  }
+  const replicate = new Replicate({ auth: replicateApiKey });
+  
+  let predictionPromise;
+  let predictionModelName: string;
 
   if (inputFilePath && typeof inputFilePath === 'string' && fs.existsSync(inputFilePath)) {
-    // CONTINUATION LOGIC
+    // CONTINUATION LOGIC (MusicGen)
+    predictionModelName = "MusicGen (Continuation)";
     let knownInputAudioDurationSeconds: number | undefined;
     try {
       const durationOutput = await new Promise<string>((resolve, reject) => {
@@ -65,70 +73,57 @@ export async function callReplicateMusicGeneration(
       if (isNaN(knownInputAudioDurationSeconds)) knownInputAudioDurationSeconds = undefined;
     } catch (e) { console.error(`[Replicate] ffprobe error for op ${operationId}:`, e); knownInputAudioDurationSeconds = undefined; }
     
-    originalInputDurationForLog = knownInputAudioDurationSeconds ?? "N/A";
+    const originalInputDurationForLog = knownInputAudioDurationSeconds ?? "N/A";
     const newSegmentDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds; // Length of the part to add
-    finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
-    // Round to nearest integer for the API
+    let finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
     finalApiDuration = Math.round(finalApiDuration);
     console.log(`[Replicate] CONTINUATION for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s.`);
 
-  } else {
-    // TEXT-TO-MUSIC (FROM SCRATCH) LOGIC
-    // durationFromCaller is expected to be undefined here (from ProcessingHelper), so uiPreferredGenerationDurationSeconds is used.
-    finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
-    // Ensure it's an integer for text-to-music as well, though it usually will be from the slider.
-    finalApiDuration = Math.round(finalApiDuration);
-    console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Prompt: "${promptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
-  }
-
-  const replicateApiKey = process.env.REPLICATE_API_KEY;
-  if (!replicateApiKey) {
-    console.error(`[Replicate] API key not configured for operation ${operationId}.`);
-    throw new Error("Replicate API key is not configured.");
-  }
-
-  const replicate = new Replicate({ auth: replicateApiKey });
-
-  const modelInputs: any = {
-    model_version: "stereo-melody-large",
-    prompt: promptText,
-    duration: finalApiDuration, // Use the calculated final API duration
-    output_format: "wav"
-  };
-
-  if (inputFilePath && typeof inputFilePath === 'string' && fs.existsSync(inputFilePath)) {
-    console.log(`[Replicate] Operation ${operationId}: Operating in CONTINUATION mode.`);
-    modelInputs.continuation = true;
-    modelInputs.continuation_start = 0;
-
-    let inputAudioDurationSeconds: number | undefined;
-    try {
-      const durationOutput = await new Promise<string>((resolve, reject) => {
-        exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`, (err, stdout, stderr) => {
-          if (err) { console.error(`[Replicate] ffprobe stderr for op ${operationId}: ${stderr}`); return reject(err); }
-          resolve(stdout.trim());
-        });
-      });
-      inputAudioDurationSeconds = parseFloat(durationOutput);
-      if (isNaN(inputAudioDurationSeconds)) inputAudioDurationSeconds = undefined;
-    } catch (e) { console.error(`[Replicate] ffprobe error for op ${operationId}:`, e); inputAudioDurationSeconds = undefined; }
+    const modelInputs: any = {
+      model_version: "stereo-melody-large",
+      prompt: promptText,
+      duration: finalApiDuration,
+      output_format: "wav",
+      continuation: true,
+      continuation_start: 0,
+      continuation_end: Math.round(knownInputAudioDurationSeconds ? Math.min(knownInputAudioDurationSeconds, 2.0) : 2.0),
+      input_audio: fs.readFileSync(inputFilePath)
+    };
     
-    modelInputs.continuation_end = Math.round(inputAudioDurationSeconds ? Math.min(inputAudioDurationSeconds, 2.0) : 2.0);
-    modelInputs.input_audio = fs.readFileSync(inputFilePath);
-    console.log(`[Replicate] Operation ${operationId}: Added continuation parameters and input_audio.`);
-  } else {
-    console.log(`[Replicate] Operation ${operationId}: Operating in TEXT-TO-MUSIC (from scratch) mode.`);
-  }
-
-  console.log(`[Replicate] Calling Replicate API for operation ${operationId} with inputs:`, { ...modelInputs, input_audio: modelInputs.input_audio ? `<Buffer for ${inputFilePath}>` : 'N/A' });
-  
-  let predictionId: string | null = null;
-
-  try {
-    const prediction = await replicate.predictions.create({
+    console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, { ...modelInputs, input_audio: `<Buffer for ${inputFilePath}>` });
+    
+    predictionPromise = replicate.predictions.create({
       version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38", // facebookresearch/musicgen:stereo-melody-large
       input: modelInputs,
     });
+
+  } else {
+    // TEXT-TO-MUSIC (FROM SCRATCH) LOGIC (ACE-Step)
+    predictionModelName = "ACE-Step (Text-to-Music)";
+    let finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
+    finalApiDuration = Math.round(finalApiDuration);
+    console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Prompt: "${promptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
+    
+    // NOTE: The new model expects comma-separated tags. The promptText might need to be converted.
+    // A future step might involve changing the LLM prompt that generates this text.
+    const modelInputs = {
+      tags: promptText,
+      lyrics: "",
+      duration: finalApiDuration
+    };
+
+    console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, modelInputs);
+    
+    predictionPromise = replicate.predictions.create({
+      version: "280fc4f9ee507577f880a167f639c02622421d8fecf492454320311217b688f1", // lucataco/ace-step
+      input: modelInputs,
+    });
+  }
+
+  let predictionId: string | null = null;
+
+  try {
+    const prediction = await predictionPromise;
 
     if (prediction.error) {
       console.error(`[Replicate] Prediction creation error for operation ${operationId}: ${prediction.error}`);
@@ -137,7 +132,7 @@ export async function callReplicateMusicGeneration(
     
     predictionId = prediction.id;
     activeReplicatePredictions.set(operationId, predictionId);
-    console.log(`[Replicate] Prediction started for operation ${operationId}. ID: ${predictionId}, Status: ${prediction.status}`);
+    console.log(`[Replicate] Prediction started with ${predictionModelName} for operation ${operationId}. ID: ${predictionId}, Status: ${prediction.status}`);
 
     let finalPrediction = prediction;
     while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
@@ -154,7 +149,6 @@ export async function callReplicateMusicGeneration(
     if (finalPrediction.status === "succeeded") {
       const outputUrl = finalPrediction.output as string;
       console.log(`[Replicate] Prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
-      console.log("THIS IS THE FINAL ATTEMPT")
       
       const baseName = inputFilePath 
         ? path.basename(inputFilePath, path.extname(inputFilePath)) 

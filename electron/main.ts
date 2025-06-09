@@ -6,6 +6,22 @@ import { ShortcutsHelper } from "./shortcuts"
 import { ProcessingHelper } from "./ProcessingHelper"
 import path from "node:path"
 import fs from "node:fs"
+import dotenv from "dotenv"
+
+// Load environment variables - handle both development and packaged app
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+if (isDev) {
+  // Development: load from root .env
+  dotenv.config();
+} else {
+  // Production: load from Resources/.env
+  const envPath = path.join(process.resourcesPath, '.env');
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  } else {
+    console.warn('Environment file not found in packaged app:', envPath);
+  }
+}
 
 export class AppState {
   private static instance: AppState | null = null

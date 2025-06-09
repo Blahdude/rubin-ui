@@ -20,6 +20,12 @@
       "dist-electron/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "node_modules/sharp/**/*",
+      "node_modules/screenshot-desktop/**/*",
+      "node_modules/@google/**/*",
+      "node_modules/tesseract.js/**/*"
+    ],
     "extraResources": [
       ".env"
     ],
@@ -32,21 +38,21 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icons/mac/icon.icns"
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true
     },
     "win": {
       "target": [
         "nsis",
         "portable"
-      ],
-      "icon": "assets/icons/win/icon.ico"
+      ]
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
-      ],
-      "icon": "assets/icons/png/icon-256x256.png"
+      ]
     },
     "publish": [
       {

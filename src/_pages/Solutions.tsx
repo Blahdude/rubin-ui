@@ -13,7 +13,6 @@ import {
 import { ProblemStatementData } from "../types/solutions"
 import { AudioResult } from "../types/audio"
 import SolutionCommands from "../components/Solutions/SolutionCommands"
-import Debug from "./Debug"
 import { ConversationItem } from "../App"
 import { Image as ImageIcon, X } from "lucide-react"
 
@@ -181,7 +180,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   };
 
   return (
-    <div className="flex-grow h-full flex flex-col bg-background">
+    <div className="flex-grow h-full flex flex-col">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -192,14 +191,14 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
       <div
         ref={contentRef}
-        className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full"
+        className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full non-draggable"
         style={{ paddingBottom: `${tooltipHeight + 10}px` }}
       >
         {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
             return (
               <div key={item.id} className="flex justify-end group">
-                <div className="bg-card border border-border text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
+                <div className="bg-card/90 backdrop-blur-sm border border-border/20 text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full non-draggable">
                   {item.content}
                   <span className="text-[10px] text-muted-foreground absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {formatTimestamp(item.timestamp)}
@@ -214,7 +213,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
             if (isLoading) {
               return (
                 <div key={item.id} className="flex justify-center group">
-                  <div className="bg-card border border-border text-muted-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full italic">
+                  <div className="bg-card/90 backdrop-blur-sm border border-border/20 text-muted-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full italic non-draggable">
                     AI is thinking...
                     <span className="text-[10px] text-muted-foreground absolute bottom-1.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       {formatTimestamp(item.timestamp)}
@@ -315,7 +314,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
             return (
               <div key={item.id} className="flex justify-center group">
-                <div className="bg-card border border-border text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full">
+                <div className="bg-card/90 backdrop-blur-sm border border-border/20 text-card-foreground rounded-lg px-3.5 py-2 text-sm max-w-[90%] md:max-w-[85%] relative w-full non-draggable">
                   {hasContent ? (
                     <>
                       {aiTextMessage}
@@ -360,14 +359,14 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       </div>
       
       {queuedScreenshots.length > 0 && (
-        <div className="flex-shrink-0 border-t border-border bg-card px-2.5 py-1.5 flex items-center">
+        <div className="flex-shrink-0 border-t border-border/20 bg-card/90 backdrop-blur-sm px-2.5 py-1.5 flex items-center non-draggable">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">Attached:</span>
             {queuedScreenshots.map((screenshot) => (
               <div key={screenshot.path} className="group relative">
                 <button
                   onClick={() => setViewingScreenshotPreview(screenshot.preview)}
-                  className="flex items-center gap-1 bg-secondary backdrop-blur-sm text-secondary-foreground text-[11px] leading-none px-1.5 py-1 rounded-md border border-border hover:bg-muted transition-colors shadow-md"
+                  className="flex items-center gap-1 bg-secondary/80 backdrop-blur-sm text-secondary-foreground text-[11px] leading-none px-1.5 py-1 rounded-md border border-border/20 hover:bg-muted transition-colors shadow-md non-draggable"
                 >
                   <ImageIcon className="w-2.5 h-2.5 text-muted-foreground" />
                   <span className="font-medium">Image</span>

@@ -31,7 +31,30 @@
     --radius: 0.75rem; 
   }
 
+  /* Frosted Glass Theme Override */
+  .theme-frosted-glass {
+    /* Keep original variables but add transparent variants */
+    --background: 0 0% 100%;
+    --card: 0 0% 100%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+  }
+
   /* Define any dark mode overrides if needed, though the primary focus is the light theme. */
+
+  /* Window Dragging Support */
+  .draggable {
+    -webkit-app-region: drag;
+  }
+
+  .non-draggable {
+    -webkit-app-region: no-drag;
+  }
+
+  /* Ensure html, body and root are transparent for frosted glass effect */
+  html, body, #root {
+    background: transparent !important;
+  }
 }
 
 /* Custom minimal slider styling */

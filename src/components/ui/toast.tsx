@@ -34,9 +34,9 @@ interface ToastProps
 }
 
 const toastVariants: Record<ToastVariant, string> = {
-  success: "bg-primary text-primary-foreground border-primary",
-  error: "bg-background text-foreground border-foreground",
-  info: "bg-secondary text-secondary-foreground border-border"
+  success: "bg-primary/95 backdrop-blur-md text-primary-foreground border-primary/20",
+  error: "bg-background/95 backdrop-blur-md text-foreground border-foreground/20",
+  info: "bg-secondary/95 backdrop-blur-md text-secondary-foreground border-border/20"
 }
 
 const Toast = React.forwardRef<

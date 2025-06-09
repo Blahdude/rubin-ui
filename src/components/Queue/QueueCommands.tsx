@@ -66,16 +66,16 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   };
 
   return (
-    <div className="w-full"> 
-      <div ref={tooltipRef} className="bg-card border-t border-border rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
+    <div className="w-full non-draggable"> 
+      <div ref={tooltipRef} className="bg-card/90 backdrop-blur-sm border-t border-border/20 rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
         {/* Show/Hide */}
         <div className="flex items-center gap-1">
           <span className="text-[10px] leading-none font-normal text-muted-foreground">Show/Hide</span>
           <div className="flex gap-0.5">
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium non-draggable">
               ⌘
             </button>
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium non-draggable">
               B
             </button>
           </div>
@@ -88,13 +88,13 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
           </span>
           <div className={`flex gap-0.5 ${isProcessingSolution ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <button 
-              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
+              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium non-draggable ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
               disabled={isProcessingSolution}
             >
               ⌘
             </button>
             <button 
-              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
+              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium non-draggable ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
               disabled={isProcessingSolution}
             >
               ↵
@@ -108,10 +108,10 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
             Record Audio
           </span>
           <div className="flex gap-0.5">
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium non-draggable">
               ⌘
             </button>
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
+            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium non-draggable">
               ;
             </button>
           </div>
@@ -121,7 +121,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleSignOut}
-            className="bg-secondary hover:bg-primary hover:text-primary-foreground transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium"
+            className="bg-secondary hover:bg-primary hover:text-primary-foreground transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium non-draggable"
           >
             Sign Out
           </button>
@@ -131,7 +131,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
         <div className="flex items-center gap-1">
             <button 
               onClick={quitApp}
-              className="bg-secondary hover:bg-muted transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium"
+              className="bg-secondary hover:bg-muted transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium non-draggable"
             >
              Quit App
             </button>

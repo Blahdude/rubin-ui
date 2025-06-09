@@ -29,10 +29,10 @@ const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }
 
   return (
     <div className="fixed inset-0 bg-foreground/80 flex items-start justify-center p-4 pt-20 z-50 transition-opacity duration-300 ease-in-out">
-      <div className="bg-card p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto border border-border relative">
+      <div className="bg-card/95 backdrop-blur-md p-5 rounded-lg shadow-2xl w-full max-w-md mx-auto border border-border/20 relative non-draggable">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-card-foreground">Full Prompt</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-2xl leading-none">&times;</button>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors text-2xl leading-none non-draggable">&times;</button>
         </div>
         <p 
           className="text-xs text-card-foreground whitespace-pre-wrap break-words max-h-[50vh] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary rounded"
@@ -537,7 +537,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   };
 
   return (
-    <div className="flex flex-col h-screen text-foreground bg-background">
+          <div className="flex flex-col h-screen text-foreground">
       {/* Main Content */}
       <div className="flex-grow flex flex-col overflow-hidden">
         {/* Top bar with commands */}
@@ -551,8 +551,8 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
         </div>
 
         {/* Scrollable area for solutions */}
-        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full">
-          <div className="w-full space-y-3 p-3 bg-card border border-border rounded-lg">
+        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full non-draggable">
+          <div className="w-full space-y-3 p-3 bg-card/90 backdrop-blur-sm border border-border/20 rounded-lg">
             {vadStatusMessage && (
               <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-muted-foreground`}>
                 {vadStatusMessage}
@@ -574,7 +574,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     {globalRecordings.map((rec) => (
                       <div 
                         key={rec.id} 
-                        className="flex flex-col p-2.5 bg-secondary rounded-lg border border-border"
+                        className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
                         draggable={true}
                         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                           e.preventDefault(); // Prevent default HTML drag behavior
@@ -591,13 +591,13 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                         </div>
                         <p className="text-[11px] font-medium text-secondary-foreground mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
-                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2"></audio>
+                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2 non-draggable"></audio>
                         <button
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent triggering drag events
                             handleGenerateMusicFromRecording(rec.path);
                           }}
-                          className="w-full px-3 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                          className="w-full px-3 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] non-draggable"
                           title="Generate music based on this recording"
                         >
                           <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
@@ -617,7 +617,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
             )}
             {/* Duration Controls - Minimal Design */}
             <div className="mx-0.5 mt-3 space-y-2">
-              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary rounded-md border border-border">
+              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
                 <label htmlFor="recordingDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
                   Recording
                 </label>
@@ -630,12 +630,12 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     max="30"
                     value={recordingDurationSeconds}
                     onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal"
+                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
                   />
                   <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{recordingDurationSeconds}s</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary rounded-md border border-border">
+              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
                 <label htmlFor="generationDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
                   Generation
                 </label>
@@ -648,7 +648,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     max="30"
                     value={generationDurationSeconds}
                     onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal"
+                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
                   />
                   <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{generationDurationSeconds}s</span>
                 </div>
@@ -670,7 +670,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                     {generatedAudioClips.map((clip) => (
                       <div 
                         key={clip.id} 
-                        className="flex flex-col p-2.5 bg-secondary rounded-lg border border-border"
+                        className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
                         draggable={true}
                         onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                           e.preventDefault(); // Prevent default HTML drag behavior
@@ -692,7 +692,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                                 deleteAudioFile(clip);
                               }
                             }}
-                            className="group px-1.5 py-0.5 text-[9px] font-medium text-foreground hover:text-primary hover:bg-secondary border border-border hover:border-primary rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring active:scale-95"
+                            className="group px-1.5 py-0.5 text-[9px] font-medium text-foreground hover:text-primary hover:bg-secondary border border-border hover:border-primary rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring active:scale-95 non-draggable"
                             title="Delete this audio file permanently"
                           >
                             <span className="group-hover:scale-110 transition-transform duration-200 inline-block">🗑️</span>
@@ -713,7 +713,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           {clip.originalPromptText && clip.originalPromptText.length > 50 && (
                             <button 
                               onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
-                              className="px-2.5 py-1 text-[9px] font-medium text-muted-foreground bg-background hover:bg-secondary border border-border rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring"
+                              className="px-2.5 py-1 text-[9px] font-medium text-muted-foreground bg-background hover:bg-secondary border border-border rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring non-draggable"
                             >
                               View Full Prompt
                             </button>
@@ -725,7 +725,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
                           <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
                         </div>
                         <div className="text-[10px] text-secondary-foreground mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
-                        <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity"></audio>
+                        <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity non-draggable"></audio>
                       </div>
                     ))}
                   </div>

@@ -174,8 +174,10 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="h-screen bg-background text-foreground flex flex-col">
-          <Queue conversation={conversation} />
+        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground flex flex-col draggable">
+          <div className="non-draggable h-full flex flex-col">
+            <Queue conversation={conversation} />
+          </div>
         </div>
         <ToastViewport />
       </ToastProvider>

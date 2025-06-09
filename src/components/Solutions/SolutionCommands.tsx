@@ -130,8 +130,8 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   };
 
   return (
-    <div>
-      <div className="w-full bg-card border-t border-border py-2 px-3 flex items-center gap-2 flex-wrap">
+    <div className="non-draggable">
+      <div className="w-full bg-card/90 backdrop-blur-sm border-t border-border/20 py-2 px-3 flex items-center gap-2 flex-wrap">
         {/* User Input for Follow-up */}
         {isAiResponseActive && (
           <div className="flex items-center gap-1.5 whitespace-nowrap flex-grow min-w-[150px] sm:min-w-[200px]">
@@ -140,7 +140,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               placeholder="Ask a follow-up..."
-              className="px-2 py-1 text-xs text-foreground bg-input border border-border rounded-md focus:ring-1 focus:ring-ring focus:border-ring outline-none transition-colors flex-grow placeholder-muted-foreground"
+              className="px-2 py-1 text-xs text-foreground bg-input/80 backdrop-blur-sm border border-border/20 rounded-md focus:ring-1 focus:ring-ring focus:border-ring outline-none transition-colors flex-grow placeholder-muted-foreground non-draggable"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -161,7 +161,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                 isProcessing 
                   ? "bg-secondary hover:bg-muted" 
                   : "bg-secondary hover:bg-muted"
-              } text-secondary-foreground rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center`}
+              } text-secondary-foreground rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center non-draggable`}
               disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
             >
               {isProcessing ? (
@@ -181,7 +181,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="w-7 h-7 rounded-md bg-secondary hover:bg-muted transition-colors flex items-center justify-center cursor-help z-10">
+          <div className="w-7 h-7 rounded-md bg-secondary hover:bg-muted transition-colors flex items-center justify-center cursor-help z-10 non-draggable">
             <span className="text-xs text-secondary-foreground font-medium">?</span>
           </div>
           {isTooltipVisible && (
@@ -190,7 +190,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
               className="absolute bottom-full right-0 mb-2 w-72" 
               style={{ zIndex: 100 }}
             >
-              <div className="p-2.5 text-[11px] bg-card/95 backdrop-blur-sm rounded-md border border-border text-card-foreground shadow-lg font-normal">
+              <div className="p-2.5 text-[11px] bg-card/95 backdrop-blur-md rounded-md border border-border/20 text-card-foreground shadow-lg font-normal non-draggable">
                 <div className="space-y-3">
                   <h3 className="font-medium whitespace-nowrap text-xs text-card-foreground border-b border-border pb-1.5 mb-1.5">
                     Keyboard Shortcuts
@@ -257,7 +257,7 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
         {/* Sign Out Button */}
         <button
-          className="text-muted-foreground hover:text-primary transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-secondary flex items-center justify-center"
+          className="text-muted-foreground hover:text-primary transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-secondary flex items-center justify-center non-draggable"
           title="Sign Out"
           onClick={() => window.electronAPI.quitApp()}
         >

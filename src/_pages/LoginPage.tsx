@@ -24,8 +24,8 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-background text-foreground">
-      <div className="w-full max-w-md p-8 space-y-8 bg-card border border-border rounded-lg shadow-lg">
+    <div className="flex items-center justify-center h-screen bg-background/80 backdrop-blur-2xl text-foreground draggable">
+      <div className="w-full max-w-md p-8 space-y-8 bg-card/90 backdrop-blur-sm border border-border/20 rounded-lg shadow-lg non-draggable">
         <h2 className="text-2xl font-bold text-center text-card-foreground">Login</h2>
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
@@ -37,7 +37,7 @@ const LoginPage = () => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 mt-2 text-foreground bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full p-3 mt-2 text-foreground bg-input/80 backdrop-blur-sm border border-border/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring non-draggable"
               required
             />
           </div>
@@ -53,14 +53,14 @@ const LoginPage = () => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 mt-2 text-foreground bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full p-3 mt-2 text-foreground bg-input/80 backdrop-blur-sm border border-border/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring non-draggable"
               required
             />
           </div>
           {error && <p className="text-sm text-foreground">{error}</p>}
           <button
             type="submit"
-            className="w-full p-3 font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-ring"
+            className="w-full p-3 font-bold text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-background focus:ring-ring non-draggable"
           >
             Login
           </button>

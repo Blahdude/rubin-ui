@@ -94,11 +94,9 @@ export class WindowHelper {
         contextIsolation: true,
         preload: path.join(__dirname, "preload.js")
       },
-      show: true,            // TEMP: Show immediately to debug
       alwaysOnTop: false,    // Normal window behavior
       frame: false,          // Frameless for overlay style
-      transparent: false,    // TEMP: Make opaque to see content
-      backgroundColor: '#1a1a1a', // TEMP: Dark background
+      transparent: true,    // TEMP: Make opaque to see content
       fullscreenable: true,
       hasShadow: true,
       focusable: true
