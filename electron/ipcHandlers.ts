@@ -108,7 +108,7 @@ export async function callReplicateMusicGeneration(
     // A future step might involve changing the LLM prompt that generates this text.
     const modelInputs = {
       tags: promptText,
-      lyrics: "",
+      lyrics: "[inst]",
       duration: finalApiDuration
     };
 
