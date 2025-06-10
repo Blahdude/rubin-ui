@@ -1,12 +1,12 @@
 import { ToastProvider } from "./components/ui/toast"
-import Queue from "./_pages/Queue"
 import { ToastViewport } from "@radix-ui/react-toast"
 import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "react-query"
 import { onAuthStateChanged, User } from "firebase/auth"
 import { auth } from "./lib/firebase"
 import LoginPage from "./_pages/LoginPage"
-import QueueCommands from "./components/Queue/QueueCommands"
+import Header from "./components/Header"
+import MainView from "./components/layout/MainView"
 
 // Define ConversationItem type - should match electron/main.ts
 export type ConversationItem =
@@ -186,16 +186,19 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground flex flex-col">
-          <div className="draggable">
-            <QueueCommands
+        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground relative">
+          <div className="draggable fixed top-0 left-0 right-0 z-50 flex-shrink-0 backdrop-blur-md">
+            <Header
               onTooltipVisibilityChange={handleTooltipVisibilityChange}
               isProcessingSolution={isProcessingSolution}
               quitApp={handleQuitApp}
             />
           </div>
-          <div className="non-draggable h-full flex flex-col">
-            <Queue conversation={conversation} onProcessingStateChange={setIsProcessingSolution} />
+          <div className="pt-20 h-full overflow-hidden">
+            <MainView
+              conversation={conversation}
+              onProcessingStateChange={setIsProcessingSolution}
+            />
           </div>
         </div>
         <ToastViewport />
