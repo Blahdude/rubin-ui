@@ -186,15 +186,24 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground relative">
-          <div className="draggable fixed top-0 left-0 right-0 z-50 flex-shrink-0 backdrop-blur-md">
-            <Header
-              onTooltipVisibilityChange={handleTooltipVisibilityChange}
-              isProcessingSolution={isProcessingSolution}
-              quitApp={handleQuitApp}
-            />
+        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground relative overflow-hidden">
+          {/* Beautiful gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/3 via-transparent to-transparent pointer-events-none"></div>
+          
+          {/* Enhanced Header */}
+          <div className="draggable fixed top-0 left-0 right-0 z-50 flex-shrink-0">
+            <div className="bg-background/80 backdrop-blur-xl border-b border-border/20 shadow-lg shadow-black/5">
+              <Header
+                onTooltipVisibilityChange={handleTooltipVisibilityChange}
+                isProcessingSolution={isProcessingSolution}
+                quitApp={handleQuitApp}
+              />
+            </div>
           </div>
-          <div className="pt-20 h-full overflow-hidden">
+          
+          {/* Main content with enhanced spacing */}
+          <div className="pt-16 h-full overflow-hidden">
             <MainView
               conversation={conversation}
               onProcessingStateChange={setIsProcessingSolution}

@@ -131,138 +131,158 @@ const TextInput: React.FC<TextInputProps> = ({
 
   return (
     <div className="non-draggable">
-      <div className="w-full bg-card/90 backdrop-blur-sm border-t border-border/20 py-2 px-3 flex items-center gap-2 flex-wrap">
-        {/* User Input for Follow-up */}
-        {isAiResponseActive && (
-          <div className="flex items-center gap-1.5 whitespace-nowrap flex-grow min-w-[150px] sm:min-w-[200px]">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Ask a follow-up..."
-              className="px-2 py-1 text-xs text-foreground bg-input/80 backdrop-blur-sm border border-border/20 rounded-md focus:ring-1 focus:ring-ring focus:border-ring outline-none transition-colors flex-grow placeholder-muted-foreground non-draggable"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendUserResponse();
+      <div className="w-full bg-card/90 backdrop-blur-xl border-t border-border/20 px-4 py-3 shadow-lg shadow-black/5">
+        <div className="flex items-center gap-3">
+          {/* Enhanced User Input */}
+          {isAiResponseActive && (
+            <div className="flex-grow flex items-center gap-3">
+              <div className="relative flex-grow">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  placeholder="Ask a follow-up question..."
+                  className="w-full px-4 py-3 text-sm text-foreground bg-background/50 backdrop-blur-sm border border-border/30 hover:border-border/60 focus:border-primary/50 rounded-xl outline-none transition-all duration-200 placeholder-muted-foreground focus:ring-4 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendUserResponse();
+                    }
+                  }}
+                  disabled={isProcessing}
+                />
+                {userInput && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={isProcessing ? handleCancelQuery : handleSendUserResponse}
+                title={
+                  isMusicGenerationInProgress 
+                    ? "Cancel music generation" 
+                    : isQueryInProgress 
+                      ? "Cancel query" 
+                      : "Send message"
                 }
-              }}
-            />
-            <button
-              onClick={isProcessing ? handleCancelQuery : handleSendUserResponse}
-              title={
-                isMusicGenerationInProgress 
-                  ? "Cancel music generation" 
-                  : isQueryInProgress 
-                    ? "Cancel query" 
-                    : "Send response"
-              }
-              className={`${
-                isProcessing 
-                  ? "bg-secondary hover:bg-muted" 
-                  : "bg-secondary hover:bg-muted"
-              } text-secondary-foreground rounded-md p-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center non-draggable`}
-              disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
-            >
-              {isProcessing ? (
-                <HiStop className="w-3.5 h-3.5" />
-              ) : (
-                <LuSend className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
-        )}
-        
-        {!isAiResponseActive && <div className="flex-grow"></div>}
+                className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isProcessing 
+                    ? "bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive hover:border-destructive/50" 
+                    : userInput.trim()
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 border border-primary/20"
+                      : "bg-secondary/50 hover:bg-secondary/80 border border-border/30 text-muted-foreground cursor-not-allowed"
+                }`}
+                disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
+              >
+                {isProcessing ? (
+                  <div className="relative">
+                    <HiStop className="w-5 h-5" />
+                    <div className="absolute inset-0 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : (
+                  <LuSend className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          )}
+          
+          {!isAiResponseActive && <div className="flex-grow"></div>}
 
-        {/* Question Mark with Tooltip */}
-        <div
-          className="relative inline-block ml-auto"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="w-7 h-7 rounded-md bg-secondary hover:bg-muted transition-colors flex items-center justify-center cursor-help z-10 non-draggable">
-            <span className="text-xs text-secondary-foreground font-medium">?</span>
-          </div>
-          {isTooltipVisible && (
-            <div
-              ref={tooltipRef}
-              className="absolute bottom-full right-0 mb-2 w-72" 
-              style={{ zIndex: 100 }}
-            >
-              <div className="p-2.5 text-[11px] bg-card/95 backdrop-blur-md rounded-md border border-border/20 text-card-foreground shadow-lg font-normal non-draggable">
-                <div className="space-y-3">
-                  <h3 className="font-medium whitespace-nowrap text-xs text-card-foreground border-b border-border pb-1.5 mb-1.5">
-                    Keyboard Shortcuts
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-card-foreground">
-                          Take a Screenshot
-                        </span>
-                        <div className="flex gap-0.5">
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            ⌘
-                          </span>
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            Enter
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
-                        Add a screenshot to the user query.
-                      </p>
+          {/* Enhanced Help Button */}
+          <div
+            className="relative"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <button className="w-10 h-10 rounded-xl bg-secondary/50 hover:bg-secondary/80 border border-border/30 hover:border-border/60 transition-all duration-200 flex items-center justify-center cursor-help group">
+              <span className="text-sm text-muted-foreground group-hover:text-foreground font-medium transition-colors">?</span>
+            </button>
+            
+            {isTooltipVisible && (
+              <div
+                ref={tooltipRef}
+                className="absolute bottom-full right-0 mb-3 z-50 animate-in slide-in-from-bottom-2 duration-200"
+              >
+                <div className="w-80 p-4 bg-card/95 backdrop-blur-xl rounded-xl border border-border/20 shadow-2xl shadow-black/10">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border/20">
+                      <span className="text-primary">⌨️</span>
+                      <h3 className="font-semibold text-sm text-foreground">
+                        Keyboard Shortcuts
+                      </h3>
                     </div>
-                    <div className="space-y-0.5">
+                    
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-card-foreground">
-                          Toggle Window
-                        </span>
-                        <div className="flex gap-0.5">
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            ⌘
-                          </span>
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            B
-                          </span>
+                        <span className="text-xs text-muted-foreground">Show/Hide App</span>
+                        <div className="flex items-center gap-1">
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">B</kbd>
                         </div>
                       </div>
-                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
-                        Show or hide this window.
-                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Solve Problem</span>
+                        <div className="flex items-center gap-1">
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">↵</kbd>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Record Audio</span>
+                        <div className="flex items-center gap-1">
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">;</kbd>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Send Message</span>
+                        <div className="flex items-center gap-1">
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">↵</kbd>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">New Chat</span>
+                        <div className="flex items-center gap-1">
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
+                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">R</kbd>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <div className="flex items-center justify-between">
-                        <span className="whitespace-nowrap font-normal text-card-foreground">Start Over</span>
-                        <div className="flex gap-0.5">
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            ⌘
-                          </span>
-                          <span className="bg-secondary text-secondary-foreground px-1 py-0.5 rounded text-[9px] leading-none font-medium">
-                            R
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-[10px] leading-snug text-muted-foreground font-normal">
-                        Start fresh with a new question.
+                    
+                    <div className="pt-3 border-t border-border/20">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        💡 <span className="font-medium">Tips:</span> Take screenshots, ask questions, and generate music with natural language. Rubin is your AI coding and creative assistant!
                       </p>
                     </div>
                   </div>
+                  
+                  {/* Tooltip arrow */}
+                  <div className="absolute bottom-0 right-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-card border-r border-b border-border/20"></div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-
-        {/* Sign Out Button */}
-        <button
-          className="text-muted-foreground hover:text-primary transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-secondary flex items-center justify-center non-draggable"
-          title="Sign Out"
-          onClick={() => window.electronAPI.quitApp()}
-        >
-          <IoLogOutOutline className="w-3.5 h-3.5" />
-        </button>
+        
+        {/* Processing indicator */}
+        {isProcessing && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg animate-in slide-in-from-bottom duration-200">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+            <span className="text-xs font-medium text-primary">
+              {isMusicGenerationInProgress ? 'Generating music...' : 'Processing your request...'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

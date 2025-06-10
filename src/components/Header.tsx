@@ -27,83 +27,99 @@ const Header: React.FC<HeaderProps> = ({
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      // The onAuthStateChanged listener in App.tsx will handle the UI update
     } catch (error) {
       console.error("Error signing out: ", error);
-      // Optionally, show a toast message on error
     }
   };
 
+  const KeyboardShortcut = ({ keys, label, isActive = false, isLoading = false }: { 
+    keys: string[], 
+    label: string, 
+    isActive?: boolean,
+    isLoading?: boolean 
+  }) => (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
+      isActive ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/50 hover:bg-secondary/80'
+    }`}>
+      <span className={`text-xs font-medium ${
+        isLoading ? 'text-primary animate-pulse' : 'text-muted-foreground'
+      }`}>
+        {isLoading ? 'Solving...' : label}
+      </span>
+      <div className="flex gap-1">
+        {keys.map((key, index) => (
+          <kbd
+            key={index}
+            className={`px-2 py-1 text-[10px] font-bold rounded border transition-all duration-200 ${
+              isActive || isLoading 
+                ? 'bg-primary/20 border-primary/30 text-primary' 
+                : 'bg-background border-border text-foreground hover:bg-muted'
+            }`}
+          >
+            {key}
+          </kbd>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="w-full"> 
-      <div ref={tooltipRef} className="bg-card/90 backdrop-blur-sm border-t border-border/20 rounded-md py-2.5 px-3 flex items-center flex-wrap justify-start gap-x-2 gap-y-1.5 text-xs">
-        {/* Show/Hide */}
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] leading-none font-normal text-muted-foreground">Show/Hide</span>
-          <div className="flex gap-0.5">
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
-              ⌘
-            </button>
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
-              B
-            </button>
+    <div className="w-full px-4 py-3">
+      <div className="flex items-center justify-between">
+        {/* Left side - App branding */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-primary-foreground font-bold text-sm">R</span>
+            </div>
+            <h1 className="font-bold text-lg bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Rubin
+            </h1>
           </div>
+          {isProcessingSolution && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-primary">AI thinking...</span>
+            </div>
+          )}
         </div>
 
-        {/* Solve Command */}
-        <div className="flex items-center gap-1">
-          <span className={`text-[10px] leading-none font-normal ${isProcessingSolution ? 'text-muted-foreground/50 animate-pulse' : 'text-muted-foreground'}`}>
-            {isProcessingSolution ? 'Solving...' : 'Solve'}
-          </span>
-          <div className={`flex gap-0.5 ${isProcessingSolution ? 'opacity-50 cursor-not-allowed' : ''}`}>
-            <button 
-              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
-              disabled={isProcessingSolution}
-            >
-              ⌘
-            </button>
-            <button 
-              className={`bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none font-medium ${isProcessingSolution ? 'text-muted-foreground/50' : 'text-secondary-foreground'}`}
-              disabled={isProcessingSolution}
-            >
-              ↵
-            </button>
-          </div>
+        {/* Center - Keyboard shortcuts */}
+        <div className="flex items-center gap-2">
+          <KeyboardShortcut 
+            keys={['⌘', 'B']} 
+            label="Show/Hide" 
+          />
+          <KeyboardShortcut 
+            keys={['⌘', '↵']} 
+            label="Solve"
+            isActive={isProcessingSolution}
+            isLoading={isProcessingSolution}
+          />
+          <KeyboardShortcut 
+            keys={['⌘', ';']} 
+            label="Record" 
+          />
         </div>
 
-        {/* Record Audio (triggers global VAD recording shortcut handled in main.ts -> Queue.tsx) */}
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] leading-none font-normal text-muted-foreground">
-            Record Audio
-          </span>
-          <div className="flex gap-0.5">
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
-              ⌘
-            </button>
-            <button className="bg-secondary hover:bg-muted transition-colors rounded px-1 py-0.5 text-[10px] leading-none text-secondary-foreground font-medium">
-              ;
-            </button>
-          </div>
-        </div>
-
-        {/* Sign Out Button */}
-        <div className="flex items-center gap-1">
+        {/* Right side - Action buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={handleSignOut}
-            className="bg-secondary hover:bg-primary hover:text-primary-foreground transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium">
-            Sign Out
+            className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary/80 border border-border/50 hover:border-border rounded-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <span>👤</span>
+            <span>Sign Out</span>
+          </button>
+          
+          <button 
+            onClick={quitApp}
+            className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-destructive bg-secondary/50 hover:bg-destructive/10 border border-border/50 hover:border-destructive/30 rounded-lg transition-all duration-200 flex items-center gap-2"
+          >
+            <span>⨯</span>
+            <span>Quit</span>
           </button>
         </div>
-        
-        {/* Quit Button */}
-        <div className="flex items-center gap-1">
-            <button 
-              onClick={quitApp}
-              className="bg-secondary hover:bg-muted transition-colors rounded px-2 py-1 text-[10px] leading-none text-secondary-foreground font-medium">
-             Quit App
-            </button>
-        </div>
-
       </div>
     </div>
   )
