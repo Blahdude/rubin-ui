@@ -8,7 +8,6 @@ import {
   ToastVariant,
   ToastMessage
 } from "../components/ui/toast"
-import QueueCommands from "../components/Queue/QueueCommands"
 import Solutions from "./Solutions"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 import { ConversationItem } from "../App"
@@ -17,6 +16,7 @@ import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } 
 import { doc, setDoc, deleteDoc, collection, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
 import { v4 as uuidv4 } from 'uuid';
 import { onAuthStateChanged, User } from "firebase/auth"
+import SolutionCommands from "../components/Solutions/SolutionCommands"
 
 interface PromptModalProps {
   isOpen: boolean;
@@ -45,7 +45,8 @@ const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }
 };
 
 interface QueueProps {
-  conversation: ConversationItem[]
+  conversation: ConversationItem[];
+  onProcessingStateChange: (isProcessing: boolean) => void;
 }
 
 // Remove AudioQueueItem interface for now, will re-evaluate when integrating properly
@@ -63,7 +64,7 @@ interface ScreenshotItem {
   preview: string;
 }
 
-const Queue: React.FC<QueueProps> = ({ conversation }) => {
+const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
@@ -75,16 +76,13 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [isRecordedAudioOpen, setIsRecordedAudioOpen] = useState(false);
   const [isGeneratedAudioOpen, setIsGeneratedAudioOpen] = useState(false);
 
-  const [isTooltipVisible, setIsTooltipVisible] = useState(false)
-  const [tooltipHeight, setTooltipHeight] = useState(0)
-
   // State for audio clips (MOVED FROM QueueCommands.tsx)
   const [globalRecordings, setGlobalRecordings] = useState<GlobalRecording[]>([])
   const [generatedAudioClips, setGeneratedAudioClips] = useState<GeneratedAudioClip[]>([])
   const [globalRecordingError, setGlobalRecordingError] = useState<string | null>(null)
   const [vadStatusMessage, setVadStatusMessage] = useState<string | null>(null);
   const vadStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isProcessingSolution, setIsProcessingSolution] = useState(false);
+  const [tooltipHeight, setTooltipHeight] = useState(0)
 
   // State for recording and generation duration
   const [recordingDurationSeconds, setRecordingDurationSeconds] = useState(5); // Default 5 seconds
@@ -98,11 +96,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingExistingFiles, setIsLoadingExistingFiles] = useState(false);
 
-  const handleQuitApp = () => {
-    if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
-      window.electronAPI.quitApp();
-    }
-  };
+  const handleTooltipVisibilityChange = (_visible: boolean, height: number) => {
+    setTooltipHeight(height)
+  }
 
   // Function to load existing audio files from Firebase Storage
   const loadExistingMusicFiles = async (user: User) => {
@@ -422,9 +418,9 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
     };
     const handleVadWaiting = () => { clearVadStatusTimeout(); setVadStatusMessage("Waiting for audio..."); setGlobalRecordingError(null); };
     const handleVadRecordingStarted = () => { clearVadStatusTimeout(); setVadStatusMessage("Recording audio..."); };
-          const handleVadTimeout = () => { setVadStatusMessage("No sound detected. Recording timed out."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
+    const handleVadTimeout = () => { setVadStatusMessage("No sound detected. Recording timed out."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
 
-      const handleAudioRecordingComplete = async (data: { path: string }) => {
+    const handleAudioRecordingComplete = async (data: { path: string }) => {
       console.log("Global audio recording complete (Queue.tsx):", data.path);
       const newRecording: GlobalRecording = { id: `global-rec-${Date.now()}`, path: data.path, timestamp: new Date() };
       setGlobalRecordings(prevRecordings => [newRecording, ...prevRecordings]);
@@ -478,7 +474,7 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       // The generationFunction now returns displayName and originalPromptText as well.
       const operationId = `cont-${Date.now()}`; // Generate a unique operation ID
       const continuationPrompt = "Continue this audio"; // Generic prompt for continuation
-              const { generatedUrl, features, displayName, originalPromptText } = await generationFunction(
+      const { generatedUrl, features, displayName, originalPromptText } = await generationFunction(
         operationId, 
         continuationPrompt, 
         recordingPath, // This is the inputFilePath for continuation
@@ -486,46 +482,33 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
       );
       
       showToast("Success", `Generated audio saved. BPM: ${features.bpm}, Key: ${features.key}`, "success");
-              console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedUrl, originalPath: recordingPath, features, displayName, originalPromptText });
-        
-        // Check if notifyGeneratedAudioReady exists before calling
-        if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
-            window.electronAPI.notifyGeneratedAudioReady(generatedUrl, recordingPath, features, displayName, originalPromptText);
-        } else {
-            console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
-            // Fallback: directly update state here if notify doesn't exist
-            const newGeneratedClip: GeneratedAudioClip = { 
-                id: `gen-clip-direct-${Date.now()}`,
-                path: generatedUrl,
-                originalPath: recordingPath || "",
-                timestamp: new Date(),
-                bpm: features.bpm,
-                key: features.key,
-                displayName: displayName,
-                originalPromptText: originalPromptText,
-                status: 'ready'
-            };
-            setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
-        }
+      console.log(`[Queue.tsx] Calling window.electronAPI.notifyGeneratedAudioReady with:`, { generatedUrl, originalPath: recordingPath, features, displayName, originalPromptText });
+      
+      // Check if notifyGeneratedAudioReady exists before calling
+      if (window.electronAPI && typeof window.electronAPI.notifyGeneratedAudioReady === 'function') {
+        window.electronAPI.notifyGeneratedAudioReady(generatedUrl, recordingPath, features, displayName, originalPromptText);
+      } else {
+        console.warn("[Queue.tsx] window.electronAPI.notifyGeneratedAudioReady is not a function. State update for generated clips might be missed if not handled by 'onGeneratedAudioReady' event alone.")
+        // Fallback: directly update state here if notify doesn't exist
+        const newGeneratedClip: GeneratedAudioClip = { 
+          id: `gen-clip-direct-${Date.now()}`,
+          path: generatedUrl,
+          originalPath: recordingPath || "",
+          timestamp: new Date(),
+          bpm: features.bpm,
+          key: features.key,
+          displayName: displayName,
+          originalPromptText: originalPromptText,
+          status: 'ready'
+        };
+        setGeneratedAudioClips(prevClips => [newGeneratedClip, ...prevClips]);
+      }
 
     } catch (error: any) {
       console.error("Error generating music (Queue.tsx):", error);
       showToast("Generation Failed", error.message || "Could not generate audio.", "error");
     }
   };
-
-  const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
-    setIsTooltipVisible(visible)
-    setTooltipHeight(height)
-    // App.tsx MutationObserver/ResizeObserver will handle any DOM changes that affect overall size.
-  }
-
-  // Log conversation changes for debugging
-  useEffect(() => {
-    console.log("[Queue.tsx] Conversation updated (for main chat view):", conversation);
-    console.log("[Queue.tsx] Current globalRecordings state:", globalRecordings);
-    console.log("[Queue.tsx] Current generatedAudioClips state:", generatedAudioClips);
-  }, [conversation, globalRecordings, generatedAudioClips]);
 
   const handleOpenPromptModal = (prompt: string) => {
     setModalPromptText(prompt);
@@ -537,221 +520,217 @@ const Queue: React.FC<QueueProps> = ({ conversation }) => {
   };
 
   return (
-          <div className="flex flex-col h-screen text-foreground">
-      {/* Main Content */}
-      <div className="flex-grow flex flex-col overflow-hidden">
-        {/* Top bar with commands */}
-        <div className="flex-none">
-          <QueueCommands
-            onTooltipVisibilityChange={handleTooltipVisibilityChange}
-            screenshots={screenshots}
-            isProcessingSolution={isProcessingSolution}
-            quitApp={handleQuitApp}
-          />
-        </div>
-
-        {/* Scrollable area for solutions */}
-        <div className="flex flex-col flex-grow min-h-0 space-y-2 p-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full non-draggable">
-          <div className="w-full space-y-3 p-3 bg-card/90 backdrop-blur-sm border border-border/20 rounded-lg">
-            {vadStatusMessage && (
-              <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-muted-foreground`}>
-                {vadStatusMessage}
+    <div className="flex flex-col h-full text-foreground">
+      {/* Top Audio Section (fixed) */}
+      <div className="flex-shrink-0 p-1 space-y-2">
+        <div className="w-full space-y-3 p-3 bg-card/90 backdrop-blur-sm border border-border/20 rounded-lg">
+          {vadStatusMessage && (
+            <div className={`mx-0.5 mb-2 p-1 rounded text-xs font-medium text-muted-foreground`}>
+              {vadStatusMessage}
+            </div>
+          )}
+          {globalRecordings.length > 0 && (
+            <div className="space-y-2">
+              <div 
+                className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
+                onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
+              >
+                <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Recorded Audio</h4>
+                <span className="text-muted-foreground text-xs">
+                  {isRecordedAudioOpen ? '▼' : '▶'}
+                </span>
               </div>
-            )}
-            {globalRecordings.length > 0 && (
-              <div className="space-y-2">
-                <div 
-                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
-                  onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
-                >
-                  <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Recorded Audio</h4>
-                  <span className="text-muted-foreground text-xs">
-                    {isRecordedAudioOpen ? '▼' : '▶'}
-                  </span>
-                </div>
-                {isRecordedAudioOpen && (
-                  <div className="space-y-2 pl-1 pr-0.5 pt-1">
-                    {globalRecordings.map((rec) => (
-                      <div 
-                        key={rec.id} 
-                        className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
-                        draggable={true}
-                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                          e.preventDefault(); // Prevent default HTML drag behavior
-                          e.stopPropagation(); // Stop event propagation
-                          if (rec.path) {
-                            // Set dataTransfer properties for robustness
-                            e.dataTransfer.setData('text/plain', rec.path); // Using path as dummy data
-                            e.dataTransfer.effectAllowed = 'copy';
-                            window.electronAPI.startFileDrag(rec.path);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                        </div>
-                        <p className="text-[11px] font-medium text-secondary-foreground mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
-                        <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2 non-draggable"></audio>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent triggering drag events
-                            handleGenerateMusicFromRecording(rec.path);
-                          }}
-                          className="w-full px-3 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] non-draggable"
-                          title="Generate music based on this recording"
-                        >
-                          <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
-                          <span>Generate Music</span>
-                          <span className="opacity-60 group-hover:opacity-100 transition-opacity">✨</span>
-                        </button>
+              {isRecordedAudioOpen && (
+                <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                  {globalRecordings.map((rec) => (
+                    <div 
+                      key={rec.id} 
+                      className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
+                      draggable={true}
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault(); // Prevent default HTML drag behavior
+                        e.stopPropagation(); // Stop event propagation
+                        if (rec.path) {
+                          // Set dataTransfer properties for robustness
+                          e.dataTransfer.setData('text/plain', rec.path); // Using path as dummy data
+                          e.dataTransfer.effectAllowed = 'copy';
+                          window.electronAPI.startFileDrag(rec.path);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {globalRecordingError && (
-              <div className="mx-0.5 mt-2 p-2 bg-background rounded text-foreground text-xs border border-foreground font-medium">
-                <span className="font-semibold">Audio Error:</span> {globalRecordingError}
-              </div>
-            )}
-            {/* Duration Controls - Minimal Design */}
-            <div className="mx-0.5 mt-3 space-y-2">
-              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
-                <label htmlFor="recordingDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
-                  Recording
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    id="recordingDuration"
-                    name="recordingDuration"
-                    min="1"
-                    max="30"
-                    value={recordingDurationSeconds}
-                    onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
-                  />
-                  <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{recordingDurationSeconds}s</span>
+                      <p className="text-[11px] font-medium text-secondary-foreground mb-2 flex items-center"><span className="mr-1.5 opacity-80">🎤</span><span className="truncate">User Recording</span></p>
+                      <audio controls src={getAudioSrc(rec.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity mb-2 non-draggable"></audio>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent triggering drag events
+                          handleGenerateMusicFromRecording(rec.path);
+                        }}
+                        className="w-full px-3 py-2 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] non-draggable"
+                        title="Generate music based on this recording"
+                      >
+                        <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
+                        <span>Generate Music</span>
+                        <span className="opacity-60 group-hover:opacity-100 transition-opacity">✨</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
-                <label htmlFor="generationDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
-                  Generation
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    id="generationDuration"
-                    name="generationDuration"
-                    min="1"
-                    max="30"
-                    value={generationDurationSeconds}
-                    onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
-                    className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
-                  />
-                  <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{generationDurationSeconds}s</span>
-                </div>
+              )}
+            </div>
+          )}
+          {globalRecordingError && (
+            <div className="mx-0.5 mt-2 p-2 bg-background rounded text-foreground text-xs border border-foreground font-medium">
+              <span className="font-semibold">Audio Error:</span> {globalRecordingError}
+            </div>
+          )}
+          {/* Duration Controls - Minimal Design */}
+          <div className="mx-0.5 mt-3 space-y-2">
+            <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
+              <label htmlFor="recordingDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
+                Recording
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  id="recordingDuration"
+                  name="recordingDuration"
+                  min="1"
+                  max="30"
+                  value={recordingDurationSeconds}
+                  onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))}
+                  className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
+                />
+                <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{recordingDurationSeconds}s</span>
               </div>
             </div>
-            {generatedAudioClips.length > 0 && (
-              <div className="space-y-2 pt-1.5">
-                <div 
-                  className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
-                  onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
-                >
-                  <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Generated Audio</h4>
-                  <span className="text-muted-foreground text-xs">
-                    {isGeneratedAudioOpen ? '▼' : '▶'}
-                  </span>
-                </div>
-                {isGeneratedAudioOpen && (
-                  <div className="space-y-2 pl-1 pr-0.5 pt-1">
-                    {generatedAudioClips.map((clip) => (
-                      <div 
-                        key={clip.id} 
-                        className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
-                        draggable={true}
-                        onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-                          e.preventDefault(); // Prevent default HTML drag behavior
-                          e.stopPropagation(); // Stop event propagation
-                          if (clip.path) {
-                            // Set dataTransfer properties for robustness
-                            e.dataTransfer.setData('text/plain', clip.path); // Using path as dummy data
-                            e.dataTransfer.effectAllowed = 'copy';
-                            window.electronAPI.startFileDrag(clip.path);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation(); // Prevent triggering drag events
-                              if (window.confirm(`Are you sure you want to delete "${clip.displayName || 'this audio file'}"?\n\nThis action cannot be undone.`)) {
-                                deleteAudioFile(clip);
-                              }
-                            }}
-                            className="group px-1.5 py-0.5 text-[9px] font-medium text-foreground hover:text-primary hover:bg-secondary border border-border hover:border-primary rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring active:scale-95 non-draggable"
-                            title="Delete this audio file permanently"
-                          >
-                            <span className="group-hover:scale-110 transition-transform duration-200 inline-block">🗑️</span>
-                          </button>
-                        </div>
-                        
-                        {/* Container for Track Name and View Prompt Button - using justify-between */}
-                        <div className="flex items-center justify-between mb-0.5">
-                          {/* Group for Icon and Track Name - this group will shrink and truncate */}
-                          <div className="flex items-center min-w-0 mr-2">
-                            <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
-                            <span className="text-sm font-semibold text-secondary-foreground truncate">
-                              {clip.displayName}
-                            </span>
-                          </div>
-
-                          {/* View Prompt Button - should not shrink and stays to the right */}
-                          {clip.originalPromptText && clip.originalPromptText.length > 50 && (
-                            <button 
-                              onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
-                              className="px-2.5 py-1 text-[9px] font-medium text-muted-foreground bg-background hover:bg-secondary border border-border rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring non-draggable"
-                            >
-                              View Full Prompt
-                            </button>
-                          )}
-                        </div>
-                        
-                        {/* Based on line */}
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
-                          <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
-                        </div>
-                        <div className="text-[10px] text-secondary-foreground mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
-                        <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity non-draggable"></audio>
+            <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/80 backdrop-blur-sm rounded-md border border-border/20">
+              <label htmlFor="generationDuration" className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">
+                Generation
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  id="generationDuration"
+                  name="generationDuration"
+                  min="1"
+                  max="30"
+                  value={generationDurationSeconds}
+                  onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))}
+                  className="w-16 h-1 bg-input rounded-full appearance-none cursor-pointer slider-minimal non-draggable"
+                />
+                <span className="text-xs font-medium text-secondary-foreground w-6 text-right">{generationDurationSeconds}s</span>
+              </div>
+            </div>
+          </div>
+          {generatedAudioClips.length > 0 && (
+            <div className="space-y-2 pt-1.5">
+              <div 
+                className="flex items-center justify-between cursor-pointer py-1 hover:bg-secondary rounded px-1" 
+                onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
+              >
+                <h4 className="font-medium text-xs text-muted-foreground tracking-wider uppercase">Generated Audio</h4>
+                <span className="text-muted-foreground text-xs">
+                  {isGeneratedAudioOpen ? '▼' : '▶'}
+                </span>
+              </div>
+              {isGeneratedAudioOpen && (
+                <div className="space-y-2 pl-1 pr-0.5 pt-1">
+                  {generatedAudioClips.map((clip) => (
+                    <div 
+                      key={clip.id} 
+                      className="flex flex-col p-2.5 bg-secondary/80 backdrop-blur-sm rounded-lg border border-border/20 non-draggable"
+                      draggable={true}
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
+                        e.preventDefault(); // Prevent default HTML drag behavior
+                        e.stopPropagation(); // Stop event propagation
+                        if (clip.path) {
+                          // Set dataTransfer properties for robustness
+                          e.dataTransfer.setData('text/plain', clip.path); // Using path as dummy data
+                          e.dataTransfer.effectAllowed = 'copy';
+                          window.electronAPI.startFileDrag(clip.path);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center text-[10px] text-muted-foreground"><span className="mr-1.5 opacity-70">⏰</span><span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span></div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering drag events
+                            if (window.confirm(`Are you sure you want to delete "${clip.displayName || 'this audio file'}"?\n\nThis action cannot be undone.`)) {
+                              deleteAudioFile(clip);
+                            }
+                          }}
+                          className="group px-1.5 py-0.5 text-[9px] font-medium text-foreground hover:text-primary hover:bg-secondary border border-border hover:border-primary rounded transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring active:scale-95 non-draggable"
+                          title="Delete this audio file permanently"
+                        >
+                          <span className="group-hover:scale-110 transition-transform duration-200 inline-block">🗑️</span>
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {isLoadingExistingFiles && (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground font-medium">Loading your music files...</p>
-              </div>
-            )}
-            {(!isLoadingExistingFiles && globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
-               <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground font-medium">Record or generate audio to see it here.</p>
-               </div>
-            )}
-          </div>
+                      
+                      {/* Container for Track Name and View Prompt Button - using justify-between */}
+                      <div className="flex items-center justify-between mb-0.5">
+                        {/* Group for Icon and Track Name - this group will shrink and truncate */}
+                        <div className="flex items-center min-w-0 mr-2">
+                          <span className="mr-1.5 opacity-80 flex-shrink-0">🎵</span>
+                          <span className="text-sm font-semibold text-secondary-foreground truncate">
+                            {clip.displayName}
+                          </span>
+                        </div>
 
-          <div className="w-full p-0.5 flex-grow flex flex-col min-h-0">
-            <Solutions 
-              showCommands={true}
-              onProcessingStateChange={setIsProcessingSolution}
-              conversation={conversation}
-            />
-          </div>
+                        {/* View Prompt Button - should not shrink and stays to the right */}
+                        {clip.originalPromptText && clip.originalPromptText.length > 50 && (
+                          <button 
+                            onClick={() => { handleOpenPromptModal(clip.originalPromptText || "No prompt available"); }}
+                            className="px-2.5 py-1 text-[9px] font-medium text-muted-foreground bg-background hover:bg-secondary border border-border rounded-full transition-colors flex-shrink-0 focus:outline-none focus:ring-1 focus:ring-ring non-draggable"
+                          >
+                            View Full Prompt
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Based on line */}
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
+                        <span className="truncate"><span className="mr-1 opacity-70">🔙</span>Based on {clip.originalPath ? `Recording` : (clip.originalPromptText || clip.displayName) ? 'Text Prompt' : 'Unknown Source'}</span>
+                      </div>
+                      <div className="text-[10px] text-secondary-foreground mb-2 flex justify-between font-medium"><span>BPM: {String(clip.bpm) !== 'undefined' ? clip.bpm : 'N/A'}</span><span>Key: {clip.key || 'N/A'}</span></div>
+                      <audio controls src={getAudioSrc(clip.path)} className="w-full h-8 rounded-sm filter saturate-[0.8] opacity-80 hover:opacity-100 transition-opacity non-draggable"></audio>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {isLoadingExistingFiles && (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground font-medium">Loading your music files...</p>
+            </div>
+          )}
+          {(!isLoadingExistingFiles && globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground font-medium">Record or generate audio to see it here.</p>
+              </div>
+          )}
         </div>
+      </div>
+      
+      {/* Middle Chat Section (scrollable) */}
+      <div className="flex-grow min-h-0">
+        <Solutions 
+          onProcessingStateChange={onProcessingStateChange}
+          conversation={conversation}
+        />
+      </div>
+
+      {/* Bottom Command Bar (fixed) */}
+      <div className="flex-shrink-0">
+        <SolutionCommands
+          onTooltipVisibilityChange={handleTooltipVisibilityChange}
+          isAiResponseActive={true}
+          conversation={conversation}
+        />
       </div>
 
       <Toast

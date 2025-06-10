@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "react-query"
 import { onAuthStateChanged, User } from "firebase/auth"
 import { auth } from "./lib/firebase"
 import LoginPage from "./_pages/LoginPage"
+import QueueCommands from "./components/Queue/QueueCommands"
 
 // Define ConversationItem type - should match electron/main.ts
 export type ConversationItem =
@@ -101,6 +102,17 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [sessionInitialized, setSessionInitialized] = useState(false);
+  const [isProcessingSolution, setIsProcessingSolution] = useState(false);
+
+  const handleQuitApp = () => {
+    if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
+      window.electronAPI.quitApp();
+    }
+  };
+
+  const handleTooltipVisibilityChange = (_visible: boolean, _height: number) => {
+    // Dummy function for now
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -174,9 +186,16 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground flex flex-col draggable">
+        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground flex flex-col">
+          <div className="draggable">
+            <QueueCommands
+              onTooltipVisibilityChange={handleTooltipVisibilityChange}
+              isProcessingSolution={isProcessingSolution}
+              quitApp={handleQuitApp}
+            />
+          </div>
           <div className="non-draggable h-full flex flex-col">
-            <Queue conversation={conversation} />
+            <Queue conversation={conversation} onProcessingStateChange={setIsProcessingSolution} />
           </div>
         </div>
         <ToastViewport />

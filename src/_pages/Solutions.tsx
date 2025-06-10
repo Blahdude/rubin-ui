@@ -12,7 +12,6 @@ import {
 } from "../components/ui/toast"
 import { ProblemStatementData } from "../types/solutions"
 import { AudioResult } from "../types/audio"
-import SolutionCommands from "../components/Solutions/SolutionCommands"
 import { ConversationItem } from "../App"
 import { Image as ImageIcon, X } from "lucide-react"
 
@@ -36,12 +35,11 @@ interface SolutionEntry {
 }
 
 interface SolutionsProps {
-  showCommands?: boolean;
   onProcessingStateChange?: (isProcessing: boolean) => void;
   conversation?: ConversationItem[];
 }
 
-const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessingStateChange, conversation }) => {
+const Solutions: React.FC<SolutionsProps> = ({ onProcessingStateChange, conversation }) => {
   const contentRef = useRef<HTMLDivElement>(null)
 
   const [toastOpen, setToastOpen] = useState(false)
@@ -53,9 +51,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
 
   const [queuedScreenshots, setQueuedScreenshots] = useState<Screenshot[]>([])
   const [viewingScreenshotPreview, setViewingScreenshotPreview] = useState<string | null>(null);
-
-  const [isTooltipVisible, setIsTooltipVisible] = useState(false)
-  const [tooltipHeight, setTooltipHeight] = useState(0)
 
   const [isResetting, setIsResetting] = useState(false)
 
@@ -158,11 +153,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
     }
   }, [conversation, onProcessingStateChange]);
 
-  const handleTooltipVisibilityChange = (visible: boolean, height: number) => {
-    setIsTooltipVisible(visible)
-    setTooltipHeight(height)
-  }
-
   if (isResetting) {
     return (
       <div className="flex-grow h-full flex items-center justify-center text-muted-foreground">
@@ -180,7 +170,7 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
   };
 
   return (
-    <div className="flex-grow h-full flex flex-col">
+    <div className="flex flex-col h-full">
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
@@ -192,7 +182,6 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
       <div
         ref={contentRef}
         className="flex-grow overflow-y-auto p-3 md:p-4 space-y-3 scrollbar-thin scrollbar-thumb-muted hover:scrollbar-thumb-muted-foreground scrollbar-track-secondary scrollbar-thumb-rounded-full non-draggable"
-        style={{ paddingBottom: `${tooltipHeight + 10}px` }}
       >
         {conversation?.map((item: ConversationItem, index: number) => {
           if (item.type === 'user_text') {
@@ -404,18 +393,8 @@ const Solutions: React.FC<SolutionsProps> = ({ showCommands = true, onProcessing
            </button>
         </div>
       )}
-
-      {showCommands && (
-        <div className="flex-shrink-0 border-t border-neutral-700 bg-neutral-800 p-0">
-          <SolutionCommands
-            onTooltipVisibilityChange={handleTooltipVisibilityChange}
-            isAiResponseActive={true}
-            conversation={conversation || []}
-          />
-        </div>
-      )}
     </div>
   )
-}
+};
 
-export default Solutions
+export default Solutions;
