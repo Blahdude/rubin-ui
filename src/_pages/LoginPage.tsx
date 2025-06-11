@@ -8,6 +8,24 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const handleQuitApp = () => {
+    console.log("QUIT BUTTON CLICKED FROM LOGIN PAGE!");
+    try {
+      if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
+        console.log("Calling electronAPI.quitApp...");
+        window.electronAPI.quitApp();
+      } else {
+        console.error("electronAPI.quitApp not available, using fallback");
+        // Fallback: close the window
+        window.close();
+      }
+    } catch (error) {
+      console.error("Error quitting app:", error);
+      // Final fallback
+      window.close();
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -29,6 +47,25 @@ const LoginPage = () => {
 
   return (
     <div className="flex items-center justify-center h-screen bg-background/95 backdrop-blur-3xl text-foreground draggable overflow-hidden">
+      {/* Quit button in top right corner */}
+      <button 
+        onClick={(e) => {
+          console.log("QUIT BUTTON CLICKED FROM LOGIN!");
+          e.preventDefault();
+          e.stopPropagation();
+          handleQuitApp();
+        }}
+        className="non-draggable fixed top-4 right-4 z-50 group flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-error bg-white/20 hover:bg-error/5 border border-border/30 hover:border-error/20 rounded-md transition-all duration-200 backdrop-blur-xl"
+      >
+        <div className="w-4 h-4 flex items-center justify-center text-muted-foreground group-hover:text-error transition-colors duration-200">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </div>
+        <span>Quit</span>
+      </button>
+
       {/* Enhanced background with multiple layers */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background/98 to-background/95 pointer-events-none"></div>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.1),transparent)] pointer-events-none"></div>
@@ -69,7 +106,7 @@ const LoginPage = () => {
                 Welcome to Rubin
               </h1>
               <p className="text-muted-foreground text-sm">
-                Your AI-powered coding and creative assistant
+                Your AI-powered music and creative assistant
               </p>
             </div>
           </div>

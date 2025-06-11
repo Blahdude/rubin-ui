@@ -1,5 +1,5 @@
 {
-  "name": "interview-coder",
+  "name": "Rubin",
   "version": "1.0.0",
   "main": "./dist-electron/main.js",
   "scripts": {
@@ -13,8 +13,8 @@
     "watch": "tsc -p electron/tsconfig.json --watch"
   },
   "build": {
-    "appId": "com.electron.interview-coder",
-    "productName": "Interview Coder",
+    "appId": "com.electron.rubin",
+    "productName": "Rubin",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",

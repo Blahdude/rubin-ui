@@ -137,8 +137,20 @@ const App: React.FC = () => {
   const [isFirstLogin, setIsFirstLogin] = useState(true);
 
   const handleQuitApp = () => {
-    if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
-      window.electronAPI.quitApp();
+    console.log("QUIT BUTTON CLICKED!");
+    try {
+      if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
+        console.log("Calling electronAPI.quitApp...");
+        window.electronAPI.quitApp();
+      } else {
+        console.error("electronAPI.quitApp not available, using fallback");
+        // Fallback: close the window
+        window.close();
+      }
+    } catch (error) {
+      console.error("Error quitting app:", error);
+      // Final fallback
+      window.close();
     }
   };
 
@@ -242,7 +254,6 @@ const App: React.FC = () => {
             <div className="bg-white/60 backdrop-blur-xl border-b border-border/20">
               <Header
                 onTooltipVisibilityChange={handleTooltipVisibilityChange}
-                isProcessingSolution={isProcessingSolution}
                 quitApp={handleQuitApp}
               />
             </div>
