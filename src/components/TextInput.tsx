@@ -7,12 +7,14 @@ interface TextInputProps {
   onTooltipVisibilityChange?: (visible: boolean, height: number) => void
   isAiResponseActive?: boolean;
   conversation?: any[];
+  onShowTutorial?: () => void;
 }
 
 const TextInput: React.FC<TextInputProps> = ({
   onTooltipVisibilityChange,
   isAiResponseActive = true,
-  conversation = []
+  conversation = [],
+  onShowTutorial
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -255,10 +257,22 @@ const TextInput: React.FC<TextInputProps> = ({
                       </div>
                     </div>
                     
-                    <div className="pt-3 border-t border-border/20">
+                    <div className="pt-3 border-t border-border/20 space-y-3">
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         💡 <span className="font-medium">Tips:</span> Take screenshots, ask questions, and generate music with natural language. Rubin is your AI coding and creative assistant!
                       </p>
+                      
+                      {onShowTutorial && (
+                        <button
+                          onClick={() => {
+                            setIsTooltipVisible(false);
+                            onShowTutorial();
+                          }}
+                          className="w-full px-3 py-2 text-xs bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/30 rounded-lg text-primary font-medium transition-colors"
+                        >
+                          📚 Show Tutorial Again
+                        </button>
+                      )}
                     </div>
                   </div>
                   

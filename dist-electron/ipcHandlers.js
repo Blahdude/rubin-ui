@@ -16,6 +16,7 @@ const os_1 = __importDefault(require("os")); // For temp directory
 const child_process_1 = require("child_process"); // For calling ffmpeg
 // Import the new function from shortcuts.ts
 const shortcuts_1 = require("./shortcuts");
+const cyanite_tags_parser_1 = require("./cyanite-tags-parser");
 // Variable to store the UI preferred generation duration
 let uiPreferredGenerationDurationSeconds = 8; // Default value
 // Map to store active Replicate prediction IDs associated with an operation ID
@@ -77,10 +78,16 @@ async function callReplicateMusicGeneration(operationId, promptText, inputFilePa
         const newSegmentDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds; // Length of the part to add
         let finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
         finalApiDuration = Math.round(finalApiDuration);
-        console.log(`[Replicate] CONTINUATION for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s.`);
+        // Validate and filter prompt to only use approved tags from cyanite_tags.csv
+        const validation = (0, cyanite_tags_parser_1.validatePromptTags)(promptText);
+        const filteredPromptText = (0, cyanite_tags_parser_1.filterToValidTags)(promptText);
+        if (validation.invalidTags.length > 0) {
+            console.warn(`[Replicate] Invalid tags detected and filtered out for continuation op ${operationId}:`, validation.invalidTags);
+        }
+        console.log(`[Replicate] CONTINUATION for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}".`);
         const modelInputs = {
             model_version: "stereo-melody-large",
-            prompt: promptText,
+            prompt: filteredPromptText || "Happy", // Fallback to a valid tag if filtering results in empty string
             duration: finalApiDuration,
             output_format: "wav",
             continuation: true,
@@ -99,11 +106,17 @@ async function callReplicateMusicGeneration(operationId, promptText, inputFilePa
         predictionModelName = "ACE-Step (Text-to-Music)";
         let finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
         finalApiDuration = Math.round(finalApiDuration);
-        console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Prompt: "${promptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
+        // Validate and filter prompt to only use approved tags from cyanite_tags.csv
+        const validation = (0, cyanite_tags_parser_1.validatePromptTags)(promptText);
+        const filteredPromptText = (0, cyanite_tags_parser_1.filterToValidTags)(promptText);
+        if (validation.invalidTags.length > 0) {
+            console.warn(`[Replicate] Invalid tags detected and filtered out for op ${operationId}:`, validation.invalidTags);
+        }
+        console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
         // NOTE: The new model expects comma-separated tags. The promptText might need to be converted.
         // A future step might involve changing the LLM prompt that generates this text.
         const modelInputs = {
-            tags: promptText,
+            tags: filteredPromptText || "Happy", // Fallback to a valid tag if filtering results in empty string
             lyrics: "[inst]",
             duration: finalApiDuration
         };

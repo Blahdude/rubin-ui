@@ -50,6 +50,7 @@ const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }
 interface QueueProps {
   conversation: ConversationItem[];
   onProcessingStateChange: (isProcessing: boolean) => void;
+  onShowTutorial?: () => void;
 }
 
 interface ScreenshotItem {
@@ -57,7 +58,7 @@ interface ScreenshotItem {
   preview: string;
 }
 
-const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange }) => {
+const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange, onShowTutorial }) => {
   const [toastOpen, setToastOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<ToastMessage>({
     title: "",
@@ -168,6 +169,7 @@ const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange }) 
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
             isAiResponseActive={true}
             conversation={conversation}
+            onShowTutorial={onShowTutorial}
           />
         </div>
       </div>

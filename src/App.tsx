@@ -7,6 +7,7 @@ import { auth } from "./lib/firebase"
 import LoginPage from "./_pages/LoginPage"
 import Header from "./components/Header"
 import MainView from "./components/layout/MainView"
+import TutorialBanner from "./components/TutorialBanner"
 
 // Define ConversationItem type - should match electron/main.ts
 export type ConversationItem =
@@ -103,6 +104,8 @@ const App: React.FC = () => {
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [sessionInitialized, setSessionInitialized] = useState(false);
   const [isProcessingSolution, setIsProcessingSolution] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [isFirstLogin, setIsFirstLogin] = useState(true);
 
   const handleQuitApp = () => {
     if (window.electronAPI && typeof window.electronAPI.quitApp === 'function') {
@@ -114,6 +117,16 @@ const App: React.FC = () => {
     // Dummy function for now
   }
 
+  const handleCloseTutorial = () => {
+    setShowTutorial(false);
+    // Mark that user has seen the tutorial
+    localStorage.setItem('hasSeenTutorial', 'true');
+  }
+
+  const handleShowTutorial = () => {
+    setShowTutorial(true);
+  }
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -123,17 +136,23 @@ const App: React.FC = () => {
           console.log('User authenticated, initializing session with welcome message.');
           window.electronAPI.startNewChat();
           setSessionInitialized(true);
+          
+          // Show tutorial on every sign-in (you can modify this logic as needed)
+          // For now, let's show it every time, but you could check localStorage to only show once
+          setShowTutorial(true);
+          setIsFirstLogin(false);
         }
       } else {
         // User signed out, clear conversation and reset the session flag
         setConversation([]);
         setSessionInitialized(false);
+        setIsFirstLogin(true);
       }
     });
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [sessionInitialized]);
+  }, [sessionInitialized, isFirstLogin]);
 
   useEffect(() => {
     // Attempt to move the window to the right on startup
@@ -207,8 +226,15 @@ const App: React.FC = () => {
             <MainView
               conversation={conversation}
               onProcessingStateChange={setIsProcessingSolution}
+              onShowTutorial={handleShowTutorial}
             />
           </div>
+          
+          {/* Tutorial Banner */}
+          <TutorialBanner
+            isVisible={showTutorial}
+            onClose={handleCloseTutorial}
+          />
         </div>
         <ToastViewport />
       </ToastProvider>

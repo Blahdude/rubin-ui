@@ -5,14 +5,16 @@ import { ConversationItem } from '../../App';
 interface MainViewProps {
   conversation: ConversationItem[];
   onProcessingStateChange: (isProcessing: boolean) => void;
+  onShowTutorial?: () => void;
 }
 
-const MainView: React.FC<MainViewProps> = ({ conversation, onProcessingStateChange }) => {
+const MainView: React.FC<MainViewProps> = ({ conversation, onProcessingStateChange, onShowTutorial }) => {
   return (
     <div className="non-draggable h-full">
       <Queue
         conversation={conversation}
         onProcessingStateChange={onProcessingStateChange}
+        onShowTutorial={onShowTutorial}
       />
     </div>
   );
