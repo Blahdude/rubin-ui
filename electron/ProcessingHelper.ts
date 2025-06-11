@@ -4,7 +4,7 @@ import { AppState, ConversationItem } from "./main"
 import { LLMHelper } from "./LLMHelper"
 import dotenv from "dotenv"
 import { v4 as uuidv4 } from "uuid"
-import { callReplicateMusicGeneration } from "./ipcHandlers"
+import { callReplicateMusicGeneration, callACEStepTextConditioning, callMusicGenAudioConditioning } from "./ipcHandlers"
 
 dotenv.config()
 
@@ -171,8 +171,8 @@ export class ProcessingHelper {
         } else {
           console.log(`[ProcessingHelper] Attempting Replicate text-to-music for AI Message ID: ${aiMessageId} with prompt: "${musicPrompt}". UI preferred duration will be used.`)
           try {
-            const { generatedUrl, features, displayName, originalPromptText } = await callReplicateMusicGeneration(aiMessageId, musicPrompt, undefined /* inputFilePath */, undefined /* durationFromCaller - force use of UI preference */);
-            console.log(`[ProcessingHelper] Replicate generated audio URL (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedUrl}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`)
+            const { generatedUrl, features, displayName, originalPromptText } = await callACEStepTextConditioning(aiMessageId, musicPrompt, undefined /* durationFromCaller - force use of UI preference */);
+            console.log(`[ProcessingHelper] ACE-STEP generated audio URL (text-to-music) for AI Message ID: ${aiMessageId}: ${generatedUrl}, Features:`, features, `DisplayName: ${displayName}`, `OriginalPrompt: ${originalPromptText}`)
             
             finalAudioMessageContentUpdate = {
               isLoadingAudio: false,
@@ -185,19 +185,19 @@ export class ProcessingHelper {
             }
 
           } catch (replicateError: any) {
-            console.error(`[ProcessingHelper] Error calling Replicate for text-to-music for AI Message ID: ${aiMessageId}:`, replicateError)
+            console.error(`[ProcessingHelper] Error calling ACE-STEP for text-to-music for AI Message ID: ${aiMessageId}:`, replicateError)
             // Check if the error indicates cancellation
             if (replicateError.message && replicateError.message.includes("was canceled")) {
               finalAudioMessageContentUpdate = {
                 isLoadingAudio: false,
                 musicGenerationError: "Music generation was canceled by the user.", // User-friendly message
                 musicGenerationCancelled: true // Optional flag for more specific UI handling
-              };
+              }
             } else {
               finalAudioMessageContentUpdate = {
                 isLoadingAudio: false,
                 musicGenerationError: replicateError.message || "Unknown error during music generation."
-              };
+              }
             }
           }
         }
@@ -249,17 +249,17 @@ export class ProcessingHelper {
           }
         } else {
           try {
-            // This legacy call does not currently support cancellation as it doesn't use an operationId. Consider refactoring.
-            const { generatedUrl, features, displayName, originalPromptText } = await callReplicateMusicGeneration(tempContinuationAiMessageId, musicPrompt, baseAudioForContinuation, duration)
+            // Use dedicated MusicGen function for audio conditioning
+            const { generatedUrl, features, displayName, originalPromptText } = await callMusicGenAudioConditioning(tempContinuationAiMessageId, musicPrompt, baseAudioForContinuation, duration)
             continuationMessageItem = {
               id: tempContinuationAiMessageId, type: "ai_response",
               content: { 
                   solution: { 
-                      code: solution.code || `Continuation generated (BPM: ${features.bpm}, Key: ${features.key})!`,
-                      problem_statement: solution.problem_statement || "Music Continuation",
+                      code: solution.code || `MusicGen continuation generated (BPM: ${features.bpm}, Key: ${features.key})!`,
+                      problem_statement: solution.problem_statement || "Music Continuation (MusicGen)",
                       context: solution.context || `Generated from: ${baseAudioForContinuation} with prompt: "${musicPrompt}"`,
                       suggested_responses: solution.suggested_responses || [],
-                      reasoning: solution.reasoning || "Called Replicate for music continuation."
+                      reasoning: solution.reasoning || "Called MusicGen for audio conditioning."
                     }, 
                   playableAudioPath: generatedUrl
                 },

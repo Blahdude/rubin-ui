@@ -159,6 +159,8 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
         electron_1.ipcRenderer.send("ondragstart-file", filePath);
     },
     generateMusic: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
+    generateMusicFromRecording: (operationId, promptText, inputFilePath, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music-from-recording", operationId, promptText, inputFilePath, durationSeconds),
+    generateMusicFromText: (operationId, promptText, durationSeconds) => electron_1.ipcRenderer.invoke("generate-music-from-text", operationId, promptText, durationSeconds),
     cancelMusicGeneration: (operationId) => electron_1.ipcRenderer.invoke("cancel-music-generation", operationId),
     notifyGeneratedAudioReady: (generatedUrl, originalPath, features, displayName, originalPromptText) => {
         electron_1.ipcRenderer.send("notify-generated-audio-ready", { generatedUrl, originalPath, features, displayName, originalPromptText });

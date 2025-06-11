@@ -41,103 +41,74 @@ if (fs.existsSync(envPath)) {
   }
 }
 
-// Corrected callReplicateMusicGeneration function
-export async function callReplicateMusicGeneration(
+// DEDICATED FUNCTION FOR AUDIO CONDITIONING (MusicGen)
+export async function callMusicGenAudioConditioning(
   operationId: string,
   promptText: string,
-  inputFilePath?: string,
-  durationFromCaller?: number // This is the UI slider value for "new segment length" in continuation, or desired total length if passed for text-to-music (though usually undefined for text-to-music now)
+  inputFilePath: string,
+  durationFromCaller?: number
 ): Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
   
   const replicateApiKey = process.env.REPLICATE_API_KEY;
   if (!replicateApiKey) {
-    console.error(`[Replicate] API key not configured for operation ${operationId}.`);
+    console.error(`[Replicate] API key not configured for MusicGen operation ${operationId}.`);
     throw new Error("Replicate API key is not configured.");
   }
   const replicate = new Replicate({ auth: replicateApiKey });
   
-  let predictionPromise;
-  let predictionModelName: string;
-
-  if (inputFilePath && typeof inputFilePath === 'string' && fs.existsSync(inputFilePath)) {
-    // CONTINUATION LOGIC (MusicGen)
-    predictionModelName = "MusicGen (Continuation)";
-    let knownInputAudioDurationSeconds: number | undefined;
-    try {
-      const durationOutput = await new Promise<string>((resolve, reject) => {
-        exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`, (err, stdout, stderr) => {
-          if (err) { console.error(`[Replicate] ffprobe stderr for op ${operationId}: ${stderr}`); return reject(err); }
-          resolve(stdout.trim());
-        });
-      });
-      knownInputAudioDurationSeconds = parseFloat(durationOutput);
-      if (isNaN(knownInputAudioDurationSeconds)) knownInputAudioDurationSeconds = undefined;
-    } catch (e) { console.error(`[Replicate] ffprobe error for op ${operationId}:`, e); knownInputAudioDurationSeconds = undefined; }
-    
-    const originalInputDurationForLog = knownInputAudioDurationSeconds ?? "N/A";
-    const newSegmentDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds; // Length of the part to add
-    let finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
-    finalApiDuration = Math.round(finalApiDuration);
-    
-    // Validate and filter prompt to only use approved tags from cyanite_tags.csv
-    const validation = validatePromptTags(promptText);
-    const filteredPromptText = filterToValidTags(promptText);
-    
-    if (validation.invalidTags.length > 0) {
-      console.warn(`[Replicate] Invalid tags detected and filtered out for continuation op ${operationId}:`, validation.invalidTags);
-    }
-    
-    console.log(`[Replicate] CONTINUATION for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}".`);
-
-    const modelInputs: any = {
-      model_version: "stereo-melody-large",
-      prompt: filteredPromptText || "Happy", // Fallback to a valid tag if filtering results in empty string
-      duration: finalApiDuration,
-      output_format: "wav",
-      continuation: true,
-      continuation_start: 0,
-      continuation_end: Math.round(knownInputAudioDurationSeconds ? Math.min(knownInputAudioDurationSeconds, 2.0) : 2.0),
-      input_audio: fs.readFileSync(inputFilePath)
-    };
-    
-    console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, { ...modelInputs, input_audio: `<Buffer for ${inputFilePath}>` });
-    
-    predictionPromise = replicate.predictions.create({
-      version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38", // facebookresearch/musicgen:stereo-melody-large
-      input: modelInputs,
-    });
-
-  } else {
-    // TEXT-TO-MUSIC (FROM SCRATCH) LOGIC (ACE-Step)
-    predictionModelName = "ACE-Step (Text-to-Music)";
-    let finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
-    finalApiDuration = Math.round(finalApiDuration);
-    
-    // Validate and filter prompt to only use approved tags from cyanite_tags.csv
-    const validation = validatePromptTags(promptText);
-    const filteredPromptText = filterToValidTags(promptText);
-    
-    if (validation.invalidTags.length > 0) {
-      console.warn(`[Replicate] Invalid tags detected and filtered out for op ${operationId}:`, validation.invalidTags);
-    }
-    
-    console.log(`[Replicate] TEXT-TO-MUSIC for op ${operationId}. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}". Effective Total Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
-    
-    // NOTE: The new model expects comma-separated tags. The promptText might need to be converted.
-    // A future step might involve changing the LLM prompt that generates this text.
-    const modelInputs = {
-      tags: filteredPromptText || "Happy", // Fallback to a valid tag if filtering results in empty string
-      lyrics: "[inst]",
-      duration: finalApiDuration
-    };
-
-    console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, modelInputs);
-    
-    predictionPromise = replicate.predictions.create({
-      version: "280fc4f9ee507577f880a167f639c02622421d8fecf492454320311217b688f1", // lucataco/ace-step
-      input: modelInputs,
-    });
+  if (!inputFilePath || !fs.existsSync(inputFilePath)) {
+    throw new Error(`Input audio file is required for MusicGen conditioning but path "${inputFilePath}" is invalid or does not exist.`);
   }
+
+  const predictionModelName = "MusicGen (Audio Conditioning)";
+  let knownInputAudioDurationSeconds: number | undefined;
+  
+  try {
+    const durationOutput = await new Promise<string>((resolve, reject) => {
+      exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${inputFilePath}"`, (err, stdout, stderr) => {
+        if (err) { console.error(`[Replicate] ffprobe stderr for op ${operationId}: ${stderr}`); return reject(err); }
+        resolve(stdout.trim());
+      });
+    });
+    knownInputAudioDurationSeconds = parseFloat(durationOutput);
+    if (isNaN(knownInputAudioDurationSeconds)) knownInputAudioDurationSeconds = undefined;
+  } catch (e) { 
+    console.error(`[Replicate] ffprobe error for op ${operationId}:`, e); 
+    knownInputAudioDurationSeconds = undefined; 
+  }
+  
+  const originalInputDurationForLog = knownInputAudioDurationSeconds ?? "N/A";
+  const newSegmentDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
+  let finalApiDuration = (knownInputAudioDurationSeconds || 0) + newSegmentDuration;
+  finalApiDuration = Math.round(finalApiDuration);
+  
+  // Validate and filter prompt to only use approved tags from cyanite_tags.csv
+  const validation = validatePromptTags(promptText);
+  const filteredPromptText = filterToValidTags(promptText);
+  
+  if (validation.invalidTags.length > 0) {
+    console.warn(`[Replicate] Invalid tags detected and filtered out for MusicGen op ${operationId}:`, validation.invalidTags);
+  }
+  
+  console.log(`[Replicate] MUSICGEN AUDIO CONDITIONING for op ${operationId}. Input: ${inputFilePath}, Input Duration: ~${originalInputDurationForLog}s. New Segment Desired: ${newSegmentDuration}s. Rounded Total API Duration: ${finalApiDuration}s. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}".`);
+
+  const modelInputs: any = {
+    model_version: "stereo-melody-large",
+    prompt: filteredPromptText || "Happy",
+    duration: finalApiDuration,
+    output_format: "wav",
+    continuation: true,
+    continuation_start: 0,
+    continuation_end: Math.round(knownInputAudioDurationSeconds ? Math.min(knownInputAudioDurationSeconds, 2.0) : 2.0),
+    input_audio: fs.readFileSync(inputFilePath)
+  };
+  
+  console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, { ...modelInputs, input_audio: `<Buffer for ${inputFilePath}>` });
+  
+  const predictionPromise = replicate.predictions.create({
+    version: "b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38", // facebookresearch/musicgen:stereo-melody-large
+    input: modelInputs,
+  });
 
   let predictionId: string | null = null;
 
@@ -145,51 +116,155 @@ export async function callReplicateMusicGeneration(
     const prediction = await predictionPromise;
 
     if (prediction.error) {
-      console.error(`[Replicate] Prediction creation error for operation ${operationId}: ${prediction.error}`);
-      throw new Error(`Replicate prediction error: ${prediction.error}`);
+      console.error(`[Replicate] MusicGen prediction creation error for operation ${operationId}: ${prediction.error}`);
+      throw new Error(`Replicate MusicGen prediction error: ${prediction.error}`);
     }
     
     predictionId = prediction.id;
     activeReplicatePredictions.set(operationId, predictionId);
-    console.log(`[Replicate] Prediction started with ${predictionModelName} for operation ${operationId}. ID: ${predictionId}, Status: ${prediction.status}`);
+    console.log(`[Replicate] MusicGen prediction started for operation ${operationId}. ID: ${predictionId}, Status: ${prediction.status}`);
 
     let finalPrediction = prediction;
     while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
       await new Promise(resolve => setTimeout(resolve, 2500));
       if (!predictionId) { 
-          console.error(`[Replicate] Critical error: predictionId is null during polling for operation ${operationId}.`);
-          // This should ideally not be reached if prediction creation was successful and predictionId was set.
-          throw new Error("Internal error: Prediction ID became null during polling.");
+        console.error(`[Replicate] Critical error: predictionId is null during MusicGen polling for operation ${operationId}.`);
+        throw new Error("Internal error: MusicGen prediction ID became null during polling.");
       }
       finalPrediction = await replicate.predictions.get(predictionId);
-      console.log(`[Replicate] Polling prediction ${predictionId} (operation ${operationId}): Status: ${finalPrediction.status}`);
+      console.log(`[Replicate] Polling MusicGen prediction ${predictionId} (operation ${operationId}): Status: ${finalPrediction.status}`);
     }
 
     if (finalPrediction.status === "succeeded") {
       const outputUrl = finalPrediction.output as string;
-      console.log(`[Replicate] Prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
+      console.log(`[Replicate] MusicGen prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
       
-      const baseName = inputFilePath 
-        ? path.basename(inputFilePath, path.extname(inputFilePath)) 
-        : promptText;
-
+      const baseName = path.basename(inputFilePath, path.extname(inputFilePath));
       return { generatedUrl: outputUrl, features: { bpm: "N/A", key: "N/A" }, displayName: baseName, originalPromptText: promptText };
     } else if (finalPrediction.status === "canceled") {
-        console.log(`[Replicate] Music generation canceled for operation ${operationId}, prediction ${predictionId}.`);
-        throw new Error(`Music generation for operation ${operationId} was canceled.`);
+      console.log(`[Replicate] MusicGen generation canceled for operation ${operationId}, prediction ${predictionId}.`);
+      throw new Error(`MusicGen generation for operation ${operationId} was canceled.`);
     } else { // failed
-        console.error(`[Replicate] Music generation failed for operation ${operationId}, prediction ${predictionId}. Status: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
-        throw new Error(`Music generation failed for operation ${operationId}: ${finalPrediction.error || finalPrediction.status}`);
+      console.error(`[Replicate] MusicGen generation failed for operation ${operationId}, prediction ${predictionId}. Status: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
+      throw new Error(`MusicGen generation failed for operation ${operationId}: ${finalPrediction.error || finalPrediction.status}`);
     }
   } catch (error: any) {
-    console.error(`[Replicate] Overall error in callReplicateMusicGeneration for operation ${operationId} (prediction ${predictionId || 'N/A'}):`, error.message);
-    // Ensure the error thrown has a message property, as ProcessingHelper expects it.
+    console.error(`[Replicate] Overall error in MusicGen audio conditioning for operation ${operationId} (prediction ${predictionId || 'N/A'}):`, error.message);
     throw (error instanceof Error ? error : new Error(String(error.message || error)));
   } finally {
-    if (operationId) { // Ensure operationId was provided
+    if (operationId) {
       activeReplicatePredictions.delete(operationId);
-      console.log(`[Replicate] Cleaned up operation ${operationId} (prediction ${predictionId || 'N/A'}) from active predictions map in finally block.`);
+      console.log(`[Replicate] Cleaned up MusicGen operation ${operationId} (prediction ${predictionId || 'N/A'}) from active predictions map.`);
     }
+  }
+}
+
+// DEDICATED FUNCTION FOR TEXT CONDITIONING (ACE-STEP)
+export async function callACEStepTextConditioning(
+  operationId: string,
+  promptText: string,
+  durationFromCaller?: number
+): Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
+  
+  const replicateApiKey = process.env.REPLICATE_API_KEY;
+  if (!replicateApiKey) {
+    console.error(`[Replicate] API key not configured for ACE-STEP operation ${operationId}.`);
+    throw new Error("Replicate API key is not configured.");
+  }
+  const replicate = new Replicate({ auth: replicateApiKey });
+  
+  const predictionModelName = "ACE-STEP (Text Conditioning)";
+  let finalApiDuration = durationFromCaller ?? uiPreferredGenerationDurationSeconds;
+  finalApiDuration = Math.round(finalApiDuration);
+  
+  // Validate and filter prompt to only use approved tags from cyanite_tags.csv
+  const validation = validatePromptTags(promptText);
+  const filteredPromptText = filterToValidTags(promptText);
+  
+  if (validation.invalidTags.length > 0) {
+    console.warn(`[Replicate] Invalid tags detected and filtered out for ACE-STEP op ${operationId}:`, validation.invalidTags);
+  }
+  
+  console.log(`[Replicate] ACE-STEP TEXT CONDITIONING for op ${operationId}. Original Prompt: "${promptText}". Filtered Prompt: "${filteredPromptText}". Duration: ${finalApiDuration}s (Caller: ${durationFromCaller}, UI Pref: ${uiPreferredGenerationDurationSeconds})`);
+  
+  const modelInputs = {
+    tags: filteredPromptText || "Happy",
+    lyrics: "[inst]",
+    duration: finalApiDuration
+  };
+
+  console.log(`[Replicate] Calling ${predictionModelName} for op ${operationId} with inputs:`, modelInputs);
+  
+  const predictionPromise = replicate.predictions.create({
+    version: "280fc4f9ee507577f880a167f639c02622421d8fecf492454320311217b688f1", // lucataco/ace-step
+    input: modelInputs,
+  });
+
+  let predictionId: string | null = null;
+
+  try {
+    const prediction = await predictionPromise;
+
+    if (prediction.error) {
+      console.error(`[Replicate] ACE-STEP prediction creation error for operation ${operationId}: ${prediction.error}`);
+      throw new Error(`Replicate ACE-STEP prediction error: ${prediction.error}`);
+    }
+    
+    predictionId = prediction.id;
+    activeReplicatePredictions.set(operationId, predictionId);
+    console.log(`[Replicate] ACE-STEP prediction started for operation ${operationId}. ID: ${predictionId}, Status: ${prediction.status}`);
+
+    let finalPrediction = prediction;
+    while (finalPrediction.status !== "succeeded" && finalPrediction.status !== "failed" && finalPrediction.status !== "canceled") {
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      if (!predictionId) { 
+        console.error(`[Replicate] Critical error: predictionId is null during ACE-STEP polling for operation ${operationId}.`);
+        throw new Error("Internal error: ACE-STEP prediction ID became null during polling.");
+      }
+      finalPrediction = await replicate.predictions.get(predictionId);
+      console.log(`[Replicate] Polling ACE-STEP prediction ${predictionId} (operation ${operationId}): Status: ${finalPrediction.status}`);
+    }
+
+    if (finalPrediction.status === "succeeded") {
+      const outputUrl = finalPrediction.output as string;
+      console.log(`[Replicate] ACE-STEP prediction ${predictionId} (operation ${operationId}) succeeded. Output URL: ${outputUrl}`);
+      
+      return { generatedUrl: outputUrl, features: { bpm: "N/A", key: "N/A" }, displayName: promptText, originalPromptText: promptText };
+    } else if (finalPrediction.status === "canceled") {
+      console.log(`[Replicate] ACE-STEP generation canceled for operation ${operationId}, prediction ${predictionId}.`);
+      throw new Error(`ACE-STEP generation for operation ${operationId} was canceled.`);
+    } else { // failed
+      console.error(`[Replicate] ACE-STEP generation failed for operation ${operationId}, prediction ${predictionId}. Status: ${finalPrediction.status}, Error: ${finalPrediction.error}`);
+      throw new Error(`ACE-STEP generation failed for operation ${operationId}: ${finalPrediction.error || finalPrediction.status}`);
+    }
+  } catch (error: any) {
+    console.error(`[Replicate] Overall error in ACE-STEP text conditioning for operation ${operationId} (prediction ${predictionId || 'N/A'}):`, error.message);
+    throw (error instanceof Error ? error : new Error(String(error.message || error)));
+  } finally {
+    if (operationId) {
+      activeReplicatePredictions.delete(operationId);
+      console.log(`[Replicate] Cleaned up ACE-STEP operation ${operationId} (prediction ${predictionId || 'N/A'}) from active predictions map.`);
+    }
+  }
+}
+
+// LEGACY UNIFIED FUNCTION (DEPRECATED - KEEPING FOR BACKWARD COMPATIBILITY)
+// This function should be replaced with the dedicated functions above
+export async function callReplicateMusicGeneration(
+  operationId: string,
+  promptText: string,
+  inputFilePath?: string,
+  durationFromCaller?: number
+): Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }> {
+  
+  console.warn(`[Replicate] DEPRECATED: callReplicateMusicGeneration is deprecated. Use callMusicGenAudioConditioning or callACEStepTextConditioning instead.`);
+  
+  if (inputFilePath && typeof inputFilePath === 'string' && fs.existsSync(inputFilePath)) {
+    // Route to MusicGen for audio conditioning
+    return await callMusicGenAudioConditioning(operationId, promptText, inputFilePath, durationFromCaller);
+  } else {
+    // Route to ACE-STEP for text conditioning
+    return await callACEStepTextConditioning(operationId, promptText, durationFromCaller);
   }
 }
 
@@ -436,6 +511,84 @@ export function initializeIpcHandlers(appState: AppState): void {
     }
   );
 
+  // NEW: Dedicated IPC Handler for Recording-based generation (MusicGen)
+  ipcMain.handle(
+    "generate-music-from-recording",
+    async (event, operationId: string, promptText: string, inputFilePath: string, durationSeconds?: number) => {
+      if (!operationId) {
+        console.error("[IPC Main] generate-music-from-recording called without an operationId.");
+        throw new Error("operationId is required for MusicGen generation.");
+      }
+      if (!inputFilePath) {
+        console.error("[IPC Main] generate-music-from-recording called without an inputFilePath.");
+        throw new Error("inputFilePath is required for MusicGen audio conditioning.");
+      }
+      console.log(`[IPC Main] Received generate-music-from-recording request for operationId: ${operationId}, input: ${inputFilePath}`);
+      try {
+        const result = await callMusicGenAudioConditioning(operationId, promptText, inputFilePath, durationSeconds);
+        
+        // CRITICAL: Trigger the generated-audio-ready event to save the audio to UI
+        const mainWindow = appState.getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log("[IPC Main] Broadcasting MusicGen 'generated-audio-ready' to renderer with data:", result);
+          mainWindow.webContents.send("generated-audio-ready", { 
+            generatedUrl: result.generatedUrl, 
+            originalPath: inputFilePath, 
+            features: result.features, 
+            displayName: result.displayName, 
+            originalPromptText: result.originalPromptText 
+          });
+        } else {
+          console.warn("[IPC Main] No main window to send MusicGen 'generated-audio-ready' event to, or window destroyed.");
+        }
+        
+        return result;
+      } catch (error: any) {
+        console.error(`[IPC Main] Error in generate-music-from-recording handler for operationId ${operationId}:`, error.message);
+        throw new Error(error.message || "Unknown error during MusicGen generation.");
+      }
+    }
+  );
+
+  // NEW: Dedicated IPC Handler for Text-based generation (ACE-STEP)
+  ipcMain.handle(
+    "generate-music-from-text",
+    async (event, operationId: string, promptText: string, durationSeconds?: number) => {
+      if (!operationId) {
+        console.error("[IPC Main] generate-music-from-text called without an operationId.");
+        throw new Error("operationId is required for ACE-STEP generation.");
+      }
+      if (!promptText || promptText.trim() === "") {
+        console.error("[IPC Main] generate-music-from-text called without a promptText.");
+        throw new Error("promptText is required for ACE-STEP text conditioning.");
+      }
+      console.log(`[IPC Main] Received generate-music-from-text request for operationId: ${operationId}, prompt: "${promptText}"`);
+      try {
+        const result = await callACEStepTextConditioning(operationId, promptText, durationSeconds);
+        
+        // CRITICAL: Trigger the generated-audio-ready event to save the audio to UI
+        const mainWindow = appState.getMainWindow();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          console.log("[IPC Main] Broadcasting ACE-STEP 'generated-audio-ready' to renderer with data:", result);
+          mainWindow.webContents.send("generated-audio-ready", { 
+            generatedUrl: result.generatedUrl, 
+            originalPath: undefined, // No original path for text-based generation
+            features: result.features, 
+            displayName: result.displayName, 
+            originalPromptText: result.originalPromptText 
+          });
+        } else {
+          console.warn("[IPC Main] No main window to send ACE-STEP 'generated-audio-ready' event to, or window destroyed.");
+        }
+        
+        return result;
+      } catch (error: any) {
+        console.error(`[IPC Main] Error in generate-music-from-text handler for operationId ${operationId}:`, error.message);
+        throw new Error(error.message || "Unknown error during ACE-STEP generation.");
+      }
+    }
+  );
+
   ipcMain.handle("cancel-music-generation", async (event, operationId: string) => {
     if (!operationId) {
         console.error("[IPC Main] cancel-music-generation called without an operationId.");
@@ -495,28 +648,8 @@ export function initializeIpcHandlers(appState: AppState): void {
       // 2. Reset the LLM's internal chat state
       await appState.processingHelper.llmHelper.newChat();
       
-      // 3. Generate the dynamic welcome message
-      console.log("[IPC] Generating welcome message...");
-      const welcomeAiResponse = await appState.processingHelper.llmHelper.generateWelcomeMessage();
-      
-      // 4. Create a new conversation item for the welcome message
-      const welcomeMessageItem: ConversationItem = {
-        id: `ai_${Date.now()}`,
-        type: 'ai_response',
-        content: welcomeAiResponse, // The full JSON from the LLM
-        timestamp: Date.now(),
-      };
-
-      // 5. Add it to the (now empty) conversation history
-      appState.addToConversationHistory(welcomeMessageItem);
-      appState.setLastAiResponse(welcomeAiResponse); // Also set it as the last response
-
-      // 6. Notify the frontend to update its view with the new item
-      const mainWindow = appState.getMainWindow();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(appState.PROCESSING_EVENTS.CHAT_UPDATED, welcomeMessageItem);
-        console.log("[IPC] Sent new welcome message to renderer.");
-      }
+      // 3. Just return success - no automatic welcome message
+      console.log("[IPC] New chat started - no welcome message generated.");
 
       return { success: true };
     } catch (error) {

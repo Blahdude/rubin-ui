@@ -59,6 +59,8 @@ declare global {
       onAudioRecordingComplete: (callback: (data: { path: string }) => void) => () => void;
       onAudioRecordingError: (callback: (data: { message: string }) => void) => () => void;
       generateMusic: (promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>;
+      generateMusicFromRecording: (operationId: string, promptText: string, inputFilePath: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>;
+      generateMusicFromText: (operationId: string, promptText: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>;
 
       // VAD Events
       onVadWaiting: (callback: () => void) => () => void;
@@ -222,7 +224,7 @@ const App: React.FC = () => {
           </div>
           
           {/* Main content with enhanced spacing */}
-          <div className="pt-16 h-full overflow-hidden">
+          <div className="pt-20 h-full overflow-hidden">
             <MainView
               conversation={conversation}
               onProcessingStateChange={setIsProcessingSolution}

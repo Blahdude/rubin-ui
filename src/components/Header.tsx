@@ -64,7 +64,7 @@ const Header: React.FC<HeaderProps> = ({
   );
 
   return (
-    <div className="w-full px-4 py-3">
+    <div className="w-full px-4 py-4">
       <div className="flex items-center justify-between">
         {/* Left side - App branding */}
         <div className="flex items-center gap-3">
@@ -92,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({
           />
           <KeyboardShortcut 
             keys={['⌘', '↵']} 
-            label="Solve"
+            label="Screenshot"
             isActive={isProcessingSolution}
             isLoading={isProcessingSolution}
           />

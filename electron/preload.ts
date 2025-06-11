@@ -40,6 +40,8 @@ interface ElectronAPI {
   onVadTimeout: (callback: () => void) => () => void
   startFileDrag: (filePath: string) => void
   generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  generateMusicFromRecording: (operationId: string, promptText: string, inputFilePath: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
+  generateMusicFromText: (operationId: string, promptText: string, durationSeconds?: number) => Promise<{ generatedUrl: string, features: { bpm: string | number, key: string }, displayName: string, originalPromptText: string }>
   cancelMusicGeneration: (operationId: string) => Promise<{ success: boolean, message: string }>
   notifyGeneratedAudioReady: (generatedUrl: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => void
   onGeneratedAudioReady: (callback: (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => void) => () => void
@@ -241,6 +243,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   generateMusic: (operationId: string, promptText: string, inputFilePath?: string, durationSeconds?: number) => 
     ipcRenderer.invoke("generate-music", operationId, promptText, inputFilePath, durationSeconds),
+  generateMusicFromRecording: (operationId: string, promptText: string, inputFilePath: string, durationSeconds?: number) =>
+    ipcRenderer.invoke("generate-music-from-recording", operationId, promptText, inputFilePath, durationSeconds),
+  generateMusicFromText: (operationId: string, promptText: string, durationSeconds?: number) =>
+    ipcRenderer.invoke("generate-music-from-text", operationId, promptText, durationSeconds),
   cancelMusicGeneration: (operationId: string) => 
     ipcRenderer.invoke("cancel-music-generation", operationId),
   notifyGeneratedAudioReady: (generatedUrl: string, originalPath: string | undefined, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string) => {

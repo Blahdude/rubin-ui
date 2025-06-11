@@ -31,6 +31,10 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoadingExistingFiles, setIsLoadingExistingFiles] = useState(false);
 
+  // NEW: State for MusicGen loading management
+  const [activeGenerations, setActiveGenerations] = useState<Set<string>>(new Set());
+  const [generationProgress, setGenerationProgress] = useState<Map<string, string>>(new Map());
+
   // Function to load existing audio files from Firebase Storage
   const loadExistingMusicFiles = async (user: User) => {
     if (!user) return;
@@ -244,21 +248,51 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
       return;
     }
 
+    // Generate a unique operation ID for this generation request
+    const operationId = `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
     try {
       console.log("Generating music from recording:", recordingPath);
-      onShowToast("Generating", "Creating music from your recording...", "info");
       
-      const result = await window.electronAPI.generateMusic(
+      // START LOADING STATE
+      setActiveGenerations(prev => new Set(prev).add(recordingPath));
+      setGenerationProgress(prev => new Map(prev).set(recordingPath, "Initializing MusicGen..."));
+      onShowToast("Generating", "Creating music from your recording using MusicGen...", "info");
+      
+      // Update progress indicators
+      setTimeout(() => {
+        setGenerationProgress(prev => new Map(prev).set(recordingPath, "Processing audio with MusicGen..."));
+      }, 2000);
+      
+      setTimeout(() => {
+        setGenerationProgress(prev => new Map(prev).set(recordingPath, "Generating musical continuation..."));
+      }, 5000);
+      
+      const result = await window.electronAPI.generateMusicFromRecording(
+        operationId,
         "Generate music based on this audio recording",
         recordingPath,
         generationDurationSeconds
       );
       
-      console.log("Music generation result:", result);
+      console.log("MusicGen generation result:", result);
+      onShowToast("Success", "Music generated successfully using MusicGen!", "success");
       
     } catch (error) {
       console.error("Error generating music from recording:", error);
-      onShowToast("Error", "Failed to generate music from recording", "error");
+      onShowToast("Error", "Failed to generate music from recording using MusicGen", "error");
+    } finally {
+      // END LOADING STATE
+      setActiveGenerations(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(recordingPath);
+        return newSet;
+      });
+      setGenerationProgress(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(recordingPath);
+        return newMap;
+      });
     }
   };
 
@@ -338,6 +372,30 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
 
       {/* Content Area */}
       <div className="p-4 space-y-4">
+        {/* Active MusicGen Generations */}
+        {activeGenerations.size > 0 && (
+          <div className="space-y-3">
+            <div className="w-full p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
+                  <div className="w-4 h-4 border border-orange-500/50 border-t-orange-500 rounded-full animate-spin"></div>
+                </div>
+                <div className="text-left">
+                  <h3 className="text-sm font-semibold text-foreground">MusicGen Processing</h3>
+                  <p className="text-xs text-muted-foreground">{activeGenerations.size} recording{activeGenerations.size !== 1 ? 's' : ''} being processed</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {Array.from(activeGenerations).map((recordingPath) => (
+                  <div key={recordingPath} className="flex items-center gap-2 text-xs text-orange-600">
+                    <span className="animate-pulse">🎵</span>
+                    <span>{generationProgress.get(recordingPath) || "Processing..."}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Recorded Audio Section */}
         {globalRecordings.length > 0 && (
           <div className="space-y-3">
@@ -394,17 +452,25 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                       />
                     </div>
                     
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleGenerateMusicFromRecording(rec.path);
-                      }}
-                      className="w-full px-4 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
-                      <span>Generate Music</span>
-                      <span className="opacity-70 group-hover:opacity-100 transition-opacity">✨</span>
-                    </button>
+                    {activeGenerations.has(rec.path) ? (
+                      <div className="w-full px-4 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-500/70 to-red-500/70 rounded-md flex items-center justify-center gap-2 cursor-default">
+                        <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>{generationProgress.get(rec.path) || "Generating..."}</span>
+                        <span className="animate-pulse">🎵</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGenerateMusicFromRecording(rec.path);
+                        }}
+                        className="w-full px-4 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
+                        <span>Generate Music</span>
+                        <span className="opacity-70 group-hover:opacity-100 transition-opacity">✨</span>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

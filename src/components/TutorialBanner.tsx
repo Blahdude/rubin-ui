@@ -32,8 +32,8 @@ const TutorialBanner: React.FC<TutorialBannerProps> = ({ isVisible, onClose }) =
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card/95 backdrop-blur-xl border border-border/20 rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center pt-8 p-4">
+      <div className="bg-card/95 backdrop-blur-xl border border-border/20 rounded-2xl shadow-2xl w-full max-w-2xl h-[calc(100vh-4rem)] max-h-[600px] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border/20">
           <div className="flex items-center gap-3">
@@ -41,8 +41,8 @@ const TutorialBanner: React.FC<TutorialBannerProps> = ({ isVisible, onClose }) =
               <span className="text-primary font-bold">🎵</span>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Welcome to Rubin</h2>
-              <p className="text-sm text-muted-foreground">Your AI music assistant</p>
+              <h2 className="text-base font-semibold text-foreground">Welcome to Rubin</h2>
+              <p className="text-xs text-muted-foreground">Your AI music assistant</p>
             </div>
           </div>
           <button
@@ -63,10 +63,10 @@ const TutorialBanner: React.FC<TutorialBannerProps> = ({ isVisible, onClose }) =
             <div className="w-full flex-shrink-0 h-full min-h-0">
               <div className="h-full overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
                 <div className="text-center mb-6">
-                  <h3 className="text-xl font-bold text-foreground mb-2">
+                  <h3 className="text-lg font-bold text-foreground mb-2">
                     🎼 What can I do?
                   </h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     I'm here to help with coming up with new ideas, overseeing production, and giving advice!
                   </p>
                 </div>
@@ -184,10 +184,10 @@ const TutorialBanner: React.FC<TutorialBannerProps> = ({ isVisible, onClose }) =
             <div className="w-full flex-shrink-0 h-full min-h-0">
               <div className="h-full overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
               <div className="text-center mb-6">
-                <h3 className="text-xl font-bold text-foreground mb-2">
+                <h3 className="text-lg font-bold text-foreground mb-2">
                   🎙️ Set up Audio Recording
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Follow these steps to enable high-quality audio recording with Blackhole 2ch
                 </p>
               </div>
