@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { GlobalRecording, GeneratedAudioClip } from "../types/audio"
 import { auth, storage, db } from "../lib/firebase"
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from "firebase/storage"
-import { doc, setDoc, deleteDoc, collection, getDocs, query, orderBy, serverTimestamp } from "firebase/firestore"
+import { doc, setDoc, deleteDoc, collection, getDocs, query, orderBy, serverTimestamp, getDoc } from "firebase/firestore"
 import { v4 as uuidv4 } from 'uuid';
 import { onAuthStateChanged, User } from "firebase/auth"
 
@@ -42,28 +42,47 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
     setIsLoadingExistingFiles(true);
     try {
       console.log("Loading existing music files for user:", user.uid);
-      
-      const generationsRef = collection(db, "users", user.uid, "generations");
-      const q = query(generationsRef, orderBy("timestamp", "desc"));
-      const querySnapshot = await getDocs(q);
+
+      // List all files from user's audio directory in Firebase Storage
+      const storageRef = ref(storage, `users/${user.uid}/audio`);
+      const fileList = await listAll(storageRef);
 
       const existingClips: GeneratedAudioClip[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const clip: GeneratedAudioClip = {
-          id: data.clipId,
-          path: data.downloadURL,
-          timestamp: data.timestamp.toDate(),
-          bpm: data.bpm,
-          key: data.key,
-          status: 'ready',
-          displayName: data.displayName,
-          originalPromptText: data.originalPromptText,
-          originalPath: data.originalPath
-        };
-        existingClips.push(clip);
-      });
+
+      // Process each file found in Storage
+      for (const itemRef of fileList.items) {
+        try {
+          const downloadURL = await getDownloadURL(itemRef);
+          const clipId = itemRef.name.replace(/\.wav$/, ''); // Get clipId from filename
+
+          // Fetch corresponding metadata from Firestore
+          const docRef = doc(db, "users", user.uid, "generations", clipId);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists()) {
+            // Firestore document exists, create a full clip object
+            const data = docSnap.data();
+            const clip: GeneratedAudioClip = {
+              id: clipId,
+              path: downloadURL,
+              timestamp: data.timestamp.toDate(),
+              bpm: data.bpm,
+              key: data.key,
+              status: 'ready',
+              displayName: data.displayName,
+              originalPromptText: data.originalPromptText,
+              originalPath: data.originalPath,
+            };
+            existingClips.push(clip);
+          }
+        } catch (error) {
+          console.error(`Error processing file ${itemRef.name}:`, error);
+        }
+      }
       
+      // Sort clips by timestamp, newest first
+      existingClips.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
       // Update the state with existing clips
       setGeneratedAudioClips(existingClips);
       
@@ -79,6 +98,28 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
     }
   };
 
+  // Function to delete a specific local recording
+  const deleteLocalRecording = async (recording: GlobalRecording) => {
+    try {
+      console.log("Deleting local recording:", recording.id);
+      onShowToast("Deleting", "Deleting local recording...", "info");
+      
+      // Delete the file from the local filesystem
+      await (window.electronAPI as any).deleteLocalRecording(recording.path);
+      
+      // Remove from local state
+      setGlobalRecordings(prevRecordings => 
+        prevRecordings.filter(existingRecording => existingRecording.id !== recording.id)
+      );
+      
+      onShowToast("Deleted", "Local recording has been deleted.", "success");
+      
+    } catch (error: any) {
+      console.error("Error deleting local recording:", error);
+      onShowToast("Error", `Failed to delete recording: ${error.message}`, "error");
+    }
+  };
+
   // useEffect to handle authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -86,11 +127,15 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
       setCurrentUser(user);
       
       if (user) {
-        // User is logged in, load their existing music files
+        // User is logged in, load their existing music files ONLY from Firebase
         await loadExistingMusicFiles(user);
+        // DISABLED: No longer loading local recordings - Firebase only!
+        // await loadExistingLocalRecordings();
+        // await cleanupOldLocalRecordings();
       } else {
         // User is logged out, clear the generated audio clips
         setGeneratedAudioClips([]);
+        setGlobalRecordings([]);
       }
     });
 
@@ -150,16 +195,19 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
   };
 
   const handleGeneratedAudioReady = async (data: { generatedUrl: string, originalPath?: string, features: { bpm: string | number, key: string }, displayName?: string, originalPromptText?: string }) => {
+    console.log("[AudioSection] Received generated-audio-ready event with data:", data);
+    
     const user = auth.currentUser;
     if (!user) {
       console.error("No authenticated user found when trying to save generated audio");
+      onShowToast("Error", "You must be logged in to save generated audio", "error");
       return;
     }
 
     const clipId = uuidv4();
     const timestamp = new Date();
 
-    // Create a new GeneratedAudioClip object
+    // Create a new GeneratedAudioClip object with the local path first.
     const newClip: GeneratedAudioClip = {
       id: clipId,
       path: data.generatedUrl,
@@ -178,26 +226,89 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
     // Show success message immediately since generation worked
     onShowToast("Generated", `"${data.displayName || 'Audio'}" is ready!`, "success");
 
-    // Try to save to Firestore, but don't fail the whole operation if this fails
     try {
+      console.log("Starting Firebase upload process for clip:", clipId);
+      
+      // 1. Fetch audio data from URL using the IPC channel
+      console.log("Fetching audio buffer from URL:", data.generatedUrl);
+      const result = await (window.electronAPI as any).getFileAsBuffer(data.generatedUrl);
+      if (!result.success || !result.data) {
+        throw new Error(`Failed to get audio file for upload: ${result.error || 'Unknown error'}`);
+      }
+      
+      console.log("Audio buffer received, size:", result.data.length || result.data.byteLength || 'unknown');
+      
+      // Convert to browser-compatible Uint8Array since Buffer doesn't exist in browser
+      const audioBuffer = new Uint8Array(result.data);
+      console.log("Converted to Uint8Array, size:", audioBuffer.length);
+
+      // 2. Upload to Firebase Storage
+      console.log("Uploading to Firebase Storage...");
+      const storageRef = ref(storage, `users/${user.uid}/audio/${clipId}.wav`);
+      await uploadBytes(storageRef, audioBuffer);
+      const downloadURL = await getDownloadURL(storageRef);
+      console.log("File uploaded successfully to Firebase Storage, download URL:", downloadURL);
+
+      // 3. Save metadata to Firestore with the cloud URL
+      console.log("Saving metadata to Firestore...");
       const docRef = doc(db, "users", user.uid, "generations", clipId);
-      await setDoc(docRef, {
+      
+      // Filter out undefined values for Firestore compatibility
+      const firestoreData: any = {
         clipId: clipId,
-        downloadURL: data.generatedUrl,
+        downloadURL: downloadURL,
         timestamp: serverTimestamp(),
         bpm: data.features.bpm,
         key: data.features.key,
-        displayName: data.displayName,
-        originalPromptText: data.originalPromptText,
-        originalPath: data.originalPath
+      };
+      
+      // Only add optional fields if they're not undefined
+      if (data.displayName !== undefined) {
+        firestoreData.displayName = data.displayName;
+      }
+      if (data.originalPromptText !== undefined) {
+        firestoreData.originalPromptText = data.originalPromptText;
+      }
+      if (data.originalPath !== undefined) {
+        firestoreData.originalPath = data.originalPath;
+      }
+      
+      console.log("Firestore data to save:", firestoreData);
+      await setDoc(docRef, firestoreData);
+      console.log("Generated audio metadata saved to Firestore successfully:", clipId);
+
+      // 4. Update the clip in the local state with the new cloud path
+      setGeneratedAudioClips(prevClips =>
+        prevClips.map(clip =>
+          clip.id === clipId ? { ...clip, path: downloadURL } : clip
+        )
+      );
+      
+      console.log("Firebase upload and save completed successfully for clip:", clipId);
+      onShowToast("Saved", `"${data.displayName || 'Audio'}" saved to your library!`, "success");
+      
+    } catch (error: any) {
+      console.error("Error uploading generated audio to Firebase:", error);
+      console.error("Error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+        name: error.name
       });
-
-      console.log("Generated audio saved to Firestore:", clipId);
-
-    } catch (error) {
-      console.error("Error saving generated audio to Firestore (generation still succeeded):", error);
-      // Only show a warning about cloud save failing, not a general error
-      onShowToast("Warning", "Audio generated successfully but cloud save failed. File is available locally.", "info");
+      
+      let errorMessage = error.message;
+      if (error.code === 'permission-denied') {
+        errorMessage = "Permission denied. Please check your Firebase authentication.";
+      } else if (error.code === 'invalid-argument') {
+        errorMessage = "Invalid data format. Please try again.";
+      } else if (error.message && error.message.includes('Unsupported field value')) {
+        errorMessage = "Data format error. Please try generating again.";
+      }
+      
+      onShowToast("Upload Error", `Failed to save "${data.displayName || 'audio'}" to your library: ${errorMessage}`, "error");
+      
+      // The clip is already in local state with the temporary URL, so it's still playable
+      // We could optionally remove it or mark it as "local only"
     }
   };
 
@@ -230,6 +341,8 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
 
     const handleAudioRecordingError = (data: { message: string }) => { console.error("Global audio recording error:", data.message); setGlobalRecordingError(data.message); clearVadStatusTimeout(); setVadStatusMessage("Recording error."); vadStatusTimeoutRef.current = setTimeout(() => setVadStatusMessage(null), 5000); };
 
+    console.log("[AudioSection] Registering event handlers including onGeneratedAudioReady");
+    
     const cleanupFunctions = [
       window.electronAPI.onVadWaiting(handleVadWaiting),
       window.electronAPI.onVadRecordingStarted(handleVadRecordingStarted),
@@ -238,6 +351,8 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
       window.electronAPI.onAudioRecordingError(handleAudioRecordingError),
       window.electronAPI.onGeneratedAudioReady(handleGeneratedAudioReady),
     ];
+    
+    console.log("[AudioSection] Event handlers registered successfully");
 
     return () => {
       clearVadStatusTimeout();
@@ -430,6 +545,17 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                         <span className="text-orange-500">⏰</span>
                         <span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete this recording?\n\nThis cannot be undone.`)) {
+                            deleteLocalRecording(rec);
+                          }
+                        }}
+                        className="px-1 py-0.5 text-[8px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border/30 hover:border-destructive/30 rounded transition-all duration-200"
+                      >
+                        🗑️
+                      </button>
                     </div>
                     
                     <div className="mb-1">

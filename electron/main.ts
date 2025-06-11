@@ -7,10 +7,15 @@ import { ProcessingHelper } from "./ProcessingHelper"
 import path from "node:path"
 import fs from "node:fs"
 import dotenv from "dotenv"
+import os from "os"
 
 // Load environment variables - handle both development and packaged app
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 if (isDev) {
+  // Point userData to a temporary directory for development to avoid session conflicts
+  const tempUserDataPath = path.join(os.tmpdir(), 'RubinDev');
+  app.setPath('userData', tempUserDataPath);
+
   // Development: load from root .env
   dotenv.config();
 } else {
@@ -248,6 +253,23 @@ export type ConversationItem =
 
 // Application initialization
 async function initializeApp() {
+  const gotTheLock = app.requestSingleInstanceLock()
+
+  if (!gotTheLock) {
+    app.quit()
+    return
+  }
+
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    const appState = AppState.getInstance()
+    const mainWindow = appState.getMainWindow()
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+
   const appState = AppState.getInstance()
 
   // Initialize IPC handlers before window creation

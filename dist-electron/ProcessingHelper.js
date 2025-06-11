@@ -160,8 +160,13 @@ class ProcessingHelper {
                             playableAudioPath: generatedUrl
                         };
                         // The critical step: Notify the queue that new audio is ready to be processed and uploaded.
+                        console.log(`[ProcessingHelper] Broadcasting generated-audio-ready event for AI Message ID: ${aiMessageId}`);
                         if (mainWindow && !mainWindow.isDestroyed()) {
                             mainWindow.webContents.send("generated-audio-ready", { generatedUrl, originalPath: undefined, features, displayName, originalPromptText });
+                            console.log(`[ProcessingHelper] Successfully sent generated-audio-ready event to renderer`);
+                        }
+                        else {
+                            console.warn(`[ProcessingHelper] Main window not available to send generated-audio-ready event`);
                         }
                     }
                     catch (replicateError) {

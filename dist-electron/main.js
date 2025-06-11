@@ -13,9 +13,13 @@ const ProcessingHelper_1 = require("./ProcessingHelper");
 const node_path_1 = __importDefault(require("node:path"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const os_1 = __importDefault(require("os"));
 // Load environment variables - handle both development and packaged app
 const isDev = process.env.NODE_ENV === 'development' || !electron_1.app.isPackaged;
 if (isDev) {
+    // Point userData to a temporary directory for development to avoid session conflicts
+    const tempUserDataPath = node_path_1.default.join(os_1.default.tmpdir(), 'RubinDev');
+    electron_1.app.setPath('userData', tempUserDataPath);
     // Development: load from root .env
     dotenv_1.default.config();
 }
@@ -189,6 +193,21 @@ class AppState {
 exports.AppState = AppState;
 // Application initialization
 async function initializeApp() {
+    const gotTheLock = electron_1.app.requestSingleInstanceLock();
+    if (!gotTheLock) {
+        electron_1.app.quit();
+        return;
+    }
+    electron_1.app.on("second-instance", (event, commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, we should focus our window.
+        const appState = AppState.getInstance();
+        const mainWindow = appState.getMainWindow();
+        if (mainWindow) {
+            if (mainWindow.isMinimized())
+                mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
     const appState = AppState.getInstance();
     // Initialize IPC handlers before window creation
     (0, ipcHandlers_1.initializeIpcHandlers)(appState);

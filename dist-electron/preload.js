@@ -204,6 +204,13 @@ electron_1.contextBridge.exposeInMainWorld("electronAPI", {
     },
     setUiPreferredGenerationDuration: (durationSeconds) => {
         electron_1.ipcRenderer.send("set-ui-preferred-generation-duration", durationSeconds);
-    }
+    },
+    // Local recordings management
+    getLocalRecordings: () => electron_1.ipcRenderer.invoke("get-local-recordings"),
+    cleanupOldLocalRecordings: () => electron_1.ipcRenderer.invoke("cleanup-old-local-recordings"),
+    deleteLocalRecording: (filePath) => electron_1.ipcRenderer.invoke("delete-local-recording", filePath),
+    getFileAsBuffer: (filePath) => electron_1.ipcRenderer.invoke("get-file-as-buffer", filePath),
+    // LLM and other functionalities
+    invokeLLM: (prompt) => electron_1.ipcRenderer.invoke("invoke-llm", prompt)
 });
 //# sourceMappingURL=preload.js.map

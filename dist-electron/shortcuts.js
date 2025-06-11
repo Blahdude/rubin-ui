@@ -42,6 +42,44 @@ class ShortcutsHelper {
     constructor(appState) {
         this.appState = appState;
     }
+    getSoxPath() {
+        if (electron_1.app.isPackaged) {
+            const soxFilename = process.platform === "win32" ? "sox.exe" : "sox";
+            const soxPath = path_1.default.join(process.resourcesPath, "bin", soxFilename);
+            console.log(`[Sox Path] Packaged app, sox path: ${soxPath}`);
+            return soxPath;
+        }
+        console.log("[Sox Path] Development mode, using 'sox' from PATH.");
+        return "sox";
+    }
+    getRecorderType() {
+        // Always return 'sox' as the recorder type for node-record-lpcm16
+        // The library will handle finding the executable through PATH
+        return 'sox';
+    }
+    setupSoxEnvironment() {
+        if (electron_1.app.isPackaged) {
+            const soxPath = this.getSoxPath();
+            const soxDir = path_1.default.dirname(soxPath);
+            // Add sox directory to PATH so node-record-lpcm16 can find it
+            const currentPath = process.env.PATH || '';
+            if (!currentPath.includes(soxDir)) {
+                process.env.PATH = `${soxDir}${path_1.default.delimiter}${currentPath}`;
+                console.log(`[Sox Setup] Added ${soxDir} to PATH`);
+            }
+            // Ensure sox binary is executable (Unix-like systems)
+            if (process.platform !== 'win32') {
+                try {
+                    const fs = require('fs');
+                    fs.chmodSync(soxPath, 0o755);
+                    console.log(`[Sox Setup] Made ${soxPath} executable`);
+                }
+                catch (error) {
+                    console.error(`[Sox Setup] Failed to make sox executable:`, error);
+                }
+            }
+        }
+    }
     registerGlobalShortcuts() {
         electron_1.globalShortcut.register("CommandOrControl+Enter", async () => {
             console.log("'Take Screenshot' (CommandOrControl+Enter) triggered.");
@@ -97,25 +135,34 @@ class ShortcutsHelper {
         });
     }
     async trimAudioWithSox(filePath) {
+        const soxPath = this.getSoxPath();
+        const soxExists = electron_1.app.isPackaged
+            ? fs_1.default.existsSync(soxPath)
+            : await new Promise(resolve => (0, child_process_1.exec)('which sox', (err) => resolve(!err)));
+        if (!soxExists) {
+            if (electron_1.app.isPackaged) {
+                console.error(`Sox executable not found at expected path: ${soxPath}`);
+            }
+            else {
+                console.log("`sox` not found in PATH during development. Skipping audio trim.");
+            }
+            return filePath;
+        }
         return new Promise((resolve) => {
-            (0, child_process_1.exec)('which sox', (whichError) => {
-                if (whichError) {
+            const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
+            const soxCommand = `"${soxPath}" "${filePath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
+            (0, child_process_1.exec)(soxCommand, (error) => {
+                if (error) {
+                    console.error("Error during Sox trim:", error);
+                    if (fs_1.default.existsSync(trimmedPath))
+                        fs_1.default.unlinkSync(trimmedPath);
                     resolve(filePath);
                     return;
                 }
-                const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
-                const soxCommand = `sox "${filePath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
-                (0, child_process_1.exec)(soxCommand, (error) => {
-                    if (error) {
-                        if (fs_1.default.existsSync(trimmedPath))
-                            fs_1.default.unlinkSync(trimmedPath);
-                        resolve(filePath);
-                        return;
-                    }
-                    fs_1.default.unlinkSync(filePath);
-                    fs_1.default.renameSync(trimmedPath, filePath);
-                    resolve(filePath);
-                });
+                fs_1.default.unlinkSync(filePath);
+                fs_1.default.renameSync(trimmedPath, filePath);
+                console.log("Audio trimmed successfully.");
+                resolve(filePath);
             });
         });
     }
@@ -152,6 +199,8 @@ class ShortcutsHelper {
         delete this.vadState[sessionId];
     }
     registerAudioShortcut() {
+        // Setup sox environment when registering audio shortcuts
+        this.setupSoxEnvironment();
         electron_1.globalShortcut.register("Command+;", () => {
             if (Object.keys(this.vadState).length > 0) {
                 const activeSessionId = Object.keys(this.vadState)[0];
@@ -183,7 +232,7 @@ class ShortcutsHelper {
                 sampleRate: 48000,
                 channels: 2,
                 bitDepth: 16,
-                recorder: "sox",
+                recorder: this.getRecorderType(),
                 device: AUDIO_DEVICE_NAME, // Explicitly target the device
             });
             session.recordingInstance.stream()

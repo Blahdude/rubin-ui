@@ -48,6 +48,11 @@ interface ElectronAPI {
   setRecordingDuration: (durationSeconds: number) => void
   setUiPreferredGenerationDuration: (durationSeconds: number) => void
 
+  // Local recordings management
+  getLocalRecordings: () => Promise<Array<{ id: string, path: string, timestamp: number }>>
+  cleanupOldLocalRecordings: () => Promise<void>
+  deleteLocalRecording: (filePath: string) => Promise<void>
+
   // ADDED for user follow-up
   userResponseToAi: (userText: string, screenshots?: Array<{ path: string; preview?: string }>) => Promise<{ success: boolean; error?: string }>;
   onFollowUpSuccess: (callback: (data: any) => void) => () => void;
@@ -59,6 +64,11 @@ interface ElectronAPI {
 
   // For screenshot queue UI updates
   onScreenshotQueueCleared: (callback: () => void) => () => void;
+
+  getFileAsBuffer: (filePath: string) => Promise<{ success: boolean, data?: Buffer, error?: string }>
+
+  // LLM and other functionalities
+  invokeLLM: (prompt: string) => Promise<{ text: string; timestamp: number }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -292,5 +302,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   },
   setUiPreferredGenerationDuration: (durationSeconds: number) => {
     ipcRenderer.send("set-ui-preferred-generation-duration", durationSeconds);
-  }
+  },
+  // Local recordings management
+  getLocalRecordings: () => ipcRenderer.invoke("get-local-recordings"),
+  cleanupOldLocalRecordings: () => ipcRenderer.invoke("cleanup-old-local-recordings"),
+  deleteLocalRecording: (filePath: string) => ipcRenderer.invoke("delete-local-recording", filePath),
+  getFileAsBuffer: (filePath: string) => ipcRenderer.invoke("get-file-as-buffer", filePath),
+
+  // LLM and other functionalities
+  invokeLLM: (prompt: string) => ipcRenderer.invoke("invoke-llm", prompt)
 });

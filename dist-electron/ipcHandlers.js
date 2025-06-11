@@ -273,6 +273,33 @@ async function cancelSpecificReplicatePrediction(operationId) {
         return { success: false, message: `Error during Replicate cancellation: ${error.message}` };
     }
 }
+// Handler to read a file and return its buffer
+electron_1.ipcMain.handle('get-file-as-buffer', async (_, filePath) => {
+    try {
+        // Check if it's a URL (HTTP/HTTPS)
+        if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+            console.log(`[IPC Main] Downloading file from URL: ${filePath}`);
+            const response = await fetch(filePath);
+            if (!response.ok) {
+                throw new Error(`Failed to download file: ${response.statusText}`);
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            return { success: true, data: buffer };
+        }
+        else {
+            // Handle local file path
+            const absolutePath = path_1.default.isAbsolute(filePath) ? filePath : path_1.default.join(electron_1.app.getAppPath(), filePath);
+            console.log(`[IPC Main] Reading local file to buffer: ${absolutePath}`);
+            const buffer = await fs_1.default.promises.readFile(absolutePath);
+            return { success: true, data: buffer };
+        }
+    }
+    catch (error) {
+        console.error(`[IPC Main] Error reading file/URL to buffer (${filePath}):`, error);
+        return { success: false, error: error.message };
+    }
+});
 function initializeIpcHandlers(appState) {
     electron_1.ipcMain.handle("update-content-dimensions", async (event, { width, height }) => {
         if (width && height) {
@@ -635,6 +662,79 @@ function initializeIpcHandlers(appState) {
         }
         else {
             console.warn(`[IPC Main] Invalid UI preferred generation duration received: ${durationSeconds}`);
+        }
+    });
+    // Handler for getting existing local recordings
+    electron_1.ipcMain.handle("get-local-recordings", async () => {
+        try {
+            const audioDir = path_1.default.join(electron_1.app.getPath('userData'), "local_recordings");
+            if (!fs_1.default.existsSync(audioDir)) {
+                return [];
+            }
+            const files = fs_1.default.readdirSync(audioDir);
+            const recordings = [];
+            for (const file of files) {
+                if (file.endsWith('.wav')) {
+                    const filePath = path_1.default.join(audioDir, file);
+                    const stats = fs_1.default.statSync(filePath);
+                    recordings.push({
+                        id: file.replace('.wav', ''),
+                        path: filePath,
+                        timestamp: stats.mtime.getTime()
+                    });
+                }
+            }
+            // Sort by timestamp (newest first)
+            recordings.sort((a, b) => b.timestamp - a.timestamp);
+            console.log(`[IPC Main] Found ${recordings.length} existing local recordings`);
+            return recordings;
+        }
+        catch (error) {
+            console.error("Error getting local recordings:", error);
+            return [];
+        }
+    });
+    // Handler for cleaning up old local recordings (older than 7 days)
+    electron_1.ipcMain.handle("cleanup-old-local-recordings", async () => {
+        try {
+            const audioDir = path_1.default.join(electron_1.app.getPath('userData'), "local_recordings");
+            if (!fs_1.default.existsSync(audioDir)) {
+                return;
+            }
+            const files = fs_1.default.readdirSync(audioDir);
+            const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            let deletedCount = 0;
+            for (const file of files) {
+                if (file.endsWith('.wav')) {
+                    const filePath = path_1.default.join(audioDir, file);
+                    const stats = fs_1.default.statSync(filePath);
+                    if (stats.mtime.getTime() < sevenDaysAgo) {
+                        fs_1.default.unlinkSync(filePath);
+                        deletedCount++;
+                        console.log(`[IPC Main] Deleted old recording: ${file}`);
+                    }
+                }
+            }
+            if (deletedCount > 0) {
+                console.log(`[IPC Main] Cleaned up ${deletedCount} old local recordings`);
+            }
+        }
+        catch (error) {
+            console.error("Error cleaning up old local recordings:", error);
+        }
+    });
+    // Handler for deleting a specific local recording
+    electron_1.ipcMain.handle("delete-local-recording", async (event, filePath) => {
+        try {
+            if (!filePath || !fs_1.default.existsSync(filePath)) {
+                throw new Error("File path is invalid or file does not exist");
+            }
+            fs_1.default.unlinkSync(filePath);
+            console.log(`[IPC Main] Deleted local recording: ${filePath}`);
+        }
+        catch (error) {
+            console.error("Error deleting local recording:", error);
+            throw error;
         }
     });
 }

@@ -57,6 +57,48 @@ export class ShortcutsHelper {
     this.appState = appState;
   }
 
+  private getSoxPath(): string {
+    if (app.isPackaged) {
+      const soxFilename = process.platform === "win32" ? "sox.exe" : "sox";
+      const soxPath = path.join(process.resourcesPath, "bin", soxFilename);
+      console.log(`[Sox Path] Packaged app, sox path: ${soxPath}`);
+      return soxPath;
+    }
+    console.log("[Sox Path] Development mode, using 'sox' from PATH.");
+    return "sox";
+  }
+
+  private getRecorderType(): 'sox' | undefined {
+    // Always return 'sox' as the recorder type for node-record-lpcm16
+    // The library will handle finding the executable through PATH
+    return 'sox';
+  }
+
+  private setupSoxEnvironment(): void {
+    if (app.isPackaged) {
+      const soxPath = this.getSoxPath();
+      const soxDir = path.dirname(soxPath);
+      
+      // Add sox directory to PATH so node-record-lpcm16 can find it
+      const currentPath = process.env.PATH || '';
+      if (!currentPath.includes(soxDir)) {
+        process.env.PATH = `${soxDir}${path.delimiter}${currentPath}`;
+        console.log(`[Sox Setup] Added ${soxDir} to PATH`);
+      }
+
+      // Ensure sox binary is executable (Unix-like systems)
+      if (process.platform !== 'win32') {
+        try {
+          const fs = require('fs');
+          fs.chmodSync(soxPath, 0o755);
+          console.log(`[Sox Setup] Made ${soxPath} executable`);
+        } catch (error) {
+          console.error(`[Sox Setup] Failed to make sox executable:`, error);
+        }
+      }
+    }
+  }
+
   public registerGlobalShortcuts(): void {
     globalShortcut.register("CommandOrControl+Enter", async () => {
       console.log("'Take Screenshot' (CommandOrControl+Enter) triggered.");
@@ -117,27 +159,38 @@ export class ShortcutsHelper {
   }
 
   private async trimAudioWithSox(filePath: string): Promise<string> {
-    return new Promise((resolve) => {
-      exec('which sox', (whichError) => {
-        if (whichError) {
-          resolve(filePath);
-          return;
-        }
+    const soxPath = this.getSoxPath();
 
+    const soxExists = app.isPackaged
+      ? fs.existsSync(soxPath)
+      : await new Promise<boolean>(resolve => exec('which sox', (err) => resolve(!err)));
+
+    if (!soxExists) {
+      if (app.isPackaged) {
+        console.error(`Sox executable not found at expected path: ${soxPath}`);
+      } else {
+        console.log("`sox` not found in PATH during development. Skipping audio trim.");
+      }
+      return filePath;
+    }
+
+    return new Promise((resolve) => {
         const trimmedPath = filePath.replace(".wav", "-trimmed.wav");
-        const soxCommand = `sox "${filePath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
+        const soxCommand = `"${soxPath}" "${filePath}" "${trimmedPath}" silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse silence 1 ${SOX_SILENCE_DURATION} ${SOX_SILENCE_THRESHOLD} reverse`;
 
         exec(soxCommand, (error) => {
           if (error) {
+            console.error("Error during Sox trim:", error);
             if (fs.existsSync(trimmedPath)) fs.unlinkSync(trimmedPath);
             resolve(filePath);
             return;
           }
+
           fs.unlinkSync(filePath);
           fs.renameSync(trimmedPath, filePath);
+          console.log("Audio trimmed successfully.");
           resolve(filePath);
         });
-      });
     });
   }
 
@@ -173,6 +226,9 @@ export class ShortcutsHelper {
   }
 
   public registerAudioShortcut(): void {
+    // Setup sox environment when registering audio shortcuts
+    this.setupSoxEnvironment();
+
     globalShortcut.register("Command+;", () => {
       if (Object.keys(this.vadState).length > 0) {
         const activeSessionId = Object.keys(this.vadState)[0];
@@ -207,7 +263,7 @@ export class ShortcutsHelper {
           sampleRate: 48000,
           channels: 2,
           bitDepth: 16,
-          recorder: "sox",
+          recorder: this.getRecorderType(),
           device: AUDIO_DEVICE_NAME, // Explicitly target the device
       });
 

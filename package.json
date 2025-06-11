@@ -4,6 +4,7 @@
   "main": "./dist-electron/main.js",
   "scripts": {
     "clean": "rimraf dist dist-electron",
+    "predev": "rm -rf \"~/Library/Application Support/Rubin\"",
     "dev": "vite",
     "build": "npm run clean && tsc && tsc -p electron/tsconfig.json && vite build",
     "preview": "vite preview",
@@ -27,7 +28,14 @@
       "node_modules/tesseract.js/**/*"
     ],
     "extraResources": [
-      ".env"
+      ".env",
+      {
+        "from": "extraResources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "directories": {
       "output": "release"
