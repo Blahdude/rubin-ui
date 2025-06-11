@@ -500,6 +500,24 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                       }
                     }}
                   >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                        <span className="text-blue-500">⏰</span>
+                        <span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Delete "${clip.displayName}"?\n\nThis cannot be undone.`)) {
+                            deleteAudioFile(clip);
+                          }
+                        }}
+                        className="px-1 py-0.5 text-[8px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border/30 hover:border-destructive/30 rounded transition-all duration-200"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                    
                     <div className="mb-1">
                       <div className="flex items-center gap-1 mb-1">
                         <span className="text-blue-500 text-[10px]">🎵</span>

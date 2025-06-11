@@ -259,7 +259,15 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
         <button
           className="text-muted-foreground hover:text-primary transition-colors hover:cursor-pointer font-medium ml-0.5 p-1 rounded-md hover:bg-secondary flex items-center justify-center non-draggable"
           title="Sign Out"
-          onClick={() => window.electronAPI.quitApp()}
+          onClick={async () => {
+            try {
+              const { signOut } = await import("firebase/auth");
+              const { auth } = await import("../../lib/firebase");
+              await signOut(auth);
+            } catch (error) {
+              console.error("Error signing out: ", error);
+            }
+          }}
         >
           <IoLogOutOutline className="w-3.5 h-3.5" />
         </button>
