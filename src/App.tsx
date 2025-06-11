@@ -100,6 +100,33 @@ const queryClient = new QueryClient({
   }
 })
 
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center h-screen bg-transparent backdrop-blur-3xl text-foreground">
+    <div className="flex flex-col items-center gap-6">
+      {/* Animated logo */}
+      <div className="relative">
+        <div className="w-16 h-16 bg-gradient-to-br from-primary via-primary/90 to-primary/80 rounded-xl flex items-center justify-center shadow-lg animate-scale-in">
+          <span className="text-primary-foreground font-bold text-2xl">R</span>
+        </div>
+        <div className="absolute inset-0 w-16 h-16 bg-gradient-to-br from-primary/20 to-transparent rounded-xl animate-glow"></div>
+      </div>
+      
+      {/* Loading text with shimmer effect */}
+      <div className="text-center">
+        <h2 className="text-xl font-semibold text-gradient mb-2">Rubin</h2>
+        <p className="text-sm text-muted-foreground animate-pulse">Initializing AI Assistant...</p>
+      </div>
+      
+      {/* Loading animation */}
+      <div className="flex gap-1">
+        <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+        <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+        <div className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+      </div>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -193,11 +220,7 @@ const App: React.FC = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background text-foreground">
-        Loading...
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) {
@@ -207,14 +230,16 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <div className="theme-frosted-glass h-screen backdrop-blur-2xl text-foreground relative overflow-hidden">
-          {/* Beautiful gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-secondary/5 pointer-events-none"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/3 via-transparent to-transparent pointer-events-none"></div>
+        <div className="theme-frosted-glass h-screen backdrop-blur-3xl text-foreground relative overflow-hidden">
+          {/* Minimal white background */}
+          <div className="absolute inset-0 bg-white/60 pointer-events-none"></div>
           
-          {/* Enhanced Header */}
+          {/* Subtle light accent */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/1 via-transparent to-primary/2 pointer-events-none"></div>
+          
+          {/* Header with minimal backdrop */}
           <div className="draggable fixed top-0 left-0 right-0 z-50 flex-shrink-0">
-            <div className="bg-background/80 backdrop-blur-xl border-b border-border/20 shadow-lg shadow-black/5">
+            <div className="bg-white/60 backdrop-blur-xl border-b border-border/20">
               <Header
                 onTooltipVisibilityChange={handleTooltipVisibilityChange}
                 isProcessingSolution={isProcessingSolution}
@@ -223,13 +248,15 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          {/* Main content with enhanced spacing */}
-          <div className="pt-20 h-full overflow-hidden">
-            <MainView
-              conversation={conversation}
-              onProcessingStateChange={setIsProcessingSolution}
-              onShowTutorial={handleShowTutorial}
-            />
+          {/* Main content area - Clean and minimal */}
+          <div className="pt-[72px] h-full overflow-hidden">
+            <div className="h-full animate-fade-in">
+              <MainView
+                conversation={conversation}
+                onProcessingStateChange={setIsProcessingSolution}
+                onShowTutorial={handleShowTutorial}
+              />
+            </div>
           </div>
           
           {/* Tutorial Banner */}
@@ -237,8 +264,21 @@ const App: React.FC = () => {
             isVisible={showTutorial}
             onClose={handleCloseTutorial}
           />
+          
+          {/* Floating action indicator */}
+          {isProcessingSolution && (
+            <div className="fixed bottom-6 right-6 z-40 animate-slide-up">
+              <div className="flex items-center gap-3 px-4 py-3 bg-white/70 backdrop-blur-xl border border-border/30 rounded-xl shadow-lg">
+                <div className="relative">
+                  <div className="w-3 h-3 bg-primary rounded-full animate-pulse-slow"></div>
+                  <div className="absolute inset-0 w-3 h-3 bg-primary rounded-full animate-ping opacity-75"></div>
+                </div>
+                <span className="text-sm font-medium text-foreground">AI is processing...</span>
+              </div>
+            </div>
+          )}
         </div>
-        <ToastViewport />
+        <ToastViewport className="fixed top-0 right-0 flex flex-col gap-2 w-[390px] max-w-[100vw] m-0 list-none z-[100] outline-none p-6" />
       </ToastProvider>
     </QueryClientProvider>
   )

@@ -38,22 +38,28 @@ const Header: React.FC<HeaderProps> = ({
     isActive?: boolean,
     isLoading?: boolean 
   }) => (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-      isActive ? 'bg-primary/10 border border-primary/20' : 'bg-secondary/50 hover:bg-secondary/80'
+    <div className={`group flex items-center gap-2.5 px-3 py-1.5 rounded-md transition-all duration-200 ${
+      isActive || isLoading 
+        ? 'bg-primary/10 border border-primary/20 shadow-glow' 
+        : 'bg-secondary/30 hover:bg-secondary/50 border border-border/30 hover:border-border/50'
     }`}>
-      <span className={`text-xs font-medium ${
-        isLoading ? 'text-primary animate-pulse' : 'text-muted-foreground'
+      <span className={`text-xs font-medium transition-colors duration-200 ${
+        isLoading 
+          ? 'text-primary animate-pulse' 
+          : isActive 
+            ? 'text-primary'
+            : 'text-muted-foreground group-hover:text-foreground'
       }`}>
-        {isLoading ? 'Solving...' : label}
+        {isLoading ? 'Processing...' : label}
       </span>
       <div className="flex gap-1">
         {keys.map((key, index) => (
           <kbd
             key={index}
-            className={`px-2 py-1 text-[10px] font-bold rounded border transition-all duration-200 ${
+            className={`px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-all duration-200 ${
               isActive || isLoading 
-                ? 'bg-primary/20 border-primary/30 text-primary' 
-                : 'bg-background border-border text-foreground hover:bg-muted'
+                ? 'bg-primary/20 border-primary/30 text-primary shadow-sm' 
+                : 'bg-background/50 border-border/50 text-muted-foreground group-hover:bg-background group-hover:text-foreground group-hover:border-border'
             }`}
           >
             {key}
@@ -63,32 +69,55 @@ const Header: React.FC<HeaderProps> = ({
     </div>
   );
 
+  const StatusIndicator = () => (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/5 border border-primary/10 rounded-md animate-fade-in">
+      <div className="relative">
+        <div className="w-2 h-2 bg-primary rounded-full animate-pulse-slow"></div>
+        <div className="absolute inset-0 w-2 h-2 bg-primary rounded-full animate-ping opacity-75"></div>
+      </div>
+      <span className="text-xs font-medium text-primary">AI thinking</span>
+      <div className="flex gap-0.5">
+        <div className="w-1 h-1 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+        <div className="w-1 h-1 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+        <div className="w-1 h-1 bg-primary/60 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="w-full px-4 py-4">
+    <div className="w-full px-6 py-3 border-b border-border/30">
       <div className="flex items-center justify-between">
-        {/* Left side - App branding */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-primary-foreground font-bold text-sm">R</span>
+        {/* Left side - App branding with enhanced styling */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* App icon with gradient and glow effect */}
+            <div className="relative group">
+              <div className="w-9 h-9 bg-gradient-to-br from-primary via-primary/90 to-primary/80 rounded-lg flex items-center justify-center shadow-cursor transition-all duration-300 group-hover:shadow-glow group-hover:scale-105">
+                <span className="text-primary-foreground font-bold text-base">R</span>
+              </div>
+              <div className="absolute inset-0 w-9 h-9 bg-gradient-to-br from-primary/20 to-transparent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-glow"></div>
             </div>
-            <h1 className="font-bold text-lg bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Rubin
-            </h1>
+            
+            {/* App name with enhanced typography */}
+            <div className="flex flex-col">
+              <h1 className="font-bold text-xl text-gradient-animated bg-gradient-to-r from-primary via-primary/90 to-primary bg-[length:200%_100%]">
+                Rubin
+              </h1>
+              <span className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">
+                AI Assistant
+              </span>
+            </div>
           </div>
-          {isProcessingSolution && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 border border-primary/20 rounded-full">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-              <span className="text-xs font-medium text-primary">AI thinking...</span>
-            </div>
-          )}
+          
+          {/* Processing indicator with enhanced animations */}
+          {isProcessingSolution && <StatusIndicator />}
         </div>
 
-        {/* Center - Keyboard shortcuts */}
+        {/* Center - Enhanced keyboard shortcuts */}
         <div className="flex items-center gap-2">
           <KeyboardShortcut 
             keys={['⌘', 'B']} 
-            label="Show/Hide" 
+            label="Toggle" 
           />
           <KeyboardShortcut 
             keys={['⌘', '↵']} 
@@ -100,23 +129,36 @@ const Header: React.FC<HeaderProps> = ({
             keys={['⌘', ';']} 
             label="Record" 
           />
+          <KeyboardShortcut 
+            keys={['⌘', 'R']} 
+            label="Reset" 
+          />
         </div>
 
-        {/* Right side - Action buttons */}
+        {/* Right side - Enhanced action buttons */}
         <div className="flex items-center gap-2">
+          {/* User profile button */}
           <button
             onClick={handleSignOut}
-            className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary/80 border border-border/50 hover:border-border rounded-lg transition-all duration-200 flex items-center gap-2"
+            className="group flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground bg-secondary/30 hover:bg-secondary/50 border border-border/30 hover:border-border/50 rounded-md transition-all duration-200 focus-ring"
           >
-            <span>👤</span>
+            <div className="w-5 h-5 bg-gradient-to-br from-muted to-muted-foreground rounded-full flex items-center justify-center text-[10px] font-bold text-background group-hover:scale-105 transition-transform duration-200">
+              👤
+            </div>
             <span>Sign Out</span>
           </button>
           
+          {/* Quit button with enhanced hover state */}
           <button 
             onClick={quitApp}
-            className="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-destructive bg-secondary/50 hover:bg-destructive/10 border border-border/50 hover:border-destructive/30 rounded-lg transition-all duration-200 flex items-center gap-2"
+            className="group flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-error bg-secondary/30 hover:bg-error/5 border border-border/30 hover:border-error/20 rounded-md transition-all duration-200 focus-ring"
           >
-            <span>⨯</span>
+            <div className="w-4 h-4 flex items-center justify-center text-muted-foreground group-hover:text-error transition-colors duration-200">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </div>
             <span>Quit</span>
           </button>
         </div>

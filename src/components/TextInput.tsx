@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react"
-import { IoLogOutOutline } from "react-icons/io5"
-import { LuSend } from "react-icons/lu"
+import { LuSend, LuHelpCircle } from "react-icons/lu"
 import { HiStop } from "react-icons/hi2"
 
 interface TextInputProps {
@@ -20,6 +19,7 @@ const TextInput: React.FC<TextInputProps> = ({
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [userInput, setUserInput] = useState("")
   const [isQueryInProgress, setIsQueryInProgress] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Check if music generation is in progress
   const isMusicGenerationInProgress = conversation.some((item: any) => 
@@ -131,136 +131,161 @@ const TextInput: React.FC<TextInputProps> = ({
     }
   };
 
+  const KeyboardShortcut = ({ keys, label }: { keys: string[], label: string }) => (
+    <div className="flex items-center justify-between py-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex items-center gap-1">
+        {keys.map((key, index) => (
+          <kbd
+            key={index}
+            className="px-2 py-1 text-[10px] font-semibold bg-secondary/50 border border-border/30 rounded text-muted-foreground"
+          >
+            {key}
+          </kbd>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="non-draggable">
-      <div className="w-full bg-card/90 backdrop-blur-xl border-t border-border/20 px-4 py-3 shadow-lg shadow-black/5">
+      <div className="relative">
+        {/* Main input container with modern styling */}
         <div className="flex items-center gap-3">
-          {/* Enhanced User Input */}
+          {/* Chat input area */}
           {isAiResponseActive && (
-            <div className="flex-grow flex items-center gap-3">
-              <div className="relative flex-grow">
-                <input
-                  type="text"
-                  value={userInput}
-                  onChange={(e) => setUserInput(e.target.value)}
-                  placeholder="Ask a follow-up question..."
-                  className="w-full px-4 py-3 text-sm text-foreground bg-background/50 backdrop-blur-sm border border-border/30 hover:border-border/60 focus:border-primary/50 rounded-xl outline-none transition-all duration-200 placeholder-muted-foreground focus:ring-4 focus:ring-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendUserResponse();
-                    }
-                  }}
-                  disabled={isProcessing}
-                />
-                {userInput && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                  </div>
-                )}
+            <div className="flex-1 relative">
+              <div className="relative flex items-center gap-3 p-3 bg-background/60 backdrop-blur-xl border border-border/40 rounded-xl transition-all duration-300 focus-within:border-primary/50 focus-within:shadow-glow group">
+                {/* Input field with enhanced styling */}
+                <div className="flex-1 relative">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    placeholder="Type your message..."
+                    className="w-full bg-transparent text-sm text-foreground placeholder-muted-foreground outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendUserResponse();
+                      }
+                    }}
+                    disabled={isProcessing}
+                  />
+                  
+                  {/* Typing indicator */}
+                  {userInput && !isProcessing && (
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 animate-fade-in">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse-slow"></div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Send/Cancel button with enhanced states */}
+                <button
+                  onClick={isProcessing ? handleCancelQuery : handleSendUserResponse}
+                  title={
+                    isMusicGenerationInProgress 
+                      ? "Cancel music generation" 
+                      : isQueryInProgress 
+                        ? "Cancel query" 
+                        : "Send message (Enter)"
+                  }
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-200 shrink-0 ${
+                    isProcessing 
+                      ? "bg-error/10 hover:bg-error/20 border border-error/20 text-error hover:border-error/30 hover:scale-105" 
+                      : userInput.trim()
+                        ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-105"
+                        : "bg-secondary/30 border border-border/30 text-muted-foreground cursor-not-allowed opacity-50"
+                  }`}
+                  disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
+                >
+                  {isProcessing ? (
+                    <div className="relative">
+                      <HiStop className="w-4 h-4" />
+                      <div className="absolute inset-0 border border-current border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <LuSend className="w-4 h-4" />
+                  )}
+                </button>
               </div>
               
-              <button
-                onClick={isProcessing ? handleCancelQuery : handleSendUserResponse}
-                title={
-                  isMusicGenerationInProgress 
-                    ? "Cancel music generation" 
-                    : isQueryInProgress 
-                      ? "Cancel query" 
-                      : "Send message"
-                }
-                className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isProcessing 
-                    ? "bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive hover:border-destructive/50" 
-                    : userInput.trim()
-                      ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 border border-primary/20"
-                      : "bg-secondary/50 hover:bg-secondary/80 border border-border/30 text-muted-foreground cursor-not-allowed"
-                }`}
-                disabled={!isProcessing && (!userInput.trim() || !isAiResponseActive)}
-              >
-                {isProcessing ? (
-                  <div className="relative">
-                    <HiStop className="w-5 h-5" />
-                    <div className="absolute inset-0 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+              {/* Processing status indicator */}
+              {isProcessing && (
+                <div className="absolute left-3 -bottom-8 flex items-center gap-2 text-xs text-primary animate-slide-up">
+                  <div className="flex gap-1">
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                    <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
                   </div>
-                ) : (
-                  <LuSend className="w-5 h-5" />
-                )}
-              </button>
+                  <span className="font-medium">
+                    {isMusicGenerationInProgress ? 'Generating music...' : 'Processing...'}
+                  </span>
+                </div>
+              )}
             </div>
           )}
           
-          {!isAiResponseActive && <div className="flex-grow"></div>}
+          {!isAiResponseActive && <div className="flex-1"></div>}
 
-          {/* Enhanced Help Button */}
+          {/* Help button with enhanced tooltip */}
           <div
             className="relative"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
           >
-            <button className="w-10 h-10 rounded-xl bg-secondary/50 hover:bg-secondary/80 border border-border/30 hover:border-border/60 transition-all duration-200 flex items-center justify-center cursor-help group">
-              <span className="text-sm text-muted-foreground group-hover:text-foreground font-medium transition-colors">?</span>
+            <button className="w-10 h-10 rounded-lg bg-secondary/30 hover:bg-secondary/50 border border-border/30 hover:border-border/50 transition-all duration-200 flex items-center justify-center group focus-ring">
+              <LuHelpCircle className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             </button>
             
+            {/* Enhanced tooltip with modern styling */}
             {isTooltipVisible && (
               <div
                 ref={tooltipRef}
-                className="absolute bottom-full right-0 mb-3 z-50 animate-in slide-in-from-bottom-2 duration-200"
+                className="absolute bottom-full right-0 mb-3 z-50 animate-scale-in"
               >
-                <div className="w-80 p-4 bg-card/95 backdrop-blur-xl rounded-xl border border-border/20 shadow-2xl shadow-black/10">
+                <div className="panel-cursor w-80 p-6">
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-border/20">
-                      <span className="text-primary">⌨️</span>
-                      <h3 className="font-semibold text-sm text-foreground">
-                        Keyboard Shortcuts
-                      </h3>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Show/Hide App</span>
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">B</kbd>
-                        </div>
+                    {/* Header */}
+                    <div className="flex items-center gap-3 pb-3 border-b border-border/30">
+                      <div className="w-8 h-8 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                          <circle cx="9" cy="12" r="1"/>
+                          <circle cx="15" cy="12" r="1"/>
+                          <path d="M9 12h6"/>
+                          <path d="M4 8h16"/>
+                          <path d="M4 16h16"/>
+                        </svg>
                       </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Solve Problem</span>
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">↵</kbd>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Record Audio</span>
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">;</kbd>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Send Message</span>
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">↵</kbd>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">New Chat</span>
-                        <div className="flex items-center gap-1">
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">⌘</kbd>
-                          <kbd className="px-2 py-1 text-[10px] font-mono bg-secondary border border-border rounded text-foreground">R</kbd>
-                        </div>
+                      <div>
+                        <h3 className="font-semibold text-sm text-foreground">Keyboard Shortcuts</h3>
+                        <p className="text-xs text-muted-foreground">Quick actions</p>
                       </div>
                     </div>
                     
-                    <div className="pt-3 border-t border-border/20 space-y-3">
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        💡 <span className="font-medium">Tips:</span> Take screenshots, ask questions, and generate music with natural language. Rubin is your AI coding and creative assistant!
-                      </p>
+                    {/* Shortcuts list */}
+                    <div className="space-y-1">
+                      <KeyboardShortcut keys={['⌘', 'B']} label="Show/Hide App" />
+                      <KeyboardShortcut keys={['⌘', '↵']} label="Take Screenshot" />
+                      <KeyboardShortcut keys={['⌘', ';']} label="Record Audio" />
+                      <KeyboardShortcut keys={['⌘', 'R']} label="New Chat" />
+                      <KeyboardShortcut keys={['↵']} label="Send Message" />
+                    </div>
+                    
+                    {/* Tips section */}
+                    <div className="pt-3 border-t border-border/30 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 bg-gradient-to-br from-primary/20 to-primary/10 rounded-md flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-xs">💡</span>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            <span className="font-semibold text-foreground">Pro tip:</span> Take screenshots, ask questions, and generate music with natural language. Rubin adapts to your workflow!
+                          </p>
+                        </div>
+                      </div>
                       
                       {onShowTutorial && (
                         <button
@@ -268,35 +293,26 @@ const TextInput: React.FC<TextInputProps> = ({
                             setIsTooltipVisible(false);
                             onShowTutorial();
                           }}
-                          className="w-full px-3 py-2 text-xs bg-primary/10 hover:bg-primary/20 border border-primary/20 hover:border-primary/30 rounded-lg text-primary font-medium transition-colors"
+                          className="btn-secondary w-full text-xs py-2.5"
                         >
-                          📚 Show Tutorial Again
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            <polyline points="7.5,15 12,18.5 16.5,15"/>
+                            <polyline points="7.5,9 12,5.5 16.5,9"/>
+                          </svg>
+                          Show Tutorial
                         </button>
                       )}
                     </div>
                   </div>
                   
                   {/* Tooltip arrow */}
-                  <div className="absolute bottom-0 right-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-card border-r border-b border-border/20"></div>
+                  <div className="absolute bottom-0 right-6 transform translate-y-1/2 rotate-45 w-3 h-3 bg-panel border-r border-b border-border/50"></div>
                 </div>
               </div>
             )}
           </div>
         </div>
-        
-        {/* Processing indicator */}
-        {isProcessing && (
-          <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-primary/5 border border-primary/20 rounded-lg animate-in slide-in-from-bottom duration-200">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-            <span className="text-xs font-medium text-primary">
-              {isMusicGenerationInProgress ? 'Generating music...' : 'Processing your request...'}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -4,43 +4,57 @@
 
 @layer base {
   :root {
-    /* Main Palette */
-    --background: 0 0% 100%; /* Pure white for a clean, stark background */
-    --foreground: 222.2 84% 4.9%; /* A deep, near-black for all primary text */
+    /* Sleek White/Light Theme Color Palette */
+    --background: 0 0% 100%; /* Pure white background */
+    --foreground: 220 13% 9%; /* Dark text for contrast */
 
-    /* Primary Actions (Solid Black Buttons, Active States) */
-    --primary: 222.2 84% 4.9%; /* The same near-black as the text */
-    --primary-foreground: 0 0% 100%; /* White text for on-black elements */
+    /* Primary palette - elegant blue accent */
+    --primary: 217 91% 60%; /* Bright blue accent */
+    --primary-foreground: 0 0% 100%; /* White text on blue */
     
-    /* Cards, Popovers, and other layered elements */
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Cards and panels with subtle light transparency */
+    --card: 0 0% 98%;
+    --card-foreground: 220 13% 9%;
 
-    /* Secondary/Muted Elements */
-    --secondary: 210 40% 96.1%; /* A very light gray for subtle backgrounds */
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%; /* A lighter gray for secondary text/subtitles */
+    /* Secondary elements with light gray appearance */
+    --secondary: 220 9% 96%;
+    --secondary-foreground: 220 13% 20%;
+    --muted: 220 9% 94%;
+    --muted-foreground: 220 9% 40%;
 
-    /* Borders and Inputs */
-    --border: 214.3 31.8% 91.4%; /* A subtle gray for all borders and dividers */
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%; /* For focus rings */
+    /* Borders with subtle light contrast */
+    --border: 220 9% 88%;
+    --input: 0 0% 96%;
+    --ring: 217 91% 60%;
     
-    /* Radius for rounded corners, as established previously */
-    --radius: 0.75rem; 
+    /* Enhanced accent colors */
+    --accent: 220 9% 96%;
+    --accent-foreground: 220 13% 9%;
+    
+    /* Status colors */
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --error: 0 84% 60%;
+    
+    /* Light theme specific variables */
+    --sidebar: 0 0% 99%;
+    --sidebar-foreground: 220 13% 15%;
+    --editor: 0 0% 100%;
+    --panel: 0 0% 98%;
+    
+    --radius: 0.75rem;
   }
 
-  /* Frosted Glass Theme Override */
+  /* Frosted Glass Theme with MAXIMUM transparency */
   .theme-frosted-glass {
-    /* Keep original variables but add transparent variants */
+    /* Ultra transparent light backgrounds */
     --background: 0 0% 100%;
-    --card: 0 0% 100%;
-    --border: 0 0% 100%;
-    --input: 0 0% 100%;
+    --card: 0 0% 98%;
+    --border: 220 9% 88%;
+    --input: 0 0% 96%;
+    --sidebar: 0 0% 99%;
+    --panel: 0 0% 98%;
   }
-
-  /* Define any dark mode overrides if needed, though the primary focus is the light theme. */
 
   /* Window Dragging Support */
   .draggable {
@@ -51,53 +65,284 @@
     -webkit-app-region: no-drag;
   }
 
-  /* Ensure html, body and root are transparent for frosted glass effect */
+  /* MAXIMUM TRANSPARENCY for frosted glass effect */
   html, body, #root {
     background: transparent !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  /* Smooth scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
+    transition: background 0.2s ease;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+
+  /* Enhanced scrollbar variants */
+  .scrollbar-primary {
+    scrollbar-color: hsl(var(--primary)) transparent;
+  }
+
+  .scrollbar-primary::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.6);
+  }
+
+  .scrollbar-primary::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
   }
 }
 
-/* Custom minimal slider styling */
+/* Light theme component styles */
+@layer components {
+  /* Modern button variants */
+  .btn-cursor {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn-cursor bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/10 hover:shadow-lg hover:shadow-primary/20;
+  }
+
+  .btn-secondary {
+    @apply btn-cursor bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border/50 shadow-sm hover:shadow-md;
+  }
+
+  .btn-ghost {
+    @apply btn-cursor hover:bg-accent hover:text-accent-foreground;
+  }
+
+  /* Panel styling with MAXIMUM transparency for light theme */
+  .panel-cursor {
+    @apply bg-white/40 backdrop-blur-xl border border-border/30 rounded-xl shadow-lg shadow-black/5;
+  }
+
+  .panel-glass {
+    @apply bg-white/20 backdrop-blur-2xl border border-border/20 rounded-xl;
+  }
+
+  /* Input styling for light theme */
+  .input-cursor {
+    @apply flex h-10 w-full rounded-lg border border-border/40 bg-white/30 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-all duration-200 shadow-sm;
+  }
+
+  /* Sidebar styling */
+  .sidebar-cursor {
+    @apply bg-white/40 backdrop-blur-xl border-r border-border/30;
+  }
+
+  /* Status indicators */
+  .status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-success {
+    @apply bg-success;
+  }
+
+  .status-warning {
+    @apply bg-warning;
+  }
+
+  .status-error {
+    @apply bg-error;
+  }
+
+  .status-info {
+    @apply bg-primary;
+  }
+}
+
+/* Enhanced animations */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out forwards;
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.3s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out forwards;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* Keyframes for animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 5px hsl(var(--primary) / 0.2), 0 0 10px hsl(var(--primary) / 0.1);
+  }
+  to {
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.4), 0 0 20px hsl(var(--primary) / 0.2);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Custom minimal slider styling with light theme */
 .slider-minimal {
-  @apply transition-all duration-200;
+  @apply transition-all duration-200 bg-secondary/50 rounded-full;
+  height: 4px;
 }
 
 .slider-minimal::-webkit-slider-thumb {
   appearance: none;
-  height: 10px;
-  width: 10px;
+  height: 16px;
+  width: 16px;
   border-radius: 50%;
   background: hsl(var(--primary));
-  border: 2px solid hsl(var(--secondary));
+  border: 2px solid white;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 1px hsl(var(--border));
 }
 
 .slider-minimal::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  border-color: hsl(var(--border));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 2px hsl(var(--primary) / 0.3);
 }
 
 .slider-minimal::-webkit-slider-thumb:active {
-  transform: scale(0.9);
+  transform: scale(0.95);
 }
 
 .slider-minimal::-moz-range-thumb {
   appearance: none;
-  height: 10px;
-  width: 10px;
+  height: 16px;
+  width: 16px;
   border-radius: 50%;
   background: hsl(var(--primary));
-  border: 2px solid hsl(var(--secondary));
+  border: 2px solid white;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .slider-minimal::-moz-range-thumb:hover {
-  transform: scale(1.2);
-  border-color: hsl(var(--border));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Typography enhancements */
+.text-gradient {
+  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary) / 0.7));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-animated {
+  background: linear-gradient(120deg, hsl(var(--primary)), hsl(var(--primary) / 0.7), hsl(var(--primary)));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Focus states */
+.focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+}
+
+/* ULTRA TRANSPARENT light glass effects */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-button {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease;
+}
+
+.glass-button:hover {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.5);
 }

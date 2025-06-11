@@ -156,27 +156,30 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
       return;
     }
 
+    const clipId = uuidv4();
+    const timestamp = new Date();
+
+    // Create a new GeneratedAudioClip object
+    const newClip: GeneratedAudioClip = {
+      id: clipId,
+      path: data.generatedUrl,
+      timestamp: timestamp,
+      bpm: data.features.bpm,
+      key: data.features.key,
+      status: 'ready',
+      displayName: data.displayName,
+      originalPromptText: data.originalPromptText,
+      originalPath: data.originalPath
+    };
+
+    // Always add to local state first - generation was successful
+    setGeneratedAudioClips(prevClips => [newClip, ...prevClips]);
+
+    // Show success message immediately since generation worked
+    onShowToast("Generated", `"${data.displayName || 'Audio'}" is ready!`, "success");
+
+    // Try to save to Firestore, but don't fail the whole operation if this fails
     try {
-      const clipId = uuidv4();
-      const timestamp = new Date();
-
-      // Create a new GeneratedAudioClip object
-      const newClip: GeneratedAudioClip = {
-        id: clipId,
-        path: data.generatedUrl,
-        timestamp: timestamp,
-        bpm: data.features.bpm,
-        key: data.features.key,
-        status: 'ready',
-        displayName: data.displayName,
-        originalPromptText: data.originalPromptText,
-        originalPath: data.originalPath
-      };
-
-      // Add to local state
-      setGeneratedAudioClips(prevClips => [newClip, ...prevClips]);
-
-      // Save to Firestore for persistence
       const docRef = doc(db, "users", user.uid, "generations", clipId);
       await setDoc(docRef, {
         clipId: clipId,
@@ -190,11 +193,11 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
       });
 
       console.log("Generated audio saved to Firestore:", clipId);
-      onShowToast("Generated", `"${data.displayName || 'Audio'}" is ready!`, "success");
 
     } catch (error) {
-      console.error("Error saving generated audio to Firestore:", error);
-      onShowToast("Error", "Failed to save generated audio", "error");
+      console.error("Error saving generated audio to Firestore (generation still succeeded):", error);
+      // Only show a warning about cloud save failing, not a general error
+      onShowToast("Warning", "Audio generated successfully but cloud save failed. File is available locally.", "info");
     }
   };
 
@@ -297,30 +300,28 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
   };
 
   return (
-    <div className="w-full bg-card/90 backdrop-blur-sm border border-border/20 rounded-xl overflow-hidden">
-      {/* Header with controls */}
-      <div className="bg-gradient-to-r from-primary/10 to-secondary/10 px-4 py-3 border-b border-border/20">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="text-primary">🎵</span>
-            Audio Studio
-          </h2>
-          <div className="text-xs text-muted-foreground font-medium">
+    <div className="w-full bg-white/50 backdrop-blur-sm border border-border/20 rounded-lg overflow-hidden">
+      {/* Compact Header */}
+      <div className="bg-gradient-to-r from-primary/5 to-secondary/5 px-3 py-2 border-b border-border/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-primary text-sm">🎵</span>
+            <h2 className="text-xs font-semibold text-foreground">Audio Studio</h2>
+          </div>
+          <div className="text-[10px] text-muted-foreground font-medium">
             {(globalRecordings.length + generatedAudioClips.length) > 0 ? 
               `${globalRecordings.length + generatedAudioClips.length} items` : 
-              'Ready to create'
+              'Ready'
             }
           </div>
         </div>
         
-        {/* Duration Controls */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-background/50 rounded-lg px-3 py-2 border border-border/30">
+        {/* Compact Duration Controls */}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="bg-white/30 rounded px-2 py-1.5 border border-border/20">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                🎤 Recording
-              </label>
-              <span className="text-xs font-bold text-primary">{recordingDurationSeconds}s</span>
+              <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">🎤 Rec</span>
+              <span className="text-[10px] font-bold text-primary">{recordingDurationSeconds}s</span>
             </div>
             <input 
               type="range" 
@@ -328,16 +329,14 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
               max="30" 
               value={recordingDurationSeconds} 
               onChange={(e) => setRecordingDurationSeconds(parseInt(e.target.value, 10))} 
-              className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer slider-minimal"
+              className="w-full h-1 bg-secondary/50 rounded-full appearance-none cursor-pointer slider-minimal"
             />
           </div>
           
-          <div className="bg-background/50 rounded-lg px-3 py-2 border border-border/30">
+          <div className="bg-white/30 rounded px-2 py-1.5 border border-border/20">
             <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                ✨ Generation
-              </label>
-              <span className="text-xs font-bold text-primary">{generationDurationSeconds}s</span>
+              <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wide">✨ Gen</span>
+              <span className="text-[10px] font-bold text-primary">{generationDurationSeconds}s</span>
             </div>
             <input 
               type="range" 
@@ -345,89 +344,78 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
               max="30" 
               value={generationDurationSeconds} 
               onChange={(e) => setGenerationDurationSeconds(parseInt(e.target.value, 10))} 
-              className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer slider-minimal"
+              className="w-full h-1 bg-secondary/50 rounded-full appearance-none cursor-pointer slider-minimal"
             />
           </div>
         </div>
         
-        {/* Status Messages */}
+        {/* Compact Status Messages */}
         {vadStatusMessage && (
-          <div className="mt-3 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg">
-            <div className="flex items-center gap-2 text-xs font-medium text-primary">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+          <div className="mt-2 px-2 py-1 bg-primary/10 border border-primary/20 rounded">
+            <div className="flex items-center gap-1 text-[10px] font-medium text-primary">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
               {vadStatusMessage}
             </div>
           </div>
         )}
         
         {globalRecordingError && (
-          <div className="mt-3 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <div className="flex items-center gap-2 text-xs font-medium text-destructive">
+          <div className="mt-2 px-2 py-1 bg-destructive/10 border border-destructive/20 rounded">
+            <div className="flex items-center gap-1 text-[10px] font-medium text-destructive">
               <span>⚠️</span>
-              Recording Error: {globalRecordingError}
+              {globalRecordingError}
             </div>
           </div>
         )}
       </div>
 
-      {/* Content Area */}
-      <div className="p-4 space-y-4">
+      {/* Compact Content Area */}
+      <div className="p-3 space-y-2">
         {/* Active MusicGen Generations */}
         {activeGenerations.size > 0 && (
-          <div className="space-y-3">
-            <div className="w-full p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-lg">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
-                  <div className="w-4 h-4 border border-orange-500/50 border-t-orange-500 rounded-full animate-spin"></div>
-                </div>
-                <div className="text-left">
-                  <h3 className="text-sm font-semibold text-foreground">MusicGen Processing</h3>
-                  <p className="text-xs text-muted-foreground">{activeGenerations.size} recording{activeGenerations.size !== 1 ? 's' : ''} being processed</p>
-                </div>
+          <div className="p-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-4 bg-orange-500/20 rounded flex items-center justify-center">
+                <div className="w-2 h-2 border border-orange-500/50 border-t-orange-500 rounded-full animate-spin"></div>
               </div>
-              <div className="space-y-2">
-                {Array.from(activeGenerations).map((recordingPath) => (
-                  <div key={recordingPath} className="flex items-center gap-2 text-xs text-orange-600">
-                    <span className="animate-pulse">🎵</span>
-                    <span>{generationProgress.get(recordingPath) || "Processing..."}</span>
-                  </div>
-                ))}
-              </div>
+              <h3 className="text-[10px] font-semibold text-foreground">MusicGen Processing</h3>
             </div>
+            {Array.from(activeGenerations).map((recordingPath) => (
+              <div key={recordingPath} className="flex items-center gap-1 text-[9px] text-orange-600">
+                <span className="animate-pulse">🎵</span>
+                <span>{generationProgress.get(recordingPath) || "Processing..."}</span>
+              </div>
+            ))}
           </div>
         )}
-        {/* Recorded Audio Section */}
+
+        {/* Compact Recorded Audio Section */}
         {globalRecordings.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-1">
             <button
               onClick={() => setIsRecordedAudioOpen(!isRecordedAudioOpen)}
-              className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 hover:from-orange-500/15 hover:to-red-500/15 border border-orange-500/20 rounded-lg transition-all duration-200 group"
+              className="w-full flex items-center justify-between p-2 bg-gradient-to-r from-orange-500/10 to-red-500/10 hover:from-orange-500/15 hover:to-red-500/15 border border-orange-500/20 rounded transition-all duration-200 group"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-orange-500 text-sm">🎤</span>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-orange-500/20 rounded flex items-center justify-center">
+                  <span className="text-orange-500 text-[10px]">🎤</span>
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-foreground">Your Recordings</h3>
-                  <p className="text-xs text-muted-foreground">{globalRecordings.length} recording{globalRecordings.length !== 1 ? 's' : ''}</p>
+                  <h3 className="text-[10px] font-semibold text-foreground">Recordings</h3>
+                  <p className="text-[8px] text-muted-foreground">{globalRecordings.length} item{globalRecordings.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-orange-500 font-medium opacity-70 group-hover:opacity-100">
-                  {isRecordedAudioOpen ? 'Hide' : 'Show'}
-                </div>
-                <span className={`text-orange-500 transition-transform duration-200 ${isRecordedAudioOpen ? 'rotate-90' : ''}`}>
-                  ▶
-                </span>
-              </div>
+              <span className={`text-orange-500 text-[10px] transition-transform duration-200 ${isRecordedAudioOpen ? 'rotate-90' : ''}`}>
+                ▶
+              </span>
             </button>
             
             {isRecordedAudioOpen && (
-              <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-orange-500/30 hover:scrollbar-thumb-orange-500/50 scrollbar-track-transparent space-y-2 pr-1">
+              <div className="max-h-32 overflow-y-auto scrollbar-thin space-y-1">
                 {globalRecordings.map((rec) => (
                   <div
                     key={rec.id}
-                    className="bg-gradient-to-r from-orange-500/5 to-red-500/5 border border-orange-500/20 rounded-lg p-3 hover:from-orange-500/10 hover:to-red-500/10 transition-all duration-200"
+                    className="bg-gradient-to-r from-orange-500/5 to-red-500/5 border border-orange-500/20 rounded p-2 hover:from-orange-500/10 hover:to-red-500/10 transition-all duration-200"
                     draggable={true}
                     onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                       e.preventDefault();
@@ -437,26 +425,25 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
                         <span className="text-orange-500">⏰</span>
                         <span>{rec.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span>
                       </div>
                     </div>
                     
-                    <div className="mb-3">
+                    <div className="mb-1">
                       <audio 
                         controls 
                         src={getAudioSrc(rec.path)} 
-                        className="w-full h-8 rounded-md opacity-90 hover:opacity-100 transition-opacity"
+                        className="w-full h-6 rounded opacity-90 hover:opacity-100 transition-opacity"
                       />
                     </div>
                     
                     {activeGenerations.has(rec.path) ? (
-                      <div className="w-full px-4 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-500/70 to-red-500/70 rounded-md flex items-center justify-center gap-2 cursor-default">
-                        <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>{generationProgress.get(rec.path) || "Generating..."}</span>
-                        <span className="animate-pulse">🎵</span>
+                      <div className="w-full px-2 py-1 text-[9px] font-semibold text-white bg-gradient-to-r from-orange-500/70 to-red-500/70 rounded flex items-center justify-center gap-1 cursor-default">
+                        <div className="w-2 h-2 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>Generating...</span>
                       </div>
                     ) : (
                       <button
@@ -464,11 +451,10 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                           e.stopPropagation();
                           handleGenerateMusicFromRecording(rec.path);
                         }}
-                        className="w-full px-4 py-2.5 text-xs font-semibold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-md transition-all duration-200 flex items-center justify-center gap-2 group shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full px-2 py-1 text-[9px] font-semibold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded transition-all duration-200 flex items-center justify-center gap-1 group"
                       >
                         <span className="group-hover:rotate-12 transition-transform duration-200">🎵</span>
                         <span>Generate Music</span>
-                        <span className="opacity-70 group-hover:opacity-100 transition-opacity">✨</span>
                       </button>
                     )}
                   </div>
@@ -478,38 +464,33 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
           </div>
         )}
 
-        {/* Generated Audio Section */}
+        {/* Compact Generated Audio Section */}
         {generatedAudioClips.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-1">
             <button
               onClick={() => setIsGeneratedAudioOpen(!isGeneratedAudioOpen)}
-              className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/15 hover:to-purple-500/15 border border-blue-500/20 rounded-lg transition-all duration-200 group"
+              className="w-full flex items-center justify-between p-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/15 hover:to-purple-500/15 border border-blue-500/20 rounded transition-all duration-200 group"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
-                  <span className="text-blue-500 text-sm">✨</span>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-blue-500/20 rounded flex items-center justify-center">
+                  <span className="text-blue-500 text-[10px]">✨</span>
                 </div>
                 <div className="text-left">
-                  <h3 className="text-sm font-semibold text-foreground">Generated Music</h3>
-                  <p className="text-xs text-muted-foreground">{generatedAudioClips.length} track{generatedAudioClips.length !== 1 ? 's' : ''}</p>
+                  <h3 className="text-[10px] font-semibold text-foreground">Generated</h3>
+                  <p className="text-[8px] text-muted-foreground">{generatedAudioClips.length} track{generatedAudioClips.length !== 1 ? 's' : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-blue-500 font-medium opacity-70 group-hover:opacity-100">
-                  {isGeneratedAudioOpen ? 'Hide' : 'Show'}
-                </div>
-                <span className={`text-blue-500 transition-transform duration-200 ${isGeneratedAudioOpen ? 'rotate-90' : ''}`}>
-                  ▶
-                </span>
-              </div>
+              <span className={`text-blue-500 text-[10px] transition-transform duration-200 ${isGeneratedAudioOpen ? 'rotate-90' : ''}`}>
+                ▶
+              </span>
             </button>
             
             {isGeneratedAudioOpen && (
-              <div className="max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-500/30 hover:scrollbar-thumb-blue-500/50 scrollbar-track-transparent space-y-2 pr-1">
+              <div className="max-h-32 overflow-y-auto scrollbar-thin space-y-1">
                 {generatedAudioClips.map((clip) => (
                   <div
                     key={clip.id}
-                    className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-blue-500/20 rounded-lg p-3 hover:from-blue-500/10 hover:to-purple-500/10 transition-all duration-200"
+                    className="bg-gradient-to-r from-blue-500/5 to-purple-500/5 border border-blue-500/20 rounded p-2 hover:from-blue-500/10 hover:to-purple-500/10 transition-all duration-200"
                     draggable={true}
                     onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
                       e.preventDefault();
@@ -519,53 +500,29 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="text-blue-500">⏰</span>
-                        <span>{clip.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm(`Delete "${clip.displayName}"?\n\nThis cannot be undone.`)) {
-                            deleteAudioFile(clip);
-                          }
-                        }}
-                        className="group px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-border hover:border-destructive/30 rounded transition-all duration-200"
-                      >
-                        <span className="group-hover:scale-110 transition-transform duration-200">🗑️</span>
-                      </button>
-                    </div>
-                    
-                    <div className="mb-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-blue-500 text-sm">🎵</span>
-                        <h4 className="text-sm font-semibold text-foreground truncate flex-1">
+                    <div className="mb-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-blue-500 text-[10px]">🎵</span>
+                        <h4 className="text-[10px] font-semibold text-foreground truncate flex-1">
                           {clip.displayName || 'Generated Track'}
                         </h4>
                         {clip.originalPromptText && clip.originalPromptText.length > 50 && (
                           <button
                             onClick={() => onOpenPromptModal(clip.originalPromptText || "")}
-                            className="px-2 py-1 text-[10px] font-medium text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-full transition-colors"
+                            className="px-1 py-0.5 text-[8px] font-medium text-blue-500 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded transition-colors"
                           >
-                            View Prompt
+                            View
                           </button>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-                        <span className="flex items-center gap-1">
+                      <div className="flex items-center gap-2 text-[8px] text-muted-foreground mb-1">
+                        <span className="flex items-center gap-0.5">
                           <span className="text-blue-500">🎼</span>
-                          <span>{String(clip.bpm) !== 'undefined' ? `${clip.bpm} BPM` : 'Unknown BPM'}</span>
+                          <span>{String(clip.bpm) !== 'undefined' ? `${clip.bpm}` : '?'} BPM</span>
                         </span>
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-0.5">
                           <span className="text-purple-500">🎹</span>
-                          <span>{clip.key || 'Unknown Key'}</span>
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                        <span className="text-blue-500">📝</span>
-                        <span>
-                          Based on {clip.originalPath ? 'Recording' : 'Text Prompt'}
+                          <span>{clip.key || '?'}</span>
                         </span>
                       </div>
                     </div>
@@ -573,7 +530,7 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
                     <audio 
                       controls 
                       src={getAudioSrc(clip.path)} 
-                      className="w-full h-8 rounded-md opacity-90 hover:opacity-100 transition-opacity"
+                      className="w-full h-6 rounded opacity-90 hover:opacity-100 transition-opacity"
                     />
                   </div>
                 ))}
@@ -582,32 +539,31 @@ const AudioSection: React.FC<AudioSectionProps> = ({ onShowToast, onOpenPromptMo
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Compact Empty State */}
         {(!isLoadingExistingFiles && globalRecordings.length === 0 && generatedAudioClips.length === 0 && !vadStatusMessage && !globalRecordingError) && (
-          <div className="text-center py-8 px-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🎵</span>
+          <div className="text-center py-4 px-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="text-sm">🎵</span>
             </div>
-            <h3 className="text-sm font-semibold text-foreground mb-2">Ready to Create Music</h3>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
-              Use the keyboard shortcut <kbd className="px-1 py-0.5 bg-secondary rounded text-[10px] font-mono">⌘;</kbd> to start recording, 
-              or type a prompt in the chat to generate music.
+            <h3 className="text-[10px] font-semibold text-foreground mb-1">Ready to Create</h3>
+            <p className="text-[8px] text-muted-foreground max-w-xs mx-auto leading-relaxed">
+              Press <kbd className="px-1 py-0.5 bg-secondary rounded text-[8px] font-mono">⌘;</kbd> to record or type a prompt to generate music.
             </p>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Compact Loading State */}
         {isLoadingExistingFiles && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-              <span className="text-2xl">🎵</span>
+          <div className="text-center py-4">
+            <div className="w-8 h-8 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
+              <span className="text-sm">🎵</span>
             </div>
-            <p className="text-sm text-muted-foreground font-medium">Loading your music files...</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Loading...</p>
           </div>
         )}
       </div>
     </div>
-  )
+    )
 }
 
 export default AudioSection; 

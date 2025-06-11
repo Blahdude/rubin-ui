@@ -23,24 +23,40 @@ const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, promptText }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
-      <div className="bg-card/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl w-full max-w-lg mx-auto border border-border/20 relative animate-in slide-in-from-bottom-4 duration-300">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground text-sm">📝</span>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-6 z-[100] animate-fade-in">
+      <div className="panel-cursor w-full max-w-2xl mx-auto relative animate-scale-in">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14,2 14,8 20,8"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Original Prompt</h3>
+              <p className="text-sm text-muted-foreground">View the complete prompt text</p>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-foreground">Original Prompt</h3>
           <button 
             onClick={onClose} 
-            className="ml-auto w-8 h-8 rounded-lg bg-secondary/50 hover:bg-secondary/80 border border-border/30 hover:border-border/60 transition-all duration-200 flex items-center justify-center group"
+            className="btn-ghost w-10 h-10 p-0 rounded-lg group"
           >
-            <span className="text-muted-foreground group-hover:text-foreground text-lg leading-none">&times;</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground group-hover:text-foreground transition-colors">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
           </button>
         </div>
-        <div className="bg-background/50 border border-border/30 rounded-xl p-4 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-thumb-primary/30 hover:scrollbar-thumb-primary/50 scrollbar-track-transparent">
-          <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-            {promptText}
-          </p>
+        
+        {/* Content */}
+        <div className="p-6">
+          <div className="bg-editor/50 border border-border/30 rounded-xl p-4 max-h-[60vh] overflow-y-auto scrollbar-thin scrollbar-primary">
+            <pre className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed font-mono">
+              {promptText}
+            </pre>
+          </div>
         </div>
       </div>
     </div>
@@ -136,35 +152,29 @@ const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange, on
 
   return (
     <div className="flex flex-col h-full text-foreground overflow-hidden">
-      {/* Audio Studio Section */}
-      <div className="flex-shrink-0 p-4 pb-2">
-        <div className="animate-in slide-in-from-top duration-500">
-          <AudioSection 
-            onShowToast={showToast}
-            onOpenPromptModal={handleOpenPromptModal}
-          />
-        </div>
+      {/* Audio Studio Section - Direct Component */}
+      <div className="flex-shrink-0 p-4 pb-0">
+        <AudioSection 
+          onShowToast={showToast}
+          onOpenPromptModal={handleOpenPromptModal}
+        />
       </div>
       
-      {/* Chat Area with smooth divider */}
-      <div className="flex-grow min-h-0 overflow-hidden relative">
-        {/* Subtle gradient divider */}
-        <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent"></div>
-        
-        <div className="h-full pt-2 animate-in slide-in-from-bottom duration-500 delay-100">
-          <Solutions 
-            onProcessingStateChange={onProcessingStateChange}
-            conversation={conversation}
-          />
+      {/* Main Chat Area - NO HEADER, MUCH BIGGER */}
+      <div className="flex-grow min-h-0 overflow-hidden relative p-4 pt-3">
+        <div className="bg-transparent h-full animate-slide-up" style={{animationDelay: '100ms'}}>
+          <div className="h-full overflow-hidden">
+            <Solutions 
+              onProcessingStateChange={onProcessingStateChange}
+              conversation={conversation}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Input Area with enhanced styling */}
-      <div className="flex-shrink-0 relative">
-        {/* Subtle gradient separator */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border/30 to-transparent"></div>
-        
-        <div className="animate-in slide-in-from-bottom duration-500 delay-200">
+      {/* Input Area - Enhanced Bottom Panel */}
+      <div className="flex-shrink-0 relative p-6 pt-0">
+        <div className="panel-glass p-4 animate-slide-up" style={{animationDelay: '200ms'}}>
           <TextInput
             onTooltipVisibilityChange={handleTooltipVisibilityChange}
             isAiResponseActive={true}
@@ -174,23 +184,23 @@ const Queue: React.FC<QueueProps> = ({ conversation, onProcessingStateChange, on
         </div>
       </div>
 
-      {/* Enhanced Toast with beautiful styling */}
+      {/* Enhanced Toast Notifications */}
       <Toast
         open={toastOpen}
         onOpenChange={setToastOpen}
         variant={toastMessage.variant}
-        duration={3000}
-        className="data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right"
+        duration={4000}
+        className="data-[state=open]:animate-slide-in-from-right data-[state=closed]:animate-slide-out-to-right shadow-cursor-lg border-l-4 border-l-primary"
       >
-        <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${
-            toastMessage.variant === 'success' ? 'bg-green-500' :
-            toastMessage.variant === 'error' ? 'bg-red-500' :
-            'bg-blue-500'
+        <div className="flex items-start gap-3">
+          <div className={`w-2 h-2 rounded-full mt-2 ${
+            toastMessage.variant === 'success' ? 'bg-success' :
+            toastMessage.variant === 'error' ? 'bg-error' :
+            'bg-primary'
           }`}></div>
-          <div>
-            <ToastTitle className="font-semibold">{toastMessage.title}</ToastTitle>
-            <ToastDescription className="text-muted-foreground">{toastMessage.description}</ToastDescription>
+          <div className="flex-1">
+            <ToastTitle className="font-semibold text-foreground">{toastMessage.title}</ToastTitle>
+            <ToastDescription className="text-muted-foreground text-sm">{toastMessage.description}</ToastDescription>
           </div>
         </div>
       </Toast>
